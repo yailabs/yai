@@ -14,6 +14,17 @@ authority, Recall/W, providers, Sources and Resources, and why each changed type
 is imported or rejected. Backend internals never become frontend contracts by
 proximity.
 
+Backend Sync must reconcile action-level coverage, not only a capability-family
+count. A summary projection does not qualify search, historical reconstruction,
+mutation or execution for that family. Each integrated action records its exact
+Application operation and typed client contract, CLI/common-domain counterpart,
+authored Studio interaction and live positive/refusal evidence. Catalog
+`ApplicationReady` alone never means `UiAlreadyConsumed`. For submitted work,
+reconnect uses its durable domain execution reference; an IPC error must not
+trigger implicit resubmission. The current root execution-lifecycle wave owns
+those backend contracts; Studio imports only contracts actually published and
+qualified by its Backend Sync, preserving local dirty buffers during resync.
+
 Every Studio implementation milestone also includes a **Product Quality Pass**
 for the Workbench regions and Surfaces it materially changes. The pass checks
 component ownership, visual hierarchy, typography, spacing, icon alignment,

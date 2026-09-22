@@ -958,11 +958,10 @@ fn recall_recovery_missingness_budgets_scope_and_stale_request() {
     );
     let mut bad = r.clone();
     bad.expected_generation += 1;
-    assert!(w
+    assert_eq!(w
         .store
         .recall_trace_authorized(&w.owner, bad, None)
-        .unwrap_err()
-        .contains("scope_mismatch"));
+        .unwrap_err(), "recall_source_generation_stale");
     let mut bad = r.clone();
     bad.at = HistoricalCoordinate::Generation(c.state.generation + 1);
     assert!(w

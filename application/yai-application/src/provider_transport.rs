@@ -1,5 +1,5 @@
 //! Bounded OpenAI-compatible HTTP/TLS transport shared by provider runtime
-//! and synthetic qualification. It owns dispatch-time DNS locality checks and
+//! and Application execution. It owns dispatch-time DNS locality checks and
 //! application-byte delivery classification, not provider semantics.
 
 use rustls::pki_types::ServerName;
@@ -16,7 +16,7 @@ const IO_TIMEOUT: Duration = Duration::from_secs(30);
 
 // Connecting to an endpoint and waiting for buffered model computation are
 // different budgets. Neither timeout proves that submitted work did not run.
-pub(super) fn provider_response_timeout() -> Result<Duration, String> {
+pub fn provider_response_timeout() -> Result<Duration, String> {
     match std::env::var("YAI_PROVIDER_RESPONSE_TIMEOUT_SECS") {
         Ok(value) => parse_response_timeout(&value),
         Err(std::env::VarError::NotPresent) => Ok(Duration::from_secs(300)),
@@ -34,13 +34,13 @@ fn parse_response_timeout(value: &str) -> Result<Duration, String> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) enum ProviderScheme {
+pub enum ProviderScheme {
     Http,
     Https,
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct ProviderEndpoint {
+pub struct ProviderEndpoint {
     pub scheme: ProviderScheme,
     pub host: String,
     pub port: u16,
@@ -70,7 +70,7 @@ impl ProviderEndpoint {
     }
 }
 
-pub(super) fn parse_provider_endpoint(value: &str) -> Result<ProviderEndpoint, String> {
+pub fn parse_provider_endpoint(value: &str) -> Result<ProviderEndpoint, String> {
     let (scheme, remainder, default_port) = if let Some(rest) = value.strip_prefix("http://") {
         (ProviderScheme::Http, rest, 80)
     } else if let Some(rest) = value.strip_prefix("https://") {
@@ -118,7 +118,7 @@ pub(super) fn parse_provider_endpoint(value: &str) -> Result<ProviderEndpoint, S
 
 /// Infer only address locality, never model capability or physical residency.
 /// DNS names other than localhost require an explicit scoped network choice.
-pub(super) fn endpoint_locality(value: &str) -> Result<Option<ProviderLocality>, String> {
+pub fn endpoint_locality(value: &str) -> Result<Option<ProviderLocality>, String> {
     let endpoint = parse_provider_endpoint(value)?;
     let locality = if endpoint.host.eq_ignore_ascii_case("localhost") {
         Some(ProviderLocality::Loopback)
@@ -276,7 +276,7 @@ fn connect(
 }
 
 #[derive(Debug)]
-pub(super) struct ProviderHttpResponse {
+pub struct ProviderHttpResponse {
     pub status: u16,
     pub body: Vec<u8>,
     pub request_bytes_written: usize,
@@ -285,7 +285,7 @@ pub(super) struct ProviderHttpResponse {
 
 /// Shared HTTP mechanics only. An ordinary service/MCP Resource is never a
 /// ProviderTarget. Its caller must establish independent Case authorization.
-pub(super) fn resource_http(
+pub fn resource_http(
     address: &yai_core_engine::effect::access::NetworkResourceAddress,
     method: &str,
     relative_path: Option<&str>,
@@ -354,7 +354,7 @@ pub(super) fn resource_http(
     )
 }
 
-pub(super) fn provider_http(
+pub fn provider_http(
     endpoint: &ProviderEndpoint,
     locality: Option<&ProviderLocality>,
     method: &str,

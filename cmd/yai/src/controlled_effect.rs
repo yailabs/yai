@@ -25,11 +25,14 @@ use yai_core_engine::resource_control::{ResourceFence, ResourceFenceAuthority};
 use yai_core_engine::store::lmdb::PreparedCommitOutcome;
 use yai_core_engine::transition::{
     CaseState, EffectLifecycle, PendingTransition, ResourceAttachmentState, ResourceKind,
-    ReviewRequirement, ReviewResolution, ReviewState, Transition, TransitionPayload,
-    TransitionScope, TransitionSource, REVIEW_REQUEST_SCHEMA,
+    ReviewRequirement, ReviewResolution, Transition, TransitionPayload,
+    TransitionScope, TransitionSource,
 };
 
-const CONTROLLED_EFFECT_COMPONENT: &str = "yai.controlled_filesystem_effect";
+use yai_application::resource_execution::{
+    id_component, effect_source, build_effect_pending, commit_effect_transition,
+    commit_review_request, commit_grant, CONTROLLED_EFFECT_COMPONENT,
+};
 
 #[path = "controlled_effect/access.rs"]
 pub(super) mod access;
@@ -37,79 +40,6 @@ pub(super) mod access;
 #[path = "controlled_effect/source.rs"]
 pub(super) mod source;
 
-fn id_component(value: &str) -> String {
-    value
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, ':' | '-' | '_' | '.') {
-                character
-            } else {
-                '_'
-            }
-        })
-        .collect()
-}
-
-fn effect_source(participant_id: Option<&str>, source_ref: &str) -> TransitionSource {
-    TransitionSource {
-        component: CONTROLLED_EFFECT_COMPONENT.to_string(),
-        participant_id: participant_id.map(ToString::to_string),
-        principal_id: None,
-        source_ref: Some(source_ref.to_string()),
-    }
-}
-
-fn commit_effect_transition(
-    store: &LmdbRecordStore,
-    case_id: &str,
-    participant_id: Option<&str>,
-    label: &str,
-    payload: TransitionPayload,
-    scope: Option<TransitionScope>,
-    causal_refs: Vec<String>,
-) -> Result<CaseState, String> {
-    let pending = build_effect_pending(
-        store,
-        case_id,
-        participant_id,
-        label,
-        payload,
-        scope,
-        causal_refs,
-    )?;
-    store.commit_transition(pending).map(|commit| commit.state)
-}
-
-fn build_effect_pending(
-    store: &LmdbRecordStore,
-    case_id: &str,
-    participant_id: Option<&str>,
-    label: &str,
-    payload: TransitionPayload,
-    scope: Option<TransitionScope>,
-    causal_refs: Vec<String>,
-) -> Result<PendingTransition, String> {
-    let generation = store
-        .get_case_state(case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?
-        .generation;
-    let transition_id = format!(
-        "transition:controlled-effect:{}:{:020}:{}",
-        id_component(case_id),
-        generation + 1,
-        id_component(label)
-    );
-    let mut pending = PendingTransition::new(
-        transition_id,
-        case_id,
-        generation,
-        effect_source(participant_id, label),
-        payload,
-    );
-    pending.scope = scope;
-    pending.causal_refs = causal_refs;
-    Ok(pending)
-}
 
 fn parse_max_bytes(args: &[String]) -> Result<usize, String> {
     optional_arg(args, "--max-bytes")
@@ -499,61 +429,6 @@ fn commit_operation(store: &LmdbRecordStore, operation: &Operation) -> Result<Ca
     )
 }
 
-fn commit_review_request(
-    store: &LmdbRecordStore,
-    case_id: &str,
-    review: &ReviewState,
-) -> Result<CaseState, String> {
-    let mut causal_refs = vec![
-        review.operation_id.clone(),
-        review.initial_decision_id.clone(),
-    ];
-    if review.schema == REVIEW_REQUEST_SCHEMA {
-        causal_refs.push(review.decision_basis_id.clone());
-        causal_refs.push(review.effective_policy_id.clone());
-        causal_refs.extend(review.policy_binding_refs.iter().cloned());
-        causal_refs.extend(review.policy_artifact_refs.iter().cloned());
-    }
-    commit_effect_transition(
-        store,
-        case_id,
-        Some(&review.requested_by_participant),
-        &format!("review-request:{}", review.review_id),
-        TransitionPayload::ReviewRequested {
-            review: review.clone(),
-        },
-        None,
-        causal_refs,
-    )
-}
-
-fn commit_grant(store: &LmdbRecordStore, grant: &ExecutionGrant) -> Result<CaseState, String> {
-    let mut causal_refs = vec![grant.operation_id.clone(), grant.decision_id.clone()];
-    if grant.has_current_policy_basis() {
-        if let Some(basis_id) = &grant.decision_basis_id {
-            causal_refs.push(basis_id.clone());
-        }
-        if let Some(effective_policy_id) = &grant.effective_policy_id {
-            causal_refs.push(effective_policy_id.clone());
-        }
-        causal_refs.extend(grant.policy_binding_refs.iter().cloned());
-        causal_refs.extend(grant.policy_artifact_refs.iter().cloned());
-        if let Some(action_id) = &grant.review_action_ref {
-            causal_refs.push(action_id.clone());
-        }
-    }
-    commit_effect_transition(
-        store,
-        &grant.case_id,
-        Some(&grant.participant_id),
-        &format!("grant:{}", grant.grant_id),
-        TransitionPayload::ExecutionGrantIssued {
-            grant: grant.clone(),
-        },
-        None,
-        causal_refs,
-    )
-}
 
 fn commit_prepare(
     store: &LmdbRecordStore,

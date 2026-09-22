@@ -11,9 +11,9 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **APPLICATION.CAPABILITY.OPERATION.PARITY.0 — COMPLETE** at bounded typed-operation convergence: 26 of 31 Application-eligible current PRODUCT families are Ready, up from 15, while five execution families retain exact code-owned blockers rather than unsafe wrappers. The resident Host foothold remains complete and unchanged; no successor is selected automatically. |
+| Selected engineering boundary | **APPLICATION.EXECUTION.LIFECYCLE.0 — IN_PROGRESS**. Audit actual operation coverage and qualify durable submission/observation, existing RuntimeInstance supervision and no blind redispatch across client loss. The previous 26/31 catalog posture is the starting claim under behavioral audit, not proof of complete per-action coverage. |
 | Latest major completed product boundary | Typed frontend-independent operations now cover identity/Tenant, Case/Participant administration, Policy/Review, Workflow/Handoff, provider governance, Resource/source partial lifecycle, Recall/W/paging/refresh and Decision preparation through the resident Application Host. |
-| Most important structural gap | Conversation execution, controlled effects, cognitive realization and governed source acquisition still need disconnect-safe submission plus exact reconnect-safe result observation; Case run/resume/stop additionally needs resident RuntimeInstance supervision. Remote Application transport, a production decision producer, adaptive cognitive routing and a public W → E consumer also remain open. |
+| Most important structural gap | The selected execution wave has qualified resident RuntimeInstance supervision, exact run/stop observation, bounded Resource execution and Source attempt no-redispatch. Conversation SEND, cognitive realize/compose, Application Case resume, complete effect reconciliation and unresolved Source carrier recovery remain incomplete. Remote Application transport, a production decision producer, adaptive cognitive routing and a public W → E consumer also remain open. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
 | Primary research boundary | Minimum Sufficient Cognition targets the least expensive qualified mechanism—deterministic logic, non-generative decision inference, generative reasoning, then human/review escalation—for each bounded step. A future YVEX Decision Readout/Core must provide real scoring/calibration evidence; adaptive routing, broader Recall/W sufficiency, Experiential State Read/Update and persistent deliberation remain open. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
@@ -891,8 +891,12 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **APPLICATION.CAPABILITY.OPERATION.PARITY.0 — COMPLETE**.
-The boundary closes at bounded typed-operation
+Selected implementation boundary: **APPLICATION.EXECUTION.LIFECYCLE.0 — IN_PROGRESS**.
+The selected work includes a behavioral audit of the preceding Application
+surface claims, durable submission/observation over existing domain identities,
+Host/RuntimeInstance composition and cross-client no-redispatch qualification.
+No capability is promoted from catalog membership alone. The prior
+APPLICATION.CAPABILITY.OPERATION.PARITY.0 remains COMPLETE at bounded typed-operation
 convergence scope: 26 of 31 Application-eligible PRODUCT families are Ready and
 the remaining five have test-enforced missing execution-lifecycle contracts.
 APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 remains COMPLETE at bounded
@@ -926,7 +930,7 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| APPLICATION.CAPABILITY.OPERATION.PARITY.0 | COMPLETE | X03 X04 | Twenty-six of 31 Application-eligible current PRODUCT families have stable typed frontend-independent operations; the remaining five carry exact test-enforced execution-lifecycle blockers and any safe partial operations. No Application-to-CLI invocation or stdout parsing. |
+| APPLICATION.EXECUTION.LIFECYCLE.0 | IN_PROGRESS | X03 X04 | Audit actual operation coverage; qualify durable submission and reconnect-safe observation over existing domain attempts, supervised RuntimeInstance and no blind redispatch. Close the five retained execution families only with executable positive/negative product evidence. |
 <!-- execution:end -->
 
 The retroactive bounded inventory contains 38 current executable/internal

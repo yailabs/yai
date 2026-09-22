@@ -1342,7 +1342,7 @@ fn cognitive_decision_hot_path_repeated_and_pressure_characterization() {
         .unwrap_err();
     assert!(matches!(
         irrelevant_change.as_str(),
-        "stale_semantic_working_state" | "recall_source_generation_or_scope_mismatch"
+        "stale_semantic_working_state" | "recall_source_generation_or_scope_mismatch" | "recall_source_generation_stale"
     ));
 
     let mut pressure_request = request;

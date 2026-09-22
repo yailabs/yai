@@ -524,10 +524,15 @@ fn resolve(
         return Err("recall_derived_version_input_mismatch".into());
     }
     if h.case_id != request.case_id
-        || h.current_generation != request.expected_generation
         || h.request.participant_id != request.participant_id
     {
         return Err("recall_source_generation_or_scope_mismatch".into());
+    }
+    // Scope is qualified before reporting freshness. Clients must be able to
+    // distinguish a stale request from a malformed/undisclosed scope without
+    // performing a second, potentially racing authorization pass themselves.
+    if h.current_generation != request.expected_generation {
+        return Err("recall_source_generation_stale".into());
     }
     request.at = HistoricalCoordinate::Generation(h.generation);
     request.required_refs.sort();

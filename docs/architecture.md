@@ -254,11 +254,14 @@ maps product commands mechanically to catalog capability identities, and
 Application meaning rather than parsing another command's output.
 
 The catalog also records five current PRODUCT families with exact, machine-readable
-semantic blockers. Case run/resume/stop needs resident RuntimeInstance supervision;
-provider/resource execution paths need disconnect-safe submission, exact execution
+semantic blockers. The selected execution-lifecycle work has added supervised
+Case run and cooperative stop, but Application resume remains open;
+provider/resource execution paths need complete disconnect-safe submission, exact execution
 identity and reconnect-safe result observation before a Host client can retry or
 claim completion. Partial operations remain usable for Case lifecycle, cognitive
-binding/planning and source declare/publish/revoke. These are not missing-wrapper
+binding/planning and source declare/acquire/resume/publish/revoke. Partial source
+execution qualification does not establish general in-flight crash recovery.
+These are not missing-wrapper
 exemptions: validation rejects a deferred PRODUCT family without one of the exact
 blocker records. The result is neither complete execution parity nor an exported/
 public Interfaces package. Historical `yai-dev` capability
@@ -347,13 +350,105 @@ discovery binds the endpoint to the canonical profile and live process identity.
 lifecycle/client library. Multiple Studio processes attach to the same Host,
 and closing a Studio process removes only its ephemeral attachment and PTYs.
 
-`RuntimeInstance` remains an existing, separate tenant-fair multi-Case
-scheduler with its own serve/status/shutdown lifecycle. The Host truthfully
-reports runtime supervision as not integrated. Ordinary native CLI domain
-commands also retain their current owner adapters; this milestone does not
-route the entire CLI through Host transport. `yaid` remains a separate narrow C
+`RuntimeInstance` remains the existing tenant-fair multi-Case scheduler. The
+in-progress execution-lifecycle composition connects normal `yai host serve`
+to that same typed scheduler, in the resident process. Before local enrollment
+it waits for identity rather than bootstrapping authority. If a separately
+launched runtime already owns a live lease/process identity, the Host observes
+it without acquiring a competing lease or stopping it on Host shutdown. For a
+Host-owned runtime, shutdown requests drain through the existing owner and
+joins workers before releasing the Host singleton. Client disconnect does not
+stop the scheduler. Telemetry distinguishes waiting, starting, attached,
+supervised running, stopped and failed; it does not certify execution outcomes.
+Ordinary native CLI domain commands retain their current owner adapters; this
+does not route the entire CLI through Host transport. `yaid` remains a separate narrow C
 daemon and is neither promoted nor proxied as the application Host. These open
 boundaries are controlled by the [Studio roadmap](../studio/ROADMAP.md).
+
+The in-progress Application execution convergence reuses the existing runtime
+work idempotency index rather than adding an Application job ledger. A duplicate
+submission can recover the committed work identity after scheduler stop, only
+after current Principal/Tenant/Case binding checks; it neither requeues nor
+increments attempts. New work still requires a dispatchable Case and a live
+accepting scheduler. `execution.get` projects that same domain item without
+exposing its private lease or compatibility-journal fields. This bounded queue
+property does not establish provider/effect recovery. Host supervision has a
+separate real-process characterization; active-work recovery still requires
+the corresponding execution-family qualification.
+
+The Case runner checkpoint contract is shared below presentation in
+`application/yai-application/src/runtime_execution.rs`; the existing runner and
+scheduler remain the execution owners. Checkpoint publication serializes its
+read/merge/write and preserves a same-run operator stop across older worker
+snapshots. Only explicit admitted resume clears that request. This corrects a
+demonstrated lost-stop race without turning stop into Case cancellation or
+changing checkpoint v3. The local publication lock is operational coordination,
+not a new canonical owner or database. Historical `yai-dev` runtime-controller
+stop instead transitions carrier lifecycle and kills its daemon; that mechanism
+is not a Case-work stop contract and is not reused here.
+Application `case.stop` names an exact submission and run, checks current
+Case/Participant ownership and requests a cooperative runner stop. It neither
+cancels the Case nor interrupts a prepared effect. `execution.get` exposes the
+matching runner identity/posture when its checkpoint exists, without private
+task or journal fields. The catalog distinguishes `OperationalMutation` from
+canonical mutation and external effect; clients must not present this operation
+as a read. `smoke-application-active-runtime` qualifies submission through Unix
+Host, one real gated loopback-provider call, exact cooperative stop while that
+call is active, completed-work observation after Host restart and duplicate
+submission without redispatch. An already-dispatched completion can win over a
+stop request; no forced cancellation is claimed. A second bounded crash lane
+kills the disposable Host during its gated provider call. Recovery observes
+the exact canonical invocation without a result as `delivery_indeterminate`,
+and does not dispatch it again. The canonical invocation transaction also
+rejects reuse of an already-started exact ProviderSelection. This does not
+claim general carrier recovery; Application resume remains in progress.
+
+Source execution uses the existing CaseSourceProgressed lineage, not a job
+record. Exact Source ID + attempt admission is atomic; only its creator may
+advance it. Application `source.acquire` retries observe that attempt, including
+terminal refusal, without redispatch. `source.resume` names an exact settled
+interruption progress and continues the same attempt once. Current disclosure
+is checked again when returning the observation. An unresolved `Acquiring`
+carrier is not resumable solely on client loss. The shared CLI acquisition
+path uses the same atomic admission and cannot take over that active attempt.
+Unix Host qualification proves
+lost-response retry and completed-attempt continuity across Host restart. The
+Application product test also acquires a genuinely absent bootstrap file,
+observes settled failure, repairs the file and explicitly resumes the same
+attempt; repeated initial/resume requests append no duplicate progress. This is
+settled-failure recovery, not resumability of an interrupted dispatch. The
+`--source-crash-in-flight` Host lane kills its disposable Host after a real HTTP
+source request arrives but before its response is admitted. Restart preserves
+the exact `Acquiring` progress with derived Application posture `unresolved`;
+retry, resume and a replacement
+attempt do not dispatch again. `Acquiring` proves admission without terminal
+evidence, not that a carrier is still alive. Automatic reconciliation of that
+unresolved carrier remains unimplemented. No Source family Ready promotion
+follows from this narrower no-redispatch proof alone. The same crash lane with
+`--source-review` also crosses a real pending Review, Host restart, wrong-reviewer
+refusal, real approval and exact `source.resume` before that single HTTP dispatch.
+Replaying either the initial acquisition or the admitted resume observes the
+same unresolved attempt and cannot invoke the carrier again.
+
+Resource-request observation projects exact canonical Operation/Decision and
+receipt identities. A recorded effect carries its domain outcome and whether
+external execution began; a terminal receipt is not normalized into success.
+Pending-review observation requalifies the current EffectivePolicy rather than
+trusting Case generation alone. Revoke or basis replacement returns stale
+without rewriting historical review or permitting redispatch.
+The bounded process test covers both an Applied execution with exit code 7 and
+a pre-dispatch FailedNoEffect, discarded response, Application reopen, exact
+retry without another PREPARE, and current-policy revocation. These proofs do
+not qualify all filesystem/signal/reconciliation submission surfaces.
+
+Legacy comparison: `yai-dev` at `5c1c7b9d0` retains
+`src/runtime/provider/runtime_provider_request_record.c`, moved from
+`src/state/records/provider_request_record_append.c` by `2a4018147`. Both versions
+append timestamped request JSON without an idempotency transaction or stable
+attempt identity. Its lifecycle boundary from `6ce6a3bde` normalizes posture
+labels; it does not implement reconnect-safe execution. These files are not
+reused as a lifecycle owner. The current LMDB work/attempt transaction is the
+stronger mechanism retained here; legacy runtime/provider stores stay rejected.
 
 ## Demonstrated product verticals
 
@@ -1272,8 +1367,12 @@ when supplied; token counts and latency are invocation telemetry rather than
 operational authority. Unavailable usage remains unknown.
 
 The current transport includes TLS in
-[`provider_transport.rs`](../cmd/yai/src/provider_transport.rs), and W19/H19
-include qualified embeddings. Streaming/transport-abort semantics, authoritative
+[`provider_transport.rs`](../application/yai-application/src/provider_transport.rs).
+The existing bounded HTTP/TLS and Resource/MCP carriers live below CLI in the
+Application crate; CLI imports these implementations instead of owning a
+second transport path. Their DNS locality, TLS validation, delivery uncertainty
+and current MCP catalog checks remain carrier constraints, never authority.
+W19/H19 include qualified embeddings. Streaming/transport-abort semantics, authoritative
 token estimation, a native YVEX/KV protocol, learned ranking/compression and a
 ContextDelta consumer remain absent. Host cancellation gates future dispatch;
 it does not promise abort of an already delivered request. The context-residency
@@ -1614,7 +1713,7 @@ from one checkout.
 | distinct ProviderResult, Observation, EffectReceipt | separate Rust types and canonical roles for filesystem/process/MCP effects and bounded resource reads; compatibility export retains old receipt-shaped rows | future resource families require their own truthful result and reconciliation contract |
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
-| frontends consume one application meaning | 61 stable operations cover 26 current capability families through `yai-application`; native Studio consumes the resident Host bridge, and the catalog identifies five exact execution-lifecycle blockers | qualify disconnect-safe execution submission/observation and RuntimeInstance supervision, then standalone/public interface export and general events; no CLI-output parsing or independent semantic registry |
+| frontends consume one application meaning | the working catalog lists 72 typed operations and 26 Ready eligible PRODUCT families through `yai-application`; native Studio consumes the resident Host bridge, and five execution families remain partially qualified | complete disconnect-safe execution submission/observation and supervised resume, then standalone/public interface export and general events; operation counts are not action-level behavioral proof; no CLI-output parsing or independent semantic registry |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound memory | OperationalMemory remains derived; W19/H19 source-revalidate qualified BM25/exact-cosine retrieval; W20 adds Episodes, evidence-bound assertions and recorded-result consolidation rebuild through multi-family RetrievalSet v3 | ANN/learned reranking remain deferred; W20 generation-based retrieval retention is not universal deletion/privacy policy or general semantic paging |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |

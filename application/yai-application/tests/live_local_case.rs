@@ -264,3 +264,59 @@ fn typed_product_operations_bootstrap_and_mutate_without_cli() {
     );
     fs::remove_dir_all(home).unwrap();
 }
+
+#[test]
+fn process_attachment_preserves_review_and_exact_birth_identity_without_effects() {
+    use yai_application::ResultState;
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let home = PathBuf::from(format!("/tmp/yai-application-process-{stamp}"));
+    fs::create_dir_all(&home).unwrap();
+    let app = LocalApplication::from_yai_home(&home);
+    for (op, input) in [
+        ("identity.bootstrap", json!({"tenant_id":"tenant:process-test", "organization_ref":"organization:test"})),
+        ("case.create", json!({"tenant_id":"tenant:process-test", "case_ref":"case:process-test"})),
+        ("participant.role.add", json!({"case_ref":"case:process-test", "participant_ref":"participant:operator", "role":"operator"})),
+        ("participant.principal.link", json!({"case_ref":"case:process-test", "participant_ref":"participant:operator", "principal_ref":"self"})),
+    ] {
+        let result = app.call(request(op, input));
+        assert_eq!(result.result_state, ResultState::Success, "{op}: {result:?}");
+    }
+    struct ChildGuard(std::process::Child);
+    impl Drop for ChildGuard {
+        fn drop(&mut self) { let _ = self.0.kill(); let _ = self.0.wait(); }
+    }
+    let mut child = ChildGuard(std::process::Command::new("sleep").arg("60").spawn().unwrap());
+    let input = json!({
+        "case_ref":"case:process-test", "attachment_ref":"process-test",
+        "pid": child.0.id(), "policy_owner_participant_ref":"participant:operator",
+        "actions":["suspend", "resume"], "review_requirement":"require_review"
+    });
+    let first = app.call(request("resource.attach_process", input.clone()));
+    assert_eq!(first.result_state, ResultState::Success, "{first:?}");
+    let first = first.data.unwrap();
+    assert_eq!(first["changed"], true);
+    assert_eq!(first["state"]["resources"][0]["review_requirement"], "require_review");
+    assert_eq!(first["state"]["resources"][0]["process_signal_actions"], json!(["resume", "suspend"]));
+    let again = LocalApplication::from_yai_home(&home).call(request("resource.attach_process", input.clone()));
+    assert_eq!(again.result_state, ResultState::Success, "{again:?}");
+    assert_eq!(again.data.as_ref().unwrap()["changed"], false);
+    assert_eq!(again.data.as_ref().unwrap()["state"]["generation"], first["state"]["generation"]);
+    let mut changed = input.clone();
+    changed["review_requirement"] = json!("automatic");
+    assert_ne!(app.call(request("resource.attach_process", changed)).result_state, ResultState::Success);
+    let mut absent = input.clone();
+    absent["case_ref"] = json!("case:absent");
+    assert_eq!(app.call(request("resource.attach_process", absent)).result_state, ResultState::Unauthorized);
+    let mut own_process = input;
+    own_process["pid"] = json!(std::process::id());
+    assert_ne!(app.call(request("resource.attach_process", own_process)).result_state, ResultState::Success);
+    assert!(child.0.try_wait().unwrap().is_none(), "attachment must not signal the process");
+    let auth = AuthenticatedPrincipal::authenticate_local().unwrap();
+    let store = LmdbRecordStore::open(home.join("store/lmdb")).unwrap();
+    let state = store.get_case_state_authorized(&auth, "case:process-test").unwrap();
+    assert!(state.effects.is_empty());
+    assert_eq!(store.get_local_process_binding("case:process-test", "process-test").unwrap().unwrap().process.pid, child.0.id());
+    drop(store);
+    drop(child);
+    fs::remove_dir_all(home).unwrap();
+}

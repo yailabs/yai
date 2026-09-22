@@ -13,13 +13,13 @@ use yai_core_engine::effect::access::{
 };
 use yai_core_engine::effect::digest_bytes;
 
-pub(super) const MCP_VERSION: &str = "2026-07-28";
+pub const MCP_VERSION: &str = "2026-07-28";
 const MAX_PROTOCOL_BYTES: usize = 65_536;
 const MAX_PAGES: usize = 8;
 static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct McpCatalog {
+pub struct McpCatalog {
     pub configuration_digest: String,
     pub catalog_digest: String,
     pub protocol_version: String,
@@ -31,7 +31,7 @@ pub(super) struct McpCatalog {
     pub cache_posture: &'static str,
 }
 
-pub(super) fn fetch_http(
+pub fn fetch_http(
     binding: &LocalAccessBinding,
     name: &str,
     limit: usize,
@@ -64,7 +64,7 @@ fn mcp_address(binding: &LocalAccessBinding) -> Result<&NetworkResourceAddress, 
     }
 }
 
-pub(super) fn inspect_mcp(binding: &LocalAccessBinding) -> Result<McpCatalog, String> {
+pub fn inspect_mcp(binding: &LocalAccessBinding) -> Result<McpCatalog, String> {
     let address = mcp_address(binding)?;
     let discovery = rpc(address, "server/discover", json!({}), &[])?;
     if !discovery["supportedVersions"]
@@ -180,7 +180,7 @@ fn list_all(
     Err("mcp_pagination_bound_exceeded".into())
 }
 
-pub(super) fn read_mcp_resource(
+pub fn read_mcp_resource(
     binding: &LocalAccessBinding,
     expected_catalog: &str,
     uri: &str,
@@ -213,7 +213,7 @@ pub(super) fn read_mcp_resource(
 /// The caller owns Decision/Grant/PREPARE. This adapter never retries a call,
 /// including MRTR or HeaderMismatch. A new catalog cannot silently change the
 /// semantics of an already governed operation.
-pub(super) fn call_mcp_tool(
+pub fn call_mcp_tool(
     binding: &LocalAccessBinding,
     expected_catalog: &str,
     name: &str,
@@ -286,7 +286,7 @@ fn validate_tool(definition: &Value) -> Result<(), String> {
     Ok(())
 }
 
-pub(super) fn schema_validator(schema: &Value) -> Result<jsonschema::Validator, String> {
+pub fn schema_validator(schema: &Value) -> Result<jsonschema::Validator, String> {
     if !schema.is_object() || serde_json::to_vec(schema).map_err(|e| e.to_string())?.len() > 8192 {
         return Err("mcp_schema_not_bounded_object".into());
     }
@@ -543,7 +543,7 @@ fn encode_header_value(value: &str) -> String {
     } else {
         format!(
             "=?base64?{}?=",
-            super::provider::encode_base64(value.as_bytes())
+            super::encode_base64(value.as_bytes())
         )
     }
 }

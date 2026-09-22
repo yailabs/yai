@@ -200,9 +200,14 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    Resource identities. The second is current Case-specific derived posture,
    not authority to execute an operation.
 
-   The catalog must report 61 stable Application operation descriptors, 26
-   Application-ready families and five exact deferred execution-lifecycle
-   blockers. The blocked families are `case.lifecycle`,
+   The published parity baseline recorded 61 Application operation descriptors,
+   26 Application-ready families and five execution-lifecycle blockers. The
+   active execution-lifecycle audit adds exact process attachment, durable run
+   submission, cooperative stop, Source acquisition/resume and submission
+   observation, governed Resource requests and explicit Knowledge
+   inspect/search/resolve/navigation, bringing the working catalog to 72
+   operations. This count is not proof of action-level completeness. The five
+   families remain deferred until lifecycle qualification closes. They are `case.lifecycle`,
    `cognitive.bindings_and_realization`, `conversation.execution`,
    `effect.controlled_execution` and `source.lifecycle`; safe partial operations
    remain listed, and no wrapper/UI/CLI-placement rationale is accepted as a
@@ -220,6 +225,98 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    Participant views/roles, reject malformed typed input, cancel the Case and
    prove durable state after reopening. It must invoke neither CLI handlers nor
    parse CLI output.
+
+   The additional Application behavioral suite is:
+
+   ```sh
+   cargo test --manifest-path application/Cargo.toml -p yai-application \
+     --locked --test operation_flows
+   ```
+
+   Its current bounded evidence covers Policy publication/binding with stale
+   refusal, exact source-grounded Knowledge queries with revoked/absent reference
+   indistinguishability, real Recall/W compilation with stale refusal, and durable runtime
+   submission/observation after a lost acknowledgement and runtime stop. Exact
+   duplicate submission returns the same work identity even after the runtime
+   stops; a new submission still requires a running runtime. Changed content
+   under the same identity is refused. Observation exposes no lease token, task text
+   or compatibility path, creates no Transition and cannot redispatch. This
+   does not yet prove Host-supervised execution, Conversation SEND or the other
+   execution families. Process attachment is separately qualified in
+   `live_local_case` with exact process identity, review preservation, immutable
+   retry and no signal/effect.
+
+   The resident scheduler composition has a separate disposable-profile lane:
+
+   ```sh
+   make smoke-application-execution-lifecycle
+   ```
+
+   Build the current `cmd/yai` binary first. This uses real Unix IPC: Host waits
+   for local enrollment, starts the existing scheduler in its own process,
+   survives client disconnection, drains on stop and reacquires after restart.
+   A separately started scheduler keeps its own lease and is not stopped when
+   the attached Host stops. No provider or Case work is dispatched by this lane;
+   it is not evidence for recovery of active effects or provider invocations.
+
+   `make smoke-application-active-runtime` is the separate deterministic-provider
+   lane: typed setup and submission over real Host IPC, a gated provider call,
+   exact `case.stop`, then Host restart and observation of the same terminal
+   work. Its second run kills the exact disposable Host during a gated provider
+   dispatch and checks recovery to `delivery_indeterminate`, one invocation and
+   no redispatch on duplicate submission. Stop is cooperative: a completion
+   already dispatched may settle normally. This does not qualify arbitrary
+   carrier recovery or human/External Golden acceptance.
+
+   `resource.request` admits the existing canonical participant request before
+   carrier advancement. `execution.get` accepts its exact `resource_request`
+   submission reference. The Application fixture proves a policy-refused
+   request remains observable without another Decision on duplicate submission;
+   another Participant cannot observe it. The bounded process-carrier fixture
+   also discards the response, reopens Application and retries the exact request:
+   the same receipt is observed without another PREPARE/history mutation.
+   `effect_recorded` preserves the exact receipt outcome and dispatch fact;
+   `failed_no_effect` is not rendered as successful execution, and an Applied
+   process receipt does not imply a zero process exit code. Current policy
+   revoke refuses historical result observation. A separately reviewed process
+   proves pending review survives reopen and retry without dispatch, rejects
+   the wrong reviewer, and requires real approval before the same operation
+   produces its one receipt. Approval itself reports no external effect.
+   This partial surface is not yet proof
+   of all effect carriers or interrupted PREPARE/reconciliation through IPC.
+
+   `execution.get` also observes an exact Source ID + acquisition attempt under
+   the declaring operator's current Case/Participant authority. The Application
+   flow records a real denied Resource Decision, retains that attempt across a
+   second attempt and reopen, and reports the later current source revoke
+   separately from historical progress. Wrong Case, Participant and absent
+   attempts return no data. `source.acquire` takes that exact identity and an
+   expected generation; duplicate submissions observe without dispatching.
+   `source.resume` additionally requires the exact settled interruption's
+   `previous_progress_ref`. Its retry cannot repeat advancement. A still
+   `Acquiring` attempt is not assumed dead merely because a client disconnected.
+   The shared CLI acquisition path uses the same atomic attempt admission and
+   refuses to take over an already `Acquiring` Application attempt.
+   `source_resume_after_backing_failure_retains_attempt_and_exact_retry` also
+   exercises a genuinely missing bootstrap file, Application reopen, material
+   repair and explicit resume of the same attempt. Stale/hidden resume refuses;
+   lost-response retries append no additional progress. This does not qualify
+   recovery from a killed carrier while acquisition is in flight.
+   The Host test `source_submission_survives_lost_response_and_host_restart_without_redispatch`
+   submits an actual bootstrap-policy acquisition over Unix IPC, drops the
+   response, reconnects, restarts the Host and verifies exactly two source
+   progress Transitions (start and completion). The additional
+   `--source-crash-in-flight` lane in `make smoke-application-active-runtime`
+   kills a disposable Host after one gated HTTP source request arrives. A new
+   Host observes the same exact attempt, retry does not dispatch, and both resume
+   and replacement-attempt submission refuse. Application posture `unresolved`
+   means admission without terminal evidence, not a running carrier; it does
+   not invent success, failure or safe resumability. Settled failure is instead
+   `interrupted`, with explicit resume as above. Automatic reconciliation of
+   an unresolved carrier remains absent; the family remains Deferred. Its
+   `--source-review` variant additionally restarts while awaiting review, refuses
+   a wrong reviewer, approves through the real Application operation and resumes
+   the exact attempt before crashing. Replaying that resume cannot dispatch twice.
 4. Inspect Memory Timeline/Graph, Authority, Work and Compute. Graph selection
    changes Inspector only. Exercise pan, zoom, fit, drag, search/filter and both
    relational and directed layouts where data exists. Conversation contains only

@@ -5,6 +5,12 @@
 //! bounded, redacted product views from those owners. It owns no persistence.
 
 pub mod capabilities;
+// Shared bounded carriers, not product operations or authority. Existing CLI
+// and Application orchestration use this one implementation.
+pub mod provider_transport;
+pub mod resource_transport;
+pub mod resource_execution;
+pub mod runtime_execution;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -23,7 +29,7 @@ use yai_core_engine::effect::access::source::{
     SOURCE_PROGRESS_SCHEMA,
 };
 use yai_core_engine::effect::access::{LocalAccessBinding, ResourceAccessContract, ResourceAction};
-use yai_core_engine::effect::{DecisionOutcome, Operation};
+use yai_core_engine::effect::{DecisionOutcome, LocalProcessBinding, Operation, ProcessSignalAction};
 use yai_core_engine::governance::{compile_policy_source, scope_policy_compilation};
 use yai_core_engine::handoff::{HandoffData, HandoffOutcome};
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
@@ -184,6 +190,202 @@ pub struct CaseCreateInput {
 pub struct CaseTerminalInput {
     pub case_ref: String,
     pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnowledgeInspectInput {
+    pub request: KnowledgeRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnowledgeSearchInput {
+    pub request: KnowledgeRequest,
+    pub query: String,
+    pub limit: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnowledgeResolveInput {
+    pub request: KnowledgeRequest,
+    pub unit_ref: String,
+}
+
+/// The bounded qualified view carries source/relation closure. Lexical scores
+/// remain discovery scores, not epistemic confidence or current authority.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KnowledgeSearchResult {
+    pub view: yai_core_engine::memory_hierarchy::knowledge::KnowledgeView,
+    pub hits: Vec<yai_core_engine::memory_index::LexicalHit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KnowledgeResolveResult {
+    pub view: yai_core_engine::memory_hierarchy::knowledge::KnowledgeView,
+    pub unit: yai_core_engine::memory_hierarchy::knowledge::KnowledgeUnit,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KnowledgeNavigationResult {
+    pub view_ref: String,
+    pub navigation: String,
+}
+
+/// A durable domain submission can be looked up even if its acknowledgement
+/// was lost. Neither the IPC correlation reference nor a client attachment is
+/// an execution identity.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "domain", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ExecutionReference {
+    RuntimeWork { submission_ref: String },
+    SourceAcquisition { source_ref: String, attempt: u64 },
+    ResourceRequest { submission_ref: String },
+}
+
+/// Exact domain attempt, not a new Application job. Progress detail and backing
+/// content are intentionally excluded from operational observation.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SourceExecutionObservation {
+    pub schema: String,
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub source_ref: String,
+    pub attempt: u64,
+    pub progress_ref: String,
+    pub posture: SourceExecutionPosture,
+    pub phase: SourcePhase,
+    pub current_source_phase: SourcePhase,
+    pub observed_generation: u64,
+}
+
+/// Derived from durable progress only. Unresolved deliberately does not claim
+/// that an in-process carrier is alive, or that an external read can be replayed.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceExecutionPosture {
+    Unresolved,
+    Completed,
+    WaitingForReview,
+    Refused,
+    Interrupted,
+    Revoked,
+}
+
+impl From<&SourcePhase> for SourceExecutionPosture {
+    fn from(phase: &SourcePhase) -> Self {
+        match phase {
+            SourcePhase::Acquiring => Self::Unresolved,
+            SourcePhase::Acquired => Self::Completed,
+            SourcePhase::AwaitingReview => Self::WaitingForReview,
+            SourcePhase::Denied => Self::Refused,
+            SourcePhase::Inaccessible | SourcePhase::NeedsProcessing => Self::Interrupted,
+            SourcePhase::Revoked => Self::Revoked,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionGetInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub execution: ExecutionReference,
+}
+
+/// Domain-specific projections retain their own schema and lifecycle instead
+/// of normalizing materially different outcomes into a generic job state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ExecutionObservation {
+    RuntimeWork(RuntimeExecutionObservation),
+    SourceAcquisition(SourceExecutionObservation),
+    ResourceRequest(resource_execution::ResourceExecutionObservation),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceRequestInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub resource_ref: String,
+    pub submission_ref: String,
+    pub expected_generation: u64,
+    pub request: yai_core_engine::effect::access::ResourceRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ResourceSubmissionResult {
+    pub execution: resource_execution::ResourceExecutionObservation,
+    pub outcome: Option<resource_execution::ResourceActionOutcome>,
+}
+
+/// Domain posture is preserved; queue admission is not a canonical Decision.
+/// No runtime lease token, filesystem path or task text crosses this surface.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RuntimeExecutionObservation {
+    pub schema: String,
+    pub execution_ref: String,
+    pub submission_ref: String,
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub state: yai_core_engine::store::lmdb::RuntimeWorkState,
+    pub attempt_count: u32,
+    pub updated_at_unix_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner: Option<RuntimeRunnerObservation>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RuntimeRunnerObservation {
+    pub run_ref: String,
+    pub posture: runtime_execution::CaseRuntimeStop,
+    pub stop_requested: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseStopInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub submission_ref: String,
+    pub run_ref: String,
+}
+
+impl From<yai_core_engine::store::lmdb::RuntimeWorkItem> for RuntimeExecutionObservation {
+    fn from(item: yai_core_engine::store::lmdb::RuntimeWorkItem) -> Self {
+        Self {
+            schema: "yai.runtime_execution_observation.v1".into(),
+            execution_ref: item.work_id,
+            submission_ref: item.request_id,
+            case_ref: item.case_id,
+            participant_ref: item.participant_id,
+            state: item.state,
+            attempt_count: item.attempt_count,
+            updated_at_unix_ms: item.updated_at_unix_ms,
+            runner: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseRunInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub resource_ref: String,
+    pub submission_ref: String,
+    pub task: String,
+    pub budgets: yai_core_engine::store::lmdb::RuntimeCaseBudgets,
+}
+
+/// Returned only after the existing runtime queue transaction commits. A true
+/// `created` acknowledges queue admission, never provider/effect completion.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExecutionSubmissionResult {
+    pub created: bool,
+    pub execution: RuntimeExecutionObservation,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -441,6 +643,19 @@ pub struct ResourceAttachInput {
     pub write_prefix: Option<String>,
     #[serde(default)]
     pub max_write_bytes: Option<usize>,
+    #[serde(default)]
+    pub review_requirement: ReviewRequirement,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceAttachProcessInput {
+    pub case_ref: String,
+    pub attachment_ref: String,
+    pub pid: u32,
+    pub policy_owner_participant_ref: String,
+    pub actions: Vec<ProcessSignalAction>,
+    pub review_requirement: ReviewRequirement,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -456,6 +671,49 @@ pub struct SourceDeclareInput {
     #[serde(default)]
     pub bootstrap_policy: bool,
     pub media_type: String,
+}
+
+/// `source_ref` + `attempt` is the durable submission identity, known before
+/// transport. Retrying it observes the admitted attempt; it never resumes it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceAcquireInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub source_ref: String,
+    pub attempt: u64,
+    pub expected_generation: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceResumeInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub source_ref: String,
+    pub attempt: u64,
+    pub expected_generation: u64,
+    pub previous_progress_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceAdvancementPosture {
+    /// This call ran the carrier; the domain phase is still authoritative.
+    Returned,
+    /// Duplicate submission: no carrier was called.
+    ExistingAttempt,
+    /// Admission committed but advancement did not yield a terminal projection.
+    /// Observe the exact attempt; this is not permission to redispatch.
+    ObservationRequired,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SourceAcquisitionSubmissionResult {
+    pub schema: String,
+    pub created: bool,
+    pub execution: SourceExecutionObservation,
+    pub advancement: SourceAdvancementPosture,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -688,6 +946,146 @@ impl LocalApplication {
                         now_unix_ms()?,
                     )?,
                 )
+            }
+            "knowledge.inspect" | "knowledge.navigation" => {
+                let input: KnowledgeInspectInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let result = store.case_knowledge_authorized(&auth, input.request, content.as_ref())?;
+                if request.operation_ref == "knowledge.navigation" {
+                    let navigation = result.view.navigation();
+                    encode_result("knowledge_navigation", KnowledgeNavigationResult {
+                        view_ref: result.view.id, navigation,
+                    })
+                } else {
+                    encode_result("knowledge_inspect", result.view)
+                }
+            }
+            "knowledge.search" => {
+                let input: KnowledgeSearchInput = decode_input(request)?;
+                if input.limit == 0 || input.limit > 128 || input.query.len() > 2048 {
+                    return Err("knowledge_query_bound".into());
+                }
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let result = store.case_knowledge_authorized(&auth, input.request, content.as_ref())?;
+                let hits = result.view.search(&input.query, input.limit)?;
+                encode_result("knowledge_search", KnowledgeSearchResult { view: result.view, hits })
+            }
+            "knowledge.resolve" => {
+                let input: KnowledgeResolveInput = decode_input(request)?;
+                if input.unit_ref.is_empty() || input.unit_ref.len() > 256 {
+                    return Err("knowledge_reference_unavailable".into());
+                }
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let result = store.case_knowledge_authorized(&auth, input.request, content.as_ref())?;
+                let unit = result.view.resolve(&input.unit_ref)?.clone();
+                encode_result("knowledge_resolve", KnowledgeResolveResult { view: result.view, unit })
+            }
+            "execution.get" => {
+                let input: ExecutionGetInput = decode_input(request)?;
+                match input.execution {
+                    ExecutionReference::ResourceRequest { submission_ref } => {
+                        let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
+                        let principal = auth.projected_principal_id();
+                        let history = store.list_case_transitions(&state.case_id)?;
+                        let operation = history.iter().find_map(|t| match &t.payload {
+                            TransitionPayload::OperationRecorded { operation }
+                                if operation.participant_id == input.participant_ref
+                                    && matches!(&operation.origin,
+                                        yai_core_engine::effect::OperationOrigin::ParticipantRequest { request_id, principal_id, .. }
+                                        if request_id == &submission_ref && principal_id == &principal) => Some(operation),
+                            _ => None,
+                        }).ok_or("resource_execution_not_visible")?;
+                        encode_result("execution_get", ExecutionObservation::ResourceRequest(
+                            resource_execution::observe(&store, &auth, &input.case_ref,
+                                &input.participant_ref, &operation.operation_id)?))
+                    }
+                    ExecutionReference::RuntimeWork { submission_ref } => {
+                        let item = store.observe_runtime_submission_authorized(
+                            &auth, &input.case_ref, &input.participant_ref, &submission_ref,
+                        )?;
+                        encode_result("execution_get", ExecutionObservation::RuntimeWork(
+                            runtime_execution_observation(&self.home_path, item)?))
+                    }
+                    ExecutionReference::SourceAcquisition { source_ref, attempt } => {
+                        let (generation, progress, current_source_phase) = store.observe_source_attempt_authorized(
+                            &auth, &input.case_ref, &input.participant_ref, &source_ref, attempt,
+                        )?;
+                        encode_result("execution_get", ExecutionObservation::SourceAcquisition(SourceExecutionObservation {
+                            schema: "yai.source_execution_observation.v1".into(),
+                            case_ref: input.case_ref, participant_ref: input.participant_ref,
+                            source_ref, attempt, progress_ref: progress.progress_id,
+                            posture: (&progress.phase).into(),
+                            phase: progress.phase, current_source_phase,
+                            observed_generation: generation,
+                        }))
+                    }
+                }
+            }
+            "case.stop" => {
+                let input: CaseStopInput = decode_input(request)?;
+                let item = store.observe_runtime_submission_authorized(
+                    &auth, &input.case_ref, &input.participant_ref, &input.submission_ref,
+                )?;
+                let observed = runtime_execution_observation(&self.home_path, item.clone())?;
+                let runner = observed.runner.as_ref().ok_or("case_runtime_not_started")?;
+                if runner.run_ref != input.run_ref {
+                    return Err("case_runtime_stop_checkpoint_stale".into());
+                }
+                if !item.state.is_terminal() {
+                    runtime_execution::request_checkpoint_stop_at(
+                        &runtime_execution::checkpoint_path_for(&self.home_path, &input.case_ref),
+                        &input.case_ref, &input.run_ref, Some(&item.work_id),
+                    )?;
+                }
+                encode_result("case_stop", runtime_execution_observation(&self.home_path, item)?)
+            }
+            "resource.request" => {
+                let input: ResourceRequestInput = decode_input(request)?;
+                let operation = store.record_participant_resource_request(&auth,
+                    &input.case_ref, &input.participant_ref, &input.resource_ref,
+                    &input.submission_ref, input.expected_generation, input.request)?;
+                // Canonical Operation admission precedes all dispatch. A lost
+                // response is resolved by the same submission identity; the
+                // existing PREPARE owner forbids replay of uncertain effects.
+                let before = resource_execution::observe(&store, &auth, &input.case_ref,
+                    &input.participant_ref, &operation.operation_id)?;
+                let outcome = if matches!(before.posture,
+                    resource_execution::ResourceExecutionPosture::Completed { .. }
+                    | resource_execution::ResourceExecutionPosture::EffectRecorded { .. }
+                    | resource_execution::ResourceExecutionPosture::Refused { .. }
+                    | resource_execution::ResourceExecutionPosture::PreparedOrIndeterminate { .. }) {
+                    None
+                } else {
+                    resource_execution::advance(&self.home_path, &store, &auth, &operation).ok()
+                };
+                let execution = resource_execution::observe(&store, &auth, &input.case_ref,
+                    &input.participant_ref, &operation.operation_id)?;
+                encode_result("resource_request", ResourceSubmissionResult { execution, outcome })
+            }
+            "case.run" => {
+                let input: CaseRunInput = decode_input(request)?;
+                let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
+                let tenant = state.tenant_id.as_deref().ok_or("case_not_visible")?;
+                store.resolve_security_context(&auth, tenant)?.require_owner()?;
+                // Compatibility output location is selected below presentation,
+                // never supplied by the IPC caller. It carries no authority.
+                let directory = self.home_path.join("cases")
+                    .join(yai_core_engine::context::stable_digest(&input.case_ref));
+                std::fs::create_dir_all(&directory).map_err(|e| format!("case_journal_directory:{e}"))?;
+                let journal = directory.join("compatibility.jsonl");
+                std::fs::OpenOptions::new().create(true).append(true).open(&journal)
+                    .map_err(|e| format!("case_journal_open:{e}"))?;
+                let submitted = store.submit_runtime_work(&auth, &yai_core_engine::store::lmdb::RuntimeWorkSubmission {
+                    request_id: input.submission_ref,
+                    tenant_id: tenant.into(), case_id: input.case_ref,
+                    participant_id: input.participant_ref, attachment_id: input.resource_ref,
+                    journal_path: journal.display().to_string(), task: input.task, budgets: input.budgets,
+                    failpoint: None, now_unix_ms: now_unix_ms()?,
+                })?;
+                encode_result("case_run", ExecutionSubmissionResult {
+                    created: submitted.created,
+                    execution: submitted.item.into(),
+                })
             }
             "case.create" => {
                 let input: CaseCreateInput = decode_input(request)?;
@@ -1294,78 +1692,108 @@ impl LocalApplication {
                 if input.access.configuration_digest != input.binding.digest() {
                     return Err("resource_access_configuration_digest_mismatch".to_string());
                 }
-                let state = store.get_case_state_authorized(&auth, &input.binding.case_id)?;
-                let tenant_id = state
-                    .tenant_id
-                    .as_deref()
-                    .ok_or_else(|| "resource_attachment_requires_tenant".to_string())?;
-                store
-                    .resolve_security_context(&auth, tenant_id)?
-                    .require_owner()?;
+                encode_result("resource_attach", resource_execution::attach(
+                    &store, &auth, &input.binding, input.access,
+                    &input.policy_owner_participant_ref,
+                    input.write_prefix.as_deref().zip(input.max_write_bytes),
+                    input.review_requirement,
+                )?)
+            }
+            "resource.attach_process" => {
+                let input: ResourceAttachProcessInput = decode_input(request)?;
+                let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
+                let tenant = state.tenant_id.as_deref().ok_or("resource_attachment_requires_tenant")?;
+                store.resolve_security_context(&auth, tenant)?.require_owner()?;
+                if input.pid == std::process::id() {
+                    return Err("cannot_attach_current_yai_process".into());
+                }
+                let binding = LocalProcessBinding::capture(&input.case_ref, &input.attachment_ref, input.pid)?;
+                let mut actions = input.actions;
+                actions.sort_by_key(ProcessSignalAction::as_str);
+                actions.dedup();
                 let attachment = ResourceAttachmentState {
-                    attachment_id: input.binding.attachment_id.clone(),
-                    kind: input.binding.kind(),
-                    allowed_write_prefix: input.write_prefix.unwrap_or_default(),
-                    max_write_bytes: input.max_write_bytes.unwrap_or_default(),
-                    policy_id: format!("policy:resource-envelope:{}", input.binding.attachment_id),
+                    attachment_id: input.attachment_ref.clone(),
+                    kind: yai_core_engine::transition::ResourceKind::Process,
+                    allowed_write_prefix: String::new(),
+                    max_write_bytes: 0,
+                    policy_id: format!("policy:process-signal:{}", input.attachment_ref),
                     policy_owner_participant_id: input.policy_owner_participant_ref.clone(),
-                    review_requirement: ReviewRequirement::Automatic,
-                    process_signal_actions: Vec::new(),
-                    access: Some(input.access),
+                    review_requirement: input.review_requirement,
+                    process_signal_actions: actions,
+                    access: None,
                 };
-                input.binding.validate_attachment(&attachment)?;
-                if let Some(existing) = state
-                    .resources
-                    .iter()
-                    .find(|resource| resource.attachment_id == attachment.attachment_id)
-                {
-                    if existing != &attachment
-                        || store
-                            .get_local_access_binding(&state.case_id, &input.binding.attachment_id)?
-                            .as_ref()
-                            != Some(&input.binding)
-                    {
-                        return Err("resource_attachment_identity_collision".to_string());
+                attachment.validate()?;
+                if let Some(existing) = state.resources.iter().find(|r| r.attachment_id == input.attachment_ref) {
+                    if existing != &attachment || store.get_local_process_binding(&input.case_ref, &input.attachment_ref)?.as_ref() != Some(&binding) {
+                        return Err("process_attachment_is_immutable".into());
                     }
-                    return encode_result(
-                        "resource_attach",
-                        CaseStateMutationResult::unchanged(state),
-                    );
+                    return encode_result("resource_attach_process", CaseStateMutationResult::unchanged(state));
                 }
                 let mut pending = PendingTransition::new(
-                    format!(
-                        "transition:resource:{}:{}",
-                        canonical_id_component(&state.case_id),
-                        input.binding.attachment_id
-                    ),
-                    &state.case_id,
+                    format!("transition:process-resource-attached:{}:{}", canonical_id_component(&input.case_ref), input.attachment_ref),
+                    &input.case_ref,
                     state.generation,
                     TransitionSource {
-                        component: "yai.application.resource".to_string(),
+                        component: "yai.application.resource".into(),
                         participant_id: None,
                         principal_id: Some(auth.projected_principal_id()),
-                        source_ref: Some(input.binding.digest()),
+                        source_ref: Some(format!("process-resource-attached:{}", input.attachment_ref)),
                     },
-                    TransitionPayload::ResourceAttached {
-                        attachment: attachment.clone(),
-                    },
+                    TransitionPayload::ResourceAttached { attachment: attachment.clone() },
                 );
                 pending.scope = Some(TransitionScope {
-                    case_id: state.case_id,
+                    case_id: input.case_ref,
                     participant_refs: vec![input.policy_owner_participant_ref.clone()],
-                    resource_refs: vec![attachment.attachment_id.clone()],
-                    policy_refs: vec![attachment.policy_id.clone()],
+                    resource_refs: vec![input.attachment_ref],
+                    policy_refs: vec![attachment.policy_id],
                 });
                 pending.causal_refs = vec![input.policy_owner_participant_ref];
-                encode_result(
-                    "resource_attach",
-                    CaseStateMutationResult::committed(store.commit_tenant_access_attachment(
-                        &auth,
-                        tenant_id,
-                        pending,
-                        &input.binding,
-                    )?),
-                )
+                encode_result("resource_attach_process", CaseStateMutationResult::committed(
+                    store.commit_tenant_process_attachment(&auth, tenant, pending, &binding)?
+                ))
+            }
+            "source.acquire" | "source.resume" => {
+                let (input, resume) = if request.operation_ref == "source.resume" {
+                    let value: SourceResumeInput = decode_input(request)?;
+                    (SourceAcquireInput { case_ref: value.case_ref, participant_ref: value.participant_ref,
+                        source_ref: value.source_ref, attempt: value.attempt, expected_generation: value.expected_generation },
+                        Some(value.previous_progress_ref))
+                } else {
+                    (decode_input::<SourceAcquireInput>(request)?, None)
+                };
+                let created = if let Some(prior) = resume {
+                    store.resume_source_attempt_authorized(&auth, &input.case_ref, &input.participant_ref,
+                        &input.source_ref, input.attempt, input.expected_generation, &prior)?
+                } else {
+                    store.begin_source_attempt_authorized(
+                        &auth, &input.case_ref, &input.participant_ref, &input.source_ref,
+                        input.attempt, input.expected_generation,
+                    )?
+                };
+                let advancement = if !created {
+                    SourceAdvancementPosture::ExistingAttempt
+                } else if resource_execution::source::advance_admitted(
+                    &self.home_path, &store, &auth, &input.case_ref, &input.source_ref, input.attempt,
+                ).is_ok() {
+                    SourceAdvancementPosture::Returned
+                } else {
+                    SourceAdvancementPosture::ObservationRequired
+                };
+                // Requalify observation even after dispatch: the authenticated
+                // caller cannot retain disclosure merely by having submitted.
+                let (generation, progress, current_source_phase) = store.observe_source_attempt_authorized(
+                    &auth, &input.case_ref, &input.participant_ref, &input.source_ref, input.attempt,
+                )?;
+                encode_result("source_acquire", SourceAcquisitionSubmissionResult {
+                    schema: "yai.source_acquisition_submission_result.v1".into(), created, advancement,
+                    execution: SourceExecutionObservation {
+                        schema: "yai.source_execution_observation.v1".into(),
+                        case_ref: input.case_ref, participant_ref: input.participant_ref,
+                        source_ref: input.source_ref, attempt: input.attempt,
+                        progress_ref: progress.progress_id, posture: (&progress.phase).into(), phase: progress.phase,
+                        current_source_phase, observed_generation: generation,
+                    },
+                })
             }
             "source.declare" => {
                 let input: SourceDeclareInput = decode_input(request)?;
@@ -1577,6 +2005,21 @@ fn decode_input<T: for<'de> Deserialize<'de>>(request: &OperationRequest) -> Res
 
 fn encode_result<T: Serialize>(label: &str, value: T) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|error| format!("{label}_encode:{error}"))
+}
+
+fn runtime_execution_observation(home: &std::path::Path, item: yai_core_engine::store::lmdb::RuntimeWorkItem)
+    -> Result<RuntimeExecutionObservation, String> {
+    let path = runtime_execution::checkpoint_path_for(home, &item.case_id);
+    let mut observed = RuntimeExecutionObservation::from(item.clone());
+    if path.is_file() {
+        let checkpoint = runtime_execution::read_checkpoint_at(&path, &item.case_id)?;
+        if checkpoint.work_item_id.as_deref() == Some(item.work_id.as_str()) {
+            runtime_execution::validate_checkpoint_work_identity(&checkpoint, &item)?;
+            observed.runner = Some(RuntimeRunnerObservation { run_ref:checkpoint.run_id,
+                posture:checkpoint.status, stop_requested:checkpoint.stop_requested });
+        }
+    }
+    Ok(observed)
 }
 
 fn now_unix_ms() -> Result<u64, String> {
@@ -2448,6 +2891,8 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
             ResultState::NotImplemented,
             "This operation is not implemented by the local YAI host.",
         )
+    } else if matches!(error, "runtime_instance_not_running" | "runtime_instance_not_accepting_work") {
+        (ResultState::CorePending, "The runtime is not accepting work. No new execution was submitted.")
     } else if error.contains("not_visible")
         || error.contains("authentication")
         || error.contains("principal")
@@ -2597,6 +3042,14 @@ mod tests {
         let first = serde_json::to_vec(&capabilities::capability_catalog()).unwrap();
         let second = serde_json::to_vec(&capabilities::capability_catalog()).unwrap();
         assert_eq!(first, second);
+        for (id, impact) in [
+            ("case.stop", capabilities::StateImpact::OperationalMutation),
+            ("case.cancel", capabilities::StateImpact::CanonicalMutation),
+            ("source.acquire", capabilities::StateImpact::ExternalEffect),
+            ("source.resume", capabilities::StateImpact::ExternalEffect),
+        ] {
+            assert_eq!(capabilities::APPLICATION_OPERATIONS.iter().find(|op| op.operation_id == id).unwrap().impact, impact);
+        }
         assert!(capabilities::CAPABILITIES.iter().all(|capability| {
             capability.disposition != capabilities::CapabilityDisposition::InternalMechanic
                 || (capability.parent_capability_id.is_some() && capability.rationale.is_some())
@@ -2651,7 +3104,22 @@ mod tests {
         typed::<TenantGetInput>();
         typed::<TenantMemberAddInput>();
         typed::<CaseCreateInput>();
+        typed::<KnowledgeInspectInput>();
+        typed::<KnowledgeSearchInput>();
+        typed::<KnowledgeResolveInput>();
+        typed::<KnowledgeSearchResult>();
+        typed::<KnowledgeResolveResult>();
+        typed::<KnowledgeNavigationResult>();
         typed::<CaseTerminalInput>();
+        typed::<ExecutionGetInput>();
+        typed::<ResourceRequestInput>();
+        typed::<ResourceSubmissionResult>();
+        typed::<resource_execution::ResourceExecutionObservation>();
+        typed::<ExecutionObservation>();
+        typed::<SourceExecutionObservation>();
+        typed::<CaseRunInput>();
+        typed::<ExecutionSubmissionResult>();
+        typed::<RuntimeExecutionObservation>();
         typed::<WorkflowDefineInput>();
         typed::<WorkflowBindInput>();
         typed::<WorkflowInputRecordInput>();
@@ -2679,7 +3147,12 @@ mod tests {
         typed::<CognitiveTargetReference>();
         typed::<CognitivePlanInput>();
         typed::<ResourceAttachInput>();
+        typed::<ResourceAttachProcessInput>();
         typed::<SourceDeclareInput>();
+        typed::<SourceAcquireInput>();
+        typed::<CaseStopInput>();
+        typed::<SourceResumeInput>();
+        typed::<SourceAcquisitionSubmissionResult>();
         typed::<SourcePublishInput>();
         typed::<SourceRevokeInput>();
     }

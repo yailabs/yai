@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 ENGINE_MANIFEST="$ROOT/engine/Cargo.toml"
-CLI_MANIFEST="$ROOT/cmd/yai/Cargo.toml"
+APPLICATION_MANIFEST="$ROOT/application/Cargo.toml"
 YAI_BIN="$ROOT/yai"
 RUN_ROOT="$(mktemp -d)"
 SERVER_PID=""
@@ -50,7 +50,7 @@ run_engine_proof \
   store::lmdb::tests::hardening18_tests::h18_historical_selector_v1_and_attempt_boundaries_remain_exact \
   'future_unknown=fail_closed generic_429_retry_safe=false'
 
-transport_output=$(cargo test --manifest-path "$CLI_MANIFEST" \
+transport_output=$(cargo test --manifest-path "$APPLICATION_MANIFEST" -p yai-application \
   provider_transport::tests -- --nocapture 2>&1)
 grep -Fq 'h18_dns_rebinding:' <<<"$transport_output"
 grep -Fq 'h18_http_boundary:' <<<"$transport_output"

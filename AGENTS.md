@@ -109,6 +109,26 @@ contract. CLI ownership, wrapper/refactor effort, absent Studio UI or historical
 placement are never blocker classes. Partial typed operations must remain listed
 without promoting the whole family to Ready.
 
+Surface qualification is behavioral and per semantic action. A catalog entry,
+operation count, successful build, serializable input, or unchanged engine test
+does not prove an Application operation or Studio interaction works. For each
+new or materially changed action retain a product-boundary positive test and
+the relevant refusal/stale/hidden test, asserting resulting domain facts (or
+their absence), not only a success envelope. Exercise the actual typed
+dispatcher; a domain test alone cannot qualify Application error mapping.
+For effectful submissions also prove lost-response retry, exact durable identity
+and current-authority observation without duplicate dispatch. A blocker record
+is an inventory fact, not evidence that safe composition is impossible.
+
+At closure distinguish backend execution, Application operation coverage, CLI
+presentation coverage and Studio interaction coverage. Do not infer whole-family
+parity from one summary operation: enumerate each supported semantic action and
+its stable operation or precise remaining gap. Studio `UiAlreadyConsumed`
+requires the typed client, authored interaction and product test; an available
+Application method is only `ApplicationReady`. Preserve the existing source of
+operation identities and derive client/matrix checks from it. Do not close a
+wave while any of its required behavioral proofs remain unexecuted.
+
 ## Wave discipline
 
 A wave is not complete when its code merely works locally. Completion requires:

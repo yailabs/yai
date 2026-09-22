@@ -2348,6 +2348,9 @@ mod tests {
             .unwrap_err();
         assert!(
             refused.contains("case_work_step_completed_requires_result_reuse")
+                // The generic exact-attempt fence now rejects this forged
+                // second invocation before the work-specific reuse fence.
+                || refused.contains("provider_invocation_already_started_requires_observation")
                 // Fresh governance revalidation precedes step-reuse checking.
                 // Crossing the evidence clock boundary can reject this old
                 // forged invocation earlier; neither path may commit it.

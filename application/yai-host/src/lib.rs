@@ -39,6 +39,51 @@ const CLIENT_COUNTER_START: u64 = 1;
 
 static CLIENT_COUNTER: AtomicU64 = AtomicU64::new(CLIENT_COUNTER_START);
 
+/// Operational supervision only: these facts neither admit work nor describe
+/// its outcome. The scheduler remains responsible for leases and recovery.
+#[derive(Clone, Copy, Debug)]
+pub enum RuntimeSupervisionPosture {
+    WaitingForIdentity,
+    Starting,
+    Attached,
+    Running,
+    Stopped,
+    Failed,
+}
+
+impl RuntimeSupervisionPosture {
+    fn label(self) -> &'static str {
+        match self {
+            Self::WaitingForIdentity => "waiting_for_identity",
+            Self::Starting => "starting",
+            Self::Attached => "attached_existing_runtime",
+            Self::Running => "supervised_running",
+            Self::Stopped => "stopped",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+/// In-process Host lifetime, not a serializable authorization token. A client
+/// disconnect never clears it. The runtime must drain its own workers on stop.
+#[derive(Clone)]
+pub struct RuntimeSupervisionControl {
+    running: Arc<AtomicBool>,
+    state: Arc<Mutex<SharedState>>,
+}
+
+impl RuntimeSupervisionControl {
+    pub fn host_is_running(&self) -> bool {
+        self.running.load(Ordering::Acquire)
+    }
+
+    pub fn report(&self, posture: RuntimeSupervisionPosture) {
+        if let Ok(mut state) = self.state.lock() {
+            state.runtime_supervision = posture.label().into();
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientKind {
@@ -214,6 +259,7 @@ struct SharedState {
     event_sequence: u64,
     last_activity_unix_ms: u64,
     application_readiness: String,
+    runtime_supervision: String,
 }
 
 impl SharedState {
@@ -275,7 +321,7 @@ impl SharedState {
             clients,
             event_sequence: self.event_sequence,
             last_activity_unix_ms: self.last_activity_unix_ms,
-            runtime_supervision: "not_integrated".into(),
+            runtime_supervision: self.runtime_supervision.clone(),
         }
     }
 
@@ -376,6 +422,7 @@ impl HostServer {
                 event_sequence: 0,
                 last_activity_unix_ms: started_at_unix_ms,
                 application_readiness,
+                runtime_supervision: "not_integrated".into(),
             })),
             running: Arc::new(AtomicBool::new(true)),
             application,
@@ -389,6 +436,44 @@ impl HostServer {
 
     #[cfg(unix)]
     pub fn run(self) -> Result<(), String> {
+        let result = self.run_service();
+        append_log(&self.home.join("log/yai-host.log"), "host_stopped")?;
+        result
+    }
+
+    /// The executable composes the existing scheduler here. No CLI parsing,
+    /// command spawning, scheduler policy or work ledger lives in this crate.
+    #[cfg(unix)]
+    pub fn run_with_runtime<F>(self, runtime: F) -> Result<(), String>
+    where
+        F: FnOnce(RuntimeSupervisionControl) -> Result<(), String> + Send + 'static,
+    {
+        let control = RuntimeSupervisionControl {
+            running: self.running.clone(),
+            state: self.state.clone(),
+        };
+        control.report(RuntimeSupervisionPosture::Starting);
+        let worker = thread::spawn(move || {
+            let result = runtime(control.clone());
+            control.report(if result.is_ok() {
+                RuntimeSupervisionPosture::Stopped
+            } else {
+                RuntimeSupervisionPosture::Failed
+            });
+            result
+        });
+        let service_result = self.run_service();
+        self.running.store(false, Ordering::Release);
+        // Keep the singleton lock until the existing owner has drained. Do not
+        // turn a transport shutdown into cancellation or kill prepared effects.
+        let runtime_result = worker.join()
+            .map_err(|_| "host_runtime_supervisor_panicked".to_string())?;
+        append_log(&self.home.join("log/yai-host.log"), "host_stopped_runtime_joined")?;
+        service_result.and(runtime_result)
+    }
+
+    #[cfg(unix)]
+    fn run_service(&self) -> Result<(), String> {
         let poller = spawn_event_observer(
             self.application.clone(),
             self.state.clone(),
@@ -419,8 +504,6 @@ impl HostServer {
             });
         }
         let _ = poller.join();
-        append_log(&self.home.join("log/yai-host.log"), "host_stopped")?;
-        self.cleanup_owned_paths();
         Ok(())
     }
 
@@ -1399,6 +1482,95 @@ mod tests {
         t2.join().unwrap().unwrap();
         handle.join().unwrap().unwrap();
         let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn source_submission_survives_lost_response_and_host_restart_without_redispatch() {
+        use std::time::Instant;
+        use serde_json::json;
+        use yai_core_engine::effect::access::*;
+        use yai_core_engine::effect::LocalFilesystemBinding;
+        use yai_core_engine::store::lmdb::LmdbRecordStore;
+        use yai_core_engine::transition::TransitionPayload;
+        let (home, _, handle) = running("source-response-loss");
+        let request = |op: &str, input| OperationRequest {
+            protocol: yai_application::APPLICATION_PROTOCOL.into(), operation_ref: op.into(),
+            correlation_ref: "transport-not-submission-identity".into(), input,
+        };
+        let call = |op: &str, input| {
+            HostClient::connect(&home, ClientKind::Qualification).unwrap()
+                .call(request(op, input)).unwrap()
+        };
+        let success = |op: &str, input| {
+            let result = call(op, input);
+            assert_eq!(result.result_state, ResultState::Success, "{op}: {result:?}");
+            result.data.unwrap()
+        };
+        success("identity.bootstrap", json!({"tenant_id":"tenant:source-host", "organization_ref":"organization:cli-product"}));
+        success("case.create", json!({"tenant_id":"tenant:source-host","case_ref":"case:source-host"}));
+        success("participant.role.add", json!({"case_ref":"case:source-host","participant_ref":"participant:operator","role":"operator"}));
+        success("participant.principal.link", json!({"case_ref":"case:source-host","participant_ref":"participant:operator","principal_ref":"self"}));
+        let root = home.join("source-root");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("policy.json"), include_bytes!("../../../tests/fixtures/cli-product-policy.json")).unwrap();
+        let binding = LocalAccessBinding {
+            schema: LOCAL_ACCESS_BINDING_SCHEMA.into(), case_id:"case:source-host".into(), attachment_id:"policy-file".into(),
+            address: ResourceAddress::Discovery { root:LocalFilesystemBinding::new("case:source-host", "policy-file", &root).unwrap() },
+        };
+        let access = ResourceAccessContract {
+            schema: RESOURCE_ACCESS_SCHEMA.into(), configuration_digest:binding.digest(),
+            participant_ids:vec!["participant:operator".into()], operations:vec![AccessKind::Discover],
+            read_prefixes:vec!["policy.json".into()], names:vec![], max_output_bytes:65536, max_items:8,
+        };
+        success("resource.attach", json!({"binding":binding,"access":access,
+            "policy_owner_participant_ref":"participant:operator","review_requirement":"automatic"}));
+        let declared = success("source.declare", json!({"case_ref":"case:source-host","perimeter":"test",
+            "logical_name":"bootstrap","participant_ref":"participant:operator","resource_ref":"policy-file",
+            "roles":["policy"],"action":ResourceAction::Discover { path:"policy.json".into() },
+            "bootstrap_policy":true,"media_type":"application/json"}));
+        let source = declared["state"]["sources"][0]["declaration"]["source_id"].as_str().unwrap();
+        let submit = json!({"case_ref":"case:source-host","participant_ref":"participant:operator",
+            "source_ref":source,"attempt":1,"expected_generation":declared["state"]["generation"]});
+        let observe = json!({"case_ref":"case:source-host","participant_ref":"participant:operator",
+            "execution":{"domain":"source_acquisition","source_ref":source,"attempt":1}});
+        // A completed handshake without a submitted frame admits nothing.
+        drop(HostClient::connect(&home, ClientKind::Studio).unwrap());
+        assert_eq!(call("execution.get", observe.clone()).result_state, ResultState::Unauthorized);
+        // Flush the complete request then lose the connection without reading
+        // its response. The Host must not tie admitted work to that connection.
+        let mut lost = HostClient::connect(&home, ClientKind::Studio).unwrap();
+        write_frame(&mut lost.stream, &ClientFrame::ApplicationRequest {
+            request: request("source.acquire", submit.clone()),
+        }).unwrap();
+        drop(lost);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let observed = loop {
+            let result = call("execution.get", observe.clone());
+            if let Some(data) = result.data {
+                if data["phase"] == "acquired" { break data; }
+            }
+            assert!(Instant::now() < deadline, "host did not finish disconnected acquisition");
+            thread::sleep(Duration::from_millis(10));
+        };
+        let repeated = success("source.acquire", submit.clone());
+        assert_eq!(repeated["created"], false);
+        assert_eq!(repeated["execution"], observed);
+        stop_server(&home, handle);
+        let server = HostServer::bind(&home).unwrap();
+        let handle = thread::spawn(move || server.run());
+        assert_eq!(success("execution.get", observe), observed);
+        let repeated = success("source.acquire", submit);
+        assert_eq!(repeated["created"], false);
+        assert_eq!(repeated["execution"], observed);
+        let store = LmdbRecordStore::open(home.join("store/lmdb")).unwrap();
+        let history = store.list_case_transitions("case:source-host").unwrap();
+        let progresses = history.iter().filter(|t| matches!(&t.payload,
+            TransitionPayload::CaseSourceProgressed { progress } if progress.source_id == source)).count();
+        assert_eq!(progresses, 2, "one admission + one terminal result, no retry transitions");
+        assert!(store.verify_case_state("case:source-host").unwrap());
+        drop(store);
+        stop_server(&home, handle);
+        fs::remove_dir_all(home).unwrap();
     }
 
     #[test]

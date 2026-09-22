@@ -3,10 +3,12 @@ import contextlib
 import csv
 import importlib.util
 import io
+import json
 import os
 import re
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -18,6 +20,27 @@ spec.loader.exec_module(topology)
 
 
 class TopologyTests(unittest.TestCase):
+    def test_command_evidence_distinguishes_dirty_source_changes_during_run(self):
+        with tempfile.TemporaryDirectory(prefix="yai-evidence-test-") as temp:
+            root = Path(temp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "source").write_text("before\n")
+            subprocess.run(["git", "add", "source"], cwd=root, check=True)
+            subprocess.run(["git", "-c", "user.name=Evidence fixture", "-c",
+                            "user.email=evidence@example.invalid", "commit", "-qm", "fixture"], cwd=root, check=True)
+            result = subprocess.run([sys.executable, str(ROOT / "tools/validation/capture_evidence.py"),
+                "--output", str(root / "evidence.jsonl"), "--run", "source-change", "--order", "1",
+                "--prestate", "synthetic tracked source before", "--mode", "no_provider", "--",
+                sys.executable, "-c", "from pathlib import Path; Path('source').write_text('after\\n'); print('actual output'); raise SystemExit(7)"],
+                cwd=root, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 7, result.stderr)
+            record = json.loads((root / "evidence.jsonl").read_text())
+            self.assertEqual(record["exit"], 7)
+            self.assertEqual(record["stdout"]["head"], "actual output\n")
+            self.assertEqual(record["yai_sha"], record["source_before"]["head"])
+            self.assertTrue(record["source_changed_during_run"])
+            self.assertNotEqual(record["source_before"]["dirty_source_sha256"], record["source_after"]["dirty_source_sha256"])
+
     def altered(self, change):
         rows = topology.read_catalog()
         change(rows)

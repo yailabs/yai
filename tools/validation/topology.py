@@ -19,7 +19,8 @@ CATALOG = ROOT / "tests/classification.tsv"
 CLASSES = {"unit", "component", "contract", "product", "recovery", "endurance",
            "external", "manual", "historical"}
 FIELDS = "id kind path selector proof_class evidence_posture provider_mode network mutation cadence entrypoint reachability property".split()
-MANIFESTS = {"engine": "engine/Cargo.toml", "cli": "cmd/yai/Cargo.toml"}
+MANIFESTS = {"engine": "engine/Cargo.toml", "cli": "cmd/yai/Cargo.toml",
+             "application": "application/Cargo.toml"}
 BASELINE = "6e332851b5066cbb1da25f816b8db31b74580acb"
 
 
@@ -108,10 +109,19 @@ def binaries():
         for line in proc.stdout.splitlines():
             item = json.loads(line)
             if item.get("reason") == "compiler-artifact" and item.get("profile", {}).get("test") and item.get("executable"):
-                found.append(item["executable"])
+                found.append((item["target"]["name"], item["executable"]))
+        if suite == "application":
+            if not found:
+                raise ValueError("Application test binaries missing")
+            for name, binary in found:
+                identity = f"application/{name}"
+                if identity in result:
+                    raise ValueError(f"ambiguous Application test binary: {identity}")
+                result[identity] = binary
+            continue
         if len(found) != 1:
             raise ValueError(f"unclassified Rust test binary topology: {suite}: {found}")
-        result[suite] = found[0]
+        result[suite] = found[0][1]
     return result
 
 
@@ -172,6 +182,10 @@ def audit(rows, with_rust=True):
         raise ValueError('Make Rust partition reachability differs from classification')
     print(f"coverage_parity: PASS old_smoke_leaves={len(old_smoke)} current_make_leaves={len(expected)} combined_duplicate_make_leaves=0")
     bins = binaries() if with_rust else {}
+    if with_rust:
+        catalog_suites = {r["id"].split(":", 1)[0] for r in rows if r["kind"] == "rust"}
+        if catalog_suites != set(bins):
+            raise ValueError(f"Rust binary catalog drift: unclassified={sorted(set(bins)-catalog_suites)}, stale={sorted(catalog_suites-set(bins))}")
     for suite, binary in bins.items():
         expected = {r["selector"] for r in rows if r["kind"] == "rust" and r["id"].startswith(suite + ":")}
         actual = test_names(binary)

@@ -928,10 +928,7 @@ use replay::*;
 mod review;
 use review::*;
 
-#[path = "provider_transport.rs"]
-mod provider_transport;
-#[path = "resource_transport.rs"]
-mod resource_transport;
+use yai_application::{provider_transport, resource_transport};
 
 #[path = "provider.rs"]
 mod provider;
@@ -956,7 +953,7 @@ mod case_runtime;
 use case_runtime::*;
 
 #[path = "runtime_instance.rs"]
-mod runtime_instance;
+pub(crate) mod runtime_instance;
 
 #[path = "workflow.rs"]
 mod workflow;

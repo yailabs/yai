@@ -2130,22 +2130,6 @@ impl LmdbRecordStore {
             .begin_rw_txn()
             .map_err(|error| format!("failed to start runtime work submission: {error}"))?;
         let principal = self.authenticated_principal_txn(&txn, authenticated)?;
-        let instance = get_json_txn::<RuntimeInstance, _>(
-            &txn,
-            self.runtime_instances,
-            RUNTIME_INSTANCE_ID,
-            "runtime_instance",
-        )?
-        .ok_or_else(|| "runtime_instance_not_running".to_string())?;
-        validate_runtime_instance(&instance)?;
-        if !matches!(instance.lifecycle, RuntimeInstanceLifecycle::Running)
-            || instance.lease_expires_at_unix_ms <= submission.now_unix_ms
-        {
-            return Err("runtime_instance_not_accepting_work".to_string());
-        }
-        if instance.principal_id != principal.principal_id {
-            return Err("runtime_instance_principal_mismatch".to_string());
-        }
         let context =
             self.resolve_security_context_txn(&txn, authenticated, &submission.tenant_id)?;
         context.require_owner()?;
@@ -2154,9 +2138,6 @@ impl LmdbRecordStore {
             .ok_or_else(|| "runtime_work_case_not_visible".to_string())?;
         if state.tenant_id.as_deref() != Some(submission.tenant_id.as_str()) {
             return Err("runtime_work_security_domain_mismatch".to_string());
-        }
-        if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
-            return Err("runtime_work_case_not_dispatchable".to_string());
         }
         if !state
             .participants
@@ -2193,6 +2174,29 @@ impl LmdbRecordStore {
                 item: existing,
                 created: false,
             });
+        }
+        // Recover an acknowledgement only after current scope/authority checks,
+        // but before requiring a live scheduler. Returning an existing item is
+        // not admission or redispatch: its state and attempt count are unchanged.
+        // Only a new submission needs a dispatchable Case and active instance.
+        if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
+            return Err("runtime_work_case_not_dispatchable".to_string());
+        }
+        let instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?
+        .ok_or_else(|| "runtime_instance_not_running".to_string())?;
+        validate_runtime_instance(&instance)?;
+        if !matches!(instance.lifecycle, RuntimeInstanceLifecycle::Running)
+            || instance.lease_expires_at_unix_ms <= submission.now_unix_ms
+        {
+            return Err("runtime_instance_not_accepting_work".to_string());
+        }
+        if instance.principal_id != principal.principal_id {
+            return Err("runtime_instance_principal_mismatch".to_string());
         }
         let all = list_runtime_work_items_txn(&txn, self.runtime_work_items)?;
         let total_queued = all
@@ -2268,6 +2272,46 @@ impl LmdbRecordStore {
             item,
             created: true,
         })
+    }
+
+    /// Resolve a lost acknowledgement through the existing durable submission
+    /// index. Observation does not require a live scheduler and cannot dispatch
+    /// work. Scope and the current Tenant-owner submission authority are
+    /// checked in the same read transaction as the work identity.
+    pub fn observe_runtime_submission_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        request_id: &str,
+    ) -> Result<RuntimeWorkItem, String> {
+        let hidden = || "execution_not_visible".to_string();
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let state = self.get_case_state_txn(&txn, case_id)?.ok_or_else(hidden)?;
+        let tenant = state.tenant_id.as_deref().ok_or_else(hidden)?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant)
+            .and_then(|context| context.require_owner()).map_err(|_| hidden())?;
+        if !state.participants.iter().any(|participant| participant.participant_id == participant_id)
+        {
+            return Err(hidden());
+        }
+        let key = runtime_work_idempotency_key(&principal.principal_id, tenant, request_id);
+        let raw = match txn.get(self.runtime_work_idempotency, &key) {
+            Ok(raw) => raw,
+            Err(Error::NotFound) => return Err(hidden()),
+            Err(error) => return Err(format!("runtime_submission_read:{error}")),
+        };
+        let work_id = std::str::from_utf8(raw).map_err(|e| format!("runtime_work_index_corrupt:{e}"))?;
+        let item = get_json_txn::<RuntimeWorkItem, _>(&txn, self.runtime_work_items, work_id, "runtime_work_item")?
+            .ok_or("runtime_work_idempotency_dangling")?;
+        item.validate_integrity()?;
+        if item.principal_id != principal.principal_id || item.case_id != case_id
+            || item.tenant_id != tenant || item.participant_id != participant_id
+        {
+            return Err(hidden());
+        }
+        Ok(item)
     }
 
     pub fn list_runtime_work_authorized(
@@ -17616,6 +17660,17 @@ impl LmdbRecordStore {
         {
             return Err("provider_invocation_selection_stale_or_mismatched".to_string());
         }
+        // Selection is an exact attempt identity, not a reusable permission
+        // to dispatch. This check runs in the canonical commit transaction so
+        // concurrent clients cannot both admit a carrier invocation for it.
+        // Safe failover must obtain its own later selection/attempt identity.
+        if self.list_case_transitions_txn(txn, &state.case_id)?.iter().any(|transition| {
+            matches!(&transition.payload,
+                TransitionPayload::ProviderInvocationStarted { governance: Some(prior), .. }
+                if prior.selection_id == governance.selection_id)
+        }) {
+            return Err("provider_invocation_already_started_requires_observation".into());
+        }
         let target = self
             .provider_target_txn(txn, &governance.target_id)?
             .ok_or_else(|| "provider_invocation_target_missing".to_string())?;
@@ -26078,6 +26133,18 @@ mod tests {
             .expect("repeat idempotently");
         assert!(!repeated.created);
         assert_eq!(first.item.work_id, repeated.item.work_id);
+        let observed = store.observe_runtime_submission_authorized(
+            &owner, &submission.case_id, &submission.participant_id, &submission.request_id,
+        ).expect("current submitting owner can recover exact lost acknowledgement");
+        assert_eq!(observed, first.item);
+        for (principal, case, participant, request) in [
+            (&other, submission.case_id.as_str(), submission.participant_id.as_str(), submission.request_id.as_str()),
+            (&owner, "case:runtime-b", submission.participant_id.as_str(), submission.request_id.as_str()),
+            (&owner, submission.case_id.as_str(), "participant:wrong", submission.request_id.as_str()),
+            (&owner, submission.case_id.as_str(), submission.participant_id.as_str(), "request:absent"),
+        ] {
+            assert_eq!(store.observe_runtime_submission_authorized(principal, case, participant, request).unwrap_err(), "execution_not_visible");
+        }
         let second = store
             .submit_runtime_work(
                 &owner,
@@ -26148,7 +26215,9 @@ mod tests {
                 },
             )
             .expect_err("other Principal cannot inject work");
-        assert_eq!(cross_tenant, "runtime_instance_principal_mismatch");
+        // Current Case scope is checked before scheduler availability or the
+        // idempotency lookup, including on acknowledgement recovery.
+        assert_eq!(cross_tenant, "runtime_work_security_domain_mismatch");
         let before = store
             .get_case_state("case:runtime-a")
             .unwrap()

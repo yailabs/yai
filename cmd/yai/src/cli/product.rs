@@ -151,7 +151,8 @@ fn host_operation(operation: &str, invocation: &Invocation) -> Result<CliData, C
                     "the foreground Host has no finite JSON result; use `yai host status --json`",
                 ));
             }
-            yai_host::serve(&home).map_err(|error| domain_error("host_serve_failed", error))?;
+            crate::command_adapters::runtime_instance::serve_application_host(&home)
+                .map_err(|error| domain_error("host_serve_failed", error))?;
             return Ok(CliData::AlreadyRendered);
         }
         _ => return Err(CliError::internal("unknown Host lifecycle operation")),

@@ -788,6 +788,19 @@ endurance-agentless-case-runtime: smoke-agentless-case-runtime
 test-golden-local: $(VALIDATION_GOLDEN_LOCAL)
 
 .PHONY: smoke-governance-cognitive-context
+.PHONY: smoke-application-active-runtime
+smoke-application-active-runtime: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --crash-in-flight
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --source-crash-in-flight
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --source-crash-in-flight --source-review
+
+.PHONY: smoke-application-execution-lifecycle
+smoke-application-execution-lifecycle: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/application-execution-lifecycle/test_runtime_host.py --binary ./yai
+
 smoke-governance-cognitive-context: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@bash tests/characterization/governance-cognitive-context/test_policy_intake.sh

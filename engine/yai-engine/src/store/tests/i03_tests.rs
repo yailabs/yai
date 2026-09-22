@@ -160,6 +160,59 @@ pub(super) fn i03_provider_requirement(source: &str) -> ProviderRequirement {
 }
 
 #[test]
+fn provider_selection_admits_only_one_canonical_invocation() {
+    let path = temp_store_path("provider-single-invocation");
+    let store = LmdbRecordStore::open(&path).unwrap();
+    let owner = AuthenticatedPrincipal::for_test(20901);
+    let tenant = "tenant:single-invocation";
+    let case = "case:single-invocation";
+    i03_setup_case(&store, &owner, tenant, case);
+    let target = i03_target(&store, &owner, tenant, "single-invocation", 20901,
+        vec![ProviderRealizationShape::TextToText]);
+    store.bind_case_provider_targets_authorized(&owner, case, "participant:model",
+        vec![target.target_id.clone()], ProviderFailoverPolicy::SafeOnly, 3).unwrap();
+    let selection = match store.select_case_provider_authorized(&owner, case,
+        "participant:model", &i03_provider_requirement("single"), "provider-turn:single", 1,
+        &BTreeSet::new(), true, &BTreeSet::new(), 4).unwrap() {
+        ProviderSelectionStoreOutcome::Selected { selection, .. } => selection,
+        other => panic!("expected new selection, got {other:?}"),
+    };
+    let pending = |name: &str, generation| {
+        let mut value = PendingTransition::new(format!("transition:{name}"), case, generation,
+            TransitionSource {
+                component: "yai.provider_test".into(),
+                participant_id: Some("participant:model".into()),
+                principal_id: Some(owner.projected_principal_id()),
+                source_ref: Some(selection.selection_id.clone()),
+            }, TransitionPayload::ProviderInvocationStarted {
+                invocation_id: format!("invocation:{name}"),
+                participant_id: "participant:model".into(),
+                provider_id: target.target_id.clone(), provider_kind: "openai_compatible".into(),
+                model_id: target.model_id.clone(),
+                semantic_lineage: Some(test_provider_lineage(generation)),
+                governance: Some(ProviderInvocationGovernance {
+                    selection_id: selection.selection_id.clone(), target_id: target.target_id.clone(),
+                    logical_turn_id: selection.logical_turn_id.clone(), attempt_number: 1,
+                }),
+            });
+        value.causal_refs.push(selection.selection_id.clone());
+        value
+    };
+    let generation = store.get_case_state(case).unwrap().unwrap().generation;
+    store.commit_transition(pending("first", generation)).unwrap();
+    let generation = store.get_case_state(case).unwrap().unwrap().generation;
+    assert_eq!(store.commit_transition(pending("duplicate", generation)).unwrap_err(),
+        "provider_invocation_already_started_requires_observation");
+    assert_eq!(store.get_case_state(case).unwrap().unwrap().generation, generation);
+    let reopened = LmdbRecordStore::open(&path).unwrap();
+    assert_eq!(reopened.commit_transition(pending("after-reopen", generation)).unwrap_err(),
+        "provider_invocation_already_started_requires_observation");
+    drop(reopened);
+    drop(store);
+    fs::remove_dir_all(path).unwrap();
+}
+
+#[test]
 fn i03_exact_realization_selection_never_substitutes_provider_target() {
     let path = temp_store_path("i03-exact-selection");
     let store = LmdbRecordStore::open(&path).unwrap();

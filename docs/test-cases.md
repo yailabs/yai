@@ -51,6 +51,12 @@ Failure isolation: `test-unit`, `test-component`, `test-contract`,
 Loopback tests use actual HTTP/TLS, stores, processes and temporary files.
 A C component assertion is not product-reachable effect qualification.
 
+The Rust topology audit enumerates engine, CLI and every Application-workspace
+test binary, including Host and integration targets. Each test must have an
+exact classification and reachable validation entrypoint. New or removed
+Application binaries and stale selectors fail the same audit; an Application
+test is not implicitly covered by an engine test or by catalog metadata.
+
 ## Studio bootstrap isolation
 
 [Studio](studio.md) has a bounded local live mode and an explicit fixture mode,

@@ -6,8 +6,9 @@
 use super::*;
 use crate::command_adapters::case_runtime::{
     execute_runtime_work, recover_runtime_work_from_checkpoint,
-    repair_workflow_checkpoint_completed, CaseRuntimeReport, CaseRuntimeStop,
+    repair_workflow_checkpoint_completed,
 };
+use yai_application::runtime_execution::{CaseRuntimeReport, CaseRuntimeStop};
 use crate::command_adapters::provider::validate_journal_case_binding;
 use crate::command_adapters::security::authenticate_local;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
@@ -667,8 +668,100 @@ enum WorkerOutcome {
     Panicked(String),
 }
 
+/// In-process scheduler configuration. CLI syntax is decoded before entering
+/// the scheduler; resident lifecycle composition must not manufacture argv.
+struct RuntimeServeOptions {
+    config: RuntimeInstanceConfig,
+    workflow_work_failpoint: Option<String>,
+    worker_failpoint: Option<String>,
+    startup_dispatch_delay_ms: Option<u64>,
+}
+
+impl RuntimeServeOptions {
+    fn from_cli(args: &[String]) -> Result<Self, String> {
+        Ok(Self {
+            config: instance_config(args)?,
+            workflow_work_failpoint: optional_arg(args, "--workflow-work-failpoint"),
+            worker_failpoint: optional_arg(args, "--failpoint"),
+            startup_dispatch_delay_ms: optional_positive_u64(args, "--startup-dispatch-delay-ms")?,
+        })
+    }
+}
+
 fn runtime_serve(args: &[String]) -> Result<(), String> {
-    let config = instance_config(args)?;
+    serve_runtime(RuntimeServeOptions::from_cli(args)?, None)
+}
+
+/// Executable composition root, shared with the resident Host rather than an
+/// Application-to-CLI call. Existing domain owners still dispatch all work.
+pub(crate) fn serve_application_host(home: &Path) -> Result<(), String> {
+    let host = yai_host::HostServer::bind(home)?;
+    if fs::canonicalize(home).map_err(|e| e.to_string())?
+        != fs::canonicalize(yai_home()).map_err(|e| e.to_string())?
+    {
+        return Err("host_runtime_profile_mismatch".into());
+    }
+    host.run_with_runtime(supervise_runtime)
+}
+
+fn supervise_runtime(control: yai_host::RuntimeSupervisionControl) -> Result<(), String> {
+    use yai_host::RuntimeSupervisionPosture as Posture;
+    let mut attached_existing = false;
+    while control.host_is_running() {
+        let authenticated = authenticate_local()?;
+        let store = LmdbRecordStore::open(record_store_path())?;
+        let existing = match store.get_runtime_instance_authorized(&authenticated) {
+            Ok(value) => value,
+            Err(error) if error == "local_principal_not_enrolled" => {
+                control.report(Posture::WaitingForIdentity);
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
+        if let Some(instance) = existing {
+            if attached_existing && instance.lifecycle == RuntimeInstanceLifecycle::Stopped {
+                // An explicit scheduler stop must not be undone immediately.
+                return Ok(());
+            }
+            if instance.lifecycle != RuntimeInstanceLifecycle::Stopped
+                && runtime_process_identity_is_live(instance.owner_pid, &instance.owner_process_identity)
+            {
+                attached_existing = true;
+                control.report(Posture::Attached);
+                // Do not acquire a competing lease or drain a separately owned
+                // scheduler when this Host stops. Process identity, not lease
+                // expiry alone, determines whether recovery may take ownership.
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+        }
+        control.report(Posture::Starting);
+        let result = serve_runtime(RuntimeServeOptions {
+            config: RuntimeInstanceConfig {
+                workers: 2, max_active_per_tenant: 1,
+                max_queued_per_tenant: 32, max_queued_total: 128,
+            },
+            workflow_work_failpoint: None,
+            worker_failpoint: None,
+            startup_dispatch_delay_ms: None,
+        }, Some(control.clone()));
+        if result.as_ref().is_err_and(|error| error.starts_with("runtime_instance_active:")) {
+            // A separately launched scheduler won the acquisition race. Observe
+            // that exact owner on the next iteration; never take its lease.
+            continue;
+        }
+        return result;
+    }
+    Ok(())
+}
+
+fn serve_runtime(
+    options: RuntimeServeOptions,
+    supervision: Option<yai_host::RuntimeSupervisionControl>,
+) -> Result<(), String> {
+    let config = options.config;
+    config.validate()?;
     let authenticated = authenticate_local()?;
     let principal_id = authenticated.projected_principal_id();
     let owner_token = instance_token(&principal_id);
@@ -702,7 +795,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
             RuntimeInstanceAcquireOutcome::Reclaimed => "reclaimed_stale",
         }
     );
-    let workflow_work_failpoint = optional_arg(args, "--workflow-work-failpoint");
+    let workflow_work_failpoint = options.workflow_work_failpoint;
     // Recover passive canonical progression before classifying stale
     // WorkItems. A ProviderResult/effect may already prove NodeSatisfied even
     // though the previous scheduler died before acknowledging its WorkItem.
@@ -715,6 +808,9 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
         INSTANCE_LEASE_MS,
         recovered,
     )?;
+    if let Some(control) = &supervision {
+        control.report(yai_host::RuntimeSupervisionPosture::Running);
+    }
     println!("state: running");
     println!("workers: {}", config.workers);
     println!("max_active_per_tenant: {}", config.max_active_per_tenant);
@@ -729,7 +825,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
         workflow_work_failpoint.as_deref(),
     )?;
     println!("workflow_work_materialized: {initial_workflow_work}");
-    if let Some(delay_ms) = optional_positive_u64(args, "--startup-dispatch-delay-ms")? {
+    if let Some(delay_ms) = options.startup_dispatch_delay_ms {
         println!("startup_dispatch_delay_ms: {delay_ms}");
         thread::sleep(Duration::from_millis(delay_ms));
     }
@@ -741,7 +837,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
     for _ in 0..config.workers {
         let receiver = Arc::clone(&job_rx);
         let sender = result_tx.clone();
-        let worker_failpoint = optional_arg(args, "--failpoint");
+        let worker_failpoint = options.worker_failpoint.clone();
         handles.push(thread::spawn(move || loop {
             let job = receiver.lock().ok().and_then(|rx| rx.recv().ok());
             let Some((worker_id, item)) = job else {
@@ -811,7 +907,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         Some(completion.work_id.as_str())
                     );
                     let state = report_work_state(&report);
-                    if optional_arg(args, "--failpoint").as_deref()
+                    if options.worker_failpoint.as_deref()
                         == Some("after_case_runtime_terminal_before_workitem_terminal_commit")
                         && state.is_terminal()
                     {
@@ -822,7 +918,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         );
                         std::process::exit(122);
                     }
-                    if optional_arg(args, "--failpoint").as_deref()
+                    if options.worker_failpoint.as_deref()
                         == Some("after_case_runtime_awaiting_review_before_workitem_state_commit")
                         && state == RuntimeWorkState::WaitingReview
                     {
@@ -832,7 +928,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         );
                         std::process::exit(123);
                     }
-                    if optional_arg(args, "--failpoint").as_deref()
+                    if options.worker_failpoint.as_deref()
                         == Some("after_case_runtime_waiting_effect_before_workitem_state_commit")
                         && state == RuntimeWorkState::WaitingEffect
                     {
@@ -919,7 +1015,8 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
             .get_runtime_instance_authorized(&authenticated)?
             .ok_or_else(|| "runtime_instance_missing_during_serve".to_string())?;
         let draining = matches!(instance.lifecycle, RuntimeInstanceLifecycle::Draining)
-            || instance.drain_requested_at_unix_ms.is_some();
+            || instance.drain_requested_at_unix_ms.is_some()
+            || supervision.as_ref().is_some_and(|control| !control.host_is_running());
         if draining && !matches!(instance.lifecycle, RuntimeInstanceLifecycle::Draining) {
             store.begin_runtime_instance_drain(
                 &authenticated,
@@ -1069,7 +1166,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         workflow_case: claimed.workflow.is_some(),
                     },
                 );
-                if optional_arg(args, "--failpoint").as_deref()
+                if options.worker_failpoint.as_deref()
                     == Some("after_work_running_before_case_admission")
                 {
                     eprintln!(
@@ -1113,6 +1210,34 @@ pub(super) fn dispatch(args: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scheduler_options_are_typed_before_runtime_admission() {
+        let defaults = RuntimeServeOptions::from_cli(&[]).unwrap();
+        assert_eq!(defaults.config.workers, 2);
+        assert_eq!(defaults.config.max_active_per_tenant, 1);
+        assert!(defaults.worker_failpoint.is_none());
+        assert!(defaults.workflow_work_failpoint.is_none());
+        assert!(defaults.startup_dispatch_delay_ms.is_none());
+        let options = RuntimeServeOptions::from_cli(&[
+            "--workers".into(), "3".into(),
+            "--max-active-per-tenant".into(), "2".into(),
+            "--failpoint".into(), "worker_panic_before_case_runtime".into(),
+            "--workflow-work-failpoint".into(), "after_admission".into(),
+            "--startup-dispatch-delay-ms".into(), "50".into(),
+        ]).unwrap();
+        assert_eq!(options.config.workers, 3);
+        assert_eq!(options.config.max_active_per_tenant, 2);
+        assert_eq!(options.worker_failpoint.as_deref(), Some("worker_panic_before_case_runtime"));
+        assert_eq!(options.workflow_work_failpoint.as_deref(), Some("after_admission"));
+        assert_eq!(options.startup_dispatch_delay_ms, Some(50));
+        assert!(RuntimeServeOptions::from_cli(&[
+            "--startup-dispatch-delay-ms".into(), "invalid".into(),
+        ]).is_err());
+        assert!(RuntimeServeOptions::from_cli(&[
+            "--workers".into(), "0".into(),
+        ]).is_err());
+    }
 
     fn item(tenant: &str, case_id: &str, sequence: u64) -> RuntimeWorkItem {
         RuntimeWorkItem {

@@ -9,9 +9,8 @@ use crate::command_adapters::controlled_effect::{
     advance_controlled_workflow_deterministic, ControlledEffectTurnStatus,
 };
 use crate::command_adapters::security::authenticate_local;
-use serde::{Deserialize, Serialize};
+use yai_application::runtime_execution::*;
 use std::collections::BTreeSet;
-use std::io::Write;
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
@@ -24,9 +23,6 @@ use yai_core_engine::store::lmdb::{
     CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, RuntimeWorkItem, RuntimeWorkState,
 };
 
-const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v3";
-const CASE_RUNTIME_CHECKPOINT_SCHEMA_V2: &str = "yai.case_runtime_checkpoint.v2";
-const CASE_RUNTIME_CHECKPOINT_SCHEMA_V1: &str = "yai.case_runtime_checkpoint.v1";
 const CASE_RUNTIME_OUTPUT_SCHEMA: &str = "yai.case_runtime_turn.v1";
 const CASE_RUNTIME_ADMISSION_TTL_MS: u64 = 30 * 60 * 1000;
 
@@ -48,213 +44,6 @@ fn runtime_now_millis() -> u128 {
 
 fn runtime_error_preview(value: &str) -> String {
     value.chars().take(160).collect()
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum CaseRuntimeStop {
-    Running,
-    Completed,
-    Denied,
-    AwaitingReview,
-    IndeterminateEffect,
-    WaitingProvider,
-    DeliveryIndeterminate,
-    ProviderFailureBudgetExhausted,
-    InvocationBudgetExhausted,
-    OperationBudgetExhausted,
-    ContextBudgetExhausted,
-    CostBudgetExhausted,
-    OperatorStopped,
-    MalformedProviderResult,
-    FatalInvariantViolation,
-    NormativeUnconfigured,
-    NormativeBlocked,
-    PolicyNotYetValid,
-    PolicyRefreshRequired,
-    PolicyStale,
-    PolicyExpired,
-    PolicyRevoked,
-    PolicyValidityUnavailable,
-    Cancelled,
-    Closed,
-}
-
-impl CaseRuntimeStop {
-    pub(super) fn as_str(&self) -> &'static str {
-        match self {
-            Self::Running => "running",
-            Self::Completed => "completed",
-            Self::Denied => "denied",
-            Self::AwaitingReview => "awaiting_review",
-            Self::IndeterminateEffect => "indeterminate_effect",
-            Self::WaitingProvider => "waiting_provider",
-            Self::DeliveryIndeterminate => "delivery_indeterminate",
-            Self::ProviderFailureBudgetExhausted => "provider_failure_budget_exhausted",
-            Self::InvocationBudgetExhausted => "invocation_budget_exhausted",
-            Self::OperationBudgetExhausted => "operation_budget_exhausted",
-            Self::ContextBudgetExhausted => "context_budget_exhausted",
-            Self::CostBudgetExhausted => "cost_budget_exhausted",
-            Self::OperatorStopped => "operator_stopped",
-            Self::MalformedProviderResult => "malformed_provider_result",
-            Self::FatalInvariantViolation => "fatal_invariant_violation",
-            Self::NormativeUnconfigured => "normative_unconfigured",
-            Self::NormativeBlocked => "normative_blocked",
-            Self::PolicyNotYetValid => "policy_not_yet_valid",
-            Self::PolicyRefreshRequired => "policy_refresh_required",
-            Self::PolicyStale => "policy_stale",
-            Self::PolicyExpired => "policy_expired",
-            Self::PolicyRevoked => "policy_revoked",
-            Self::PolicyValidityUnavailable => "policy_validity_unavailable",
-            Self::Cancelled => "cancelled",
-            Self::Closed => "closed",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct CaseRuntimeCheckpoint {
-    schema: String,
-    run_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    runtime_instance_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    work_item_id: Option<String>,
-    case_id: String,
-    participant_id: String,
-    attachment_id: String,
-    journal_path: String,
-    task: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    input_turn_id: Option<String>,
-    status: CaseRuntimeStop,
-    stop_detail: String,
-    stop_requested: bool,
-    invocations: usize,
-    operations: usize,
-    provider_failures: usize,
-    cumulative_estimated_input_units: usize,
-    actual_input_tokens: Option<u64>,
-    actual_output_tokens: Option<u64>,
-    actual_total_tokens: Option<u64>,
-    cumulative_provider_latency_ms: u64,
-    max_invocations: usize,
-    max_operations: usize,
-    max_semantic_units: usize,
-    max_resident_items: usize,
-    max_cumulative_estimated_input_units: usize,
-    max_provider_retries: usize,
-    max_runtime_ms: Option<u64>,
-    stop_on_deny: bool,
-    continue_after_malformed: bool,
-    previous_item_ids: Vec<String>,
-    last_residency_plan_id: Option<String>,
-    last_projection_id: Option<String>,
-    last_context_frame_id: Option<String>,
-    last_projection_selected_items: usize,
-    last_projection_omitted_items: usize,
-    last_semantic_units: usize,
-    last_provider_result_id: Option<String>,
-    pending_provider_result_id: Option<String>,
-    last_operation_id: Option<String>,
-    last_decision_id: Option<String>,
-    #[serde(default)]
-    last_review_id: Option<String>,
-    last_effect_id: Option<String>,
-    last_receipt_id: Option<String>,
-    last_effect_outcome: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub(super) struct CaseRuntimeReport {
-    pub case_id: String,
-    pub run_id: String,
-    pub work_item_id: Option<String>,
-    pub status: CaseRuntimeStop,
-    pub detail: String,
-}
-
-impl From<&CaseRuntimeCheckpoint> for CaseRuntimeReport {
-    fn from(checkpoint: &CaseRuntimeCheckpoint) -> Self {
-        Self {
-            case_id: checkpoint.case_id.clone(),
-            run_id: checkpoint.run_id.clone(),
-            work_item_id: checkpoint.work_item_id.clone(),
-            status: checkpoint.status.clone(),
-            detail: checkpoint.stop_detail.clone(),
-        }
-    }
-}
-
-impl CaseRuntimeCheckpoint {
-    fn stop(&mut self, status: CaseRuntimeStop, detail: impl Into<String>) {
-        self.status = status;
-        self.stop_detail = detail.into();
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum CheckpointResumeIntent {
-    DirectOperator,
-    RuntimeWork,
-}
-
-fn checkpoint_is_never_resumable(status: &CaseRuntimeStop) -> bool {
-    matches!(
-        status,
-        CaseRuntimeStop::Completed
-            | CaseRuntimeStop::Denied
-            | CaseRuntimeStop::Cancelled
-            | CaseRuntimeStop::Closed
-            | CaseRuntimeStop::FatalInvariantViolation
-            | CaseRuntimeStop::DeliveryIndeterminate
-    )
-}
-
-fn authorize_checkpoint_resume(
-    checkpoint: &mut CaseRuntimeCheckpoint,
-    intent: CheckpointResumeIntent,
-) -> Result<bool, String> {
-    if checkpoint_is_never_resumable(&checkpoint.status) {
-        return match intent {
-            CheckpointResumeIntent::DirectOperator => Err(format!(
-                "case_runtime_terminal_checkpoint_cannot_resume: {}",
-                checkpoint.status.as_str()
-            )),
-            CheckpointResumeIntent::RuntimeWork => Ok(false),
-        };
-    }
-    if intent == CheckpointResumeIntent::RuntimeWork
-        && matches!(
-            checkpoint.status,
-            CaseRuntimeStop::ProviderFailureBudgetExhausted
-                | CaseRuntimeStop::InvocationBudgetExhausted
-                | CaseRuntimeStop::OperationBudgetExhausted
-                | CaseRuntimeStop::ContextBudgetExhausted
-                | CaseRuntimeStop::CostBudgetExhausted
-                | CaseRuntimeStop::OperatorStopped
-                | CaseRuntimeStop::MalformedProviderResult
-        )
-    {
-        return Ok(false);
-    }
-    checkpoint.stop_requested = false;
-    checkpoint.status = CaseRuntimeStop::Running;
-    checkpoint.stop_detail.clear();
-    Ok(true)
-}
-
-fn validate_checkpoint_work_identity(
-    checkpoint: &CaseRuntimeCheckpoint,
-    item: &RuntimeWorkItem,
-) -> Result<(), String> {
-    if checkpoint.work_item_id.as_deref() != Some(item.work_id.as_str()) {
-        return Err("case_runtime_checkpoint_owned_by_other_work".to_string());
-    }
-    if checkpoint.runtime_instance_id.as_deref() != item.runtime_instance_id.as_deref() {
-        return Err("case_runtime_checkpoint_instance_mismatch".to_string());
-    }
-    Ok(())
 }
 
 fn parse_positive(args: &[String], name: &str, default: usize) -> Result<usize, String> {
@@ -289,10 +78,7 @@ fn parse_optional_u64(args: &[String], name: &str) -> Result<Option<u64>, String
 }
 
 fn checkpoint_path(case_id: &str) -> PathBuf {
-    yai_home().join("run").join("case-runtime").join(format!(
-        "{}.json",
-        yai_core_engine::context::stable_digest(case_id)
-    ))
+    checkpoint_path_for(&yai_home(), case_id)
 }
 
 fn write_checkpoint(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), String> {
@@ -300,55 +86,9 @@ fn write_checkpoint(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), String> {
     write_checkpoint_at(&path, checkpoint)
 }
 
-fn write_checkpoint_at(path: &Path, checkpoint: &CaseRuntimeCheckpoint) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "case runtime checkpoint has no parent".to_string())?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("failed to create case runtime directory: {error}"))?;
-    let temporary = parent.join(format!(
-        ".{}.{}.tmp",
-        yai_core_engine::context::stable_digest(&checkpoint.run_id),
-        std::process::id()
-    ));
-    let encoded = serde_json::to_vec_pretty(checkpoint)
-        .map_err(|error| format!("failed to encode case runtime checkpoint: {error}"))?;
-    let mut file = fs::OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&temporary)
-        .map_err(|error| format!("failed to create case runtime checkpoint: {error}"))?;
-    file.write_all(&encoded)
-        .map_err(|error| format!("failed to write case runtime checkpoint: {error}"))?;
-    file.sync_all()
-        .map_err(|error| format!("failed to sync case runtime checkpoint: {error}"))?;
-    drop(file);
-    fs::rename(&temporary, path)
-        .map_err(|error| format!("failed to publish case runtime checkpoint: {error}"))?;
-    fs::File::open(parent)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| format!("failed to sync case runtime directory: {error}"))?;
-    Ok(())
-}
-
 fn read_checkpoint(case_id: &str) -> Result<CaseRuntimeCheckpoint, String> {
     let path = checkpoint_path(case_id);
     read_checkpoint_at(&path, case_id)
-}
-
-fn read_checkpoint_at(path: &Path, case_id: &str) -> Result<CaseRuntimeCheckpoint, String> {
-    let encoded =
-        fs::read(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    let checkpoint: CaseRuntimeCheckpoint = serde_json::from_slice(&encoded)
-        .map_err(|error| format!("invalid case runtime checkpoint: {error}"))?;
-    if (checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA
-        && checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA_V2
-        && checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA_V1)
-        || checkpoint.case_id != case_id
-    {
-        return Err("case_runtime_checkpoint_identity_or_schema_mismatch".to_string());
-    }
-    Ok(checkpoint)
 }
 
 fn initial_checkpoint(args: &[String]) -> Result<CaseRuntimeCheckpoint, String> {
@@ -819,9 +559,15 @@ fn release_runtime_admission(owner: &RuntimeAdmissionOwner) -> Result<(), String
 fn run_with_admission(
     checkpoint: CaseRuntimeCheckpoint,
     args: &[String],
+    explicit_resume: bool,
 ) -> Result<CaseRuntimeCheckpoint, String> {
     let owner = acquire_runtime_admission(&checkpoint)?;
-    let result = run_loop(checkpoint, args, &owner);
+    let result = (|| {
+        if explicit_resume {
+            write_resumed_checkpoint_at(&checkpoint_path(&checkpoint.case_id), &checkpoint)?;
+        }
+        run_loop(checkpoint, args, &owner)
+    })();
     let release = release_runtime_admission(&owner);
     match (result, release) {
         (Err(error), _) => Err(error),
@@ -1002,12 +748,7 @@ fn run_loop(
                 .iter()
                 .find(|resource| resource.attachment_id == checkpoint.attachment_id)
                 .ok_or_else(|| "runtime resource attachment missing".to_string())?;
-            let logical_turn_id = format!(
-                "provider-turn:{}:{}:{}",
-                yai_core_engine::context::stable_digest(&checkpoint.case_id),
-                yai_core_engine::context::stable_digest(&checkpoint.run_id),
-                checkpoint.invocations + 1
-            );
+            let logical_turn_id = runtime_provider_turn_id(&checkpoint);
             let mut attempt = 0usize;
             let mut attempted_targets = BTreeSet::new();
             let mut prior_attempt_retry_safe = true;
@@ -1082,6 +823,14 @@ fn run_loop(
                             )?;
                         }
                         break result;
+                    }
+                    Err(error) if error.contains("provider_invocation_already_started_requires_observation") => {
+                        // This is about an earlier admitted attempt, not proof
+                        // that it was never delivered. Do not overwrite its
+                        // evidence with a local NotDispatched outcome.
+                        checkpoint.stop(CaseRuntimeStop::DeliveryIndeterminate, error);
+                        write_checkpoint(&checkpoint)?;
+                        return Ok(checkpoint);
                     }
                     Err(error) if error.contains("residency_budget_below_mandatory_state") => {
                         checkpoint.stop(CaseRuntimeStop::ContextBudgetExhausted, error);
@@ -1478,7 +1227,7 @@ pub(super) fn case_runtime_run(args: &[String]) -> Result<(), String> {
             ));
         }
     }
-    let checkpoint = run_with_admission(checkpoint, args)?;
+    let checkpoint = run_with_admission(checkpoint, args, false)?;
     print_runtime_summary(&checkpoint)
 }
 
@@ -1499,7 +1248,7 @@ pub(super) fn case_runtime_resume(args: &[String]) -> Result<(), String> {
     let mut checkpoint = read_checkpoint(&case_id)?;
     update_resume_budgets(&mut checkpoint, args)?;
     authorize_checkpoint_resume(&mut checkpoint, CheckpointResumeIntent::DirectOperator)?;
-    let checkpoint = run_with_admission(checkpoint, args)?;
+    let checkpoint = run_with_admission(checkpoint, args, true)?;
     print_runtime_summary(&checkpoint)
 }
 
@@ -1597,7 +1346,7 @@ pub(super) fn execute_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntime
         Err(error) => return Err(error),
     };
     checkpoint.task = item.task.clone();
-    let checkpoint = run_with_admission(checkpoint, &args)?;
+    let checkpoint = run_with_admission(checkpoint, &args, false)?;
     Ok(CaseRuntimeReport::from(&checkpoint))
 }
 
@@ -1668,8 +1417,44 @@ pub(super) fn recover_runtime_work_from_checkpoint(
     if !path.exists() {
         return Ok(None);
     }
-    let checkpoint = read_checkpoint(&item.case_id)?;
+    let mut checkpoint = read_checkpoint(&item.case_id)?;
+    // A Running checkpoint is not proof that its next provider attempt was
+    // never dispatched. Invocation admission precedes the external call and
+    // survives a carrier crash; consult that exact canonical lineage first.
+    if checkpoint.status == CaseRuntimeStop::Running {
+        validate_checkpoint_work_identity(&checkpoint, item)?;
+        let logical_turn_id = runtime_provider_turn_id(&checkpoint);
+        let store = LmdbRecordStore::open(record_store_path())?;
+        let history = store.list_case_transitions(&item.case_id)?;
+        let unresolved = history.iter().any(|transition| match &transition.payload {
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id, participant_id, governance: Some(governance), ..
+            } if participant_id == &checkpoint.participant_id
+                && governance.logical_turn_id == logical_turn_id => {
+                !history.iter().any(|candidate| match &candidate.payload {
+                    TransitionPayload::ProviderResultRecorded { invocation_id: completed, .. } =>
+                        completed == invocation_id,
+                    TransitionPayload::ProviderAttemptOutcomeRecorded { outcome } =>
+                        outcome.selection_id == governance.selection_id && outcome.retry_safe(),
+                    _ => false,
+                })
+            }
+            _ => false,
+        });
+        if unresolved {
+            checkpoint.stop(CaseRuntimeStop::DeliveryIndeterminate,
+                "admitted provider invocation has no durable result or retry-safe outcome; redispatch refused");
+            write_checkpoint(&checkpoint)?;
+        }
+    }
     checkpoint_recovery_posture(&checkpoint, item)
+}
+
+fn runtime_provider_turn_id(checkpoint: &CaseRuntimeCheckpoint) -> String {
+    format!("provider-turn:{}:{}:{}",
+        yai_core_engine::context::stable_digest(&checkpoint.case_id),
+        yai_core_engine::context::stable_digest(&checkpoint.run_id),
+        checkpoint.invocations + 1)
 }
 
 /// Converges the noncanonical checkpoint after the store has mechanically
@@ -1810,10 +1595,8 @@ pub(super) fn case_runtime_stop(args: &[String]) -> Result<(), String> {
         println!("case_id: {case_id}");
         return Ok(());
     }
-    let mut checkpoint = read_checkpoint_at(&path, &case_id)?;
-    checkpoint.stop_requested = true;
-    checkpoint.stop_detail = "operator stop requested".to_string();
-    write_checkpoint(&checkpoint)?;
+    let checkpoint = read_checkpoint_at(&path, &case_id)?;
+    request_checkpoint_stop_at(&path, &case_id, &checkpoint.run_id, checkpoint.work_item_id.as_deref())?;
     println!("case_runtime_stop: requested");
     println!("case_id: {case_id}");
     Ok(())
@@ -2016,6 +1799,36 @@ mod tests {
             validate_checkpoint_work_identity(&checkpoint, &item).unwrap_err(),
             "case_runtime_checkpoint_owned_by_other_work"
         );
+    }
+
+    #[test]
+    fn checkpoint_worker_publication_does_not_erase_operator_stop() {
+        let directory = std::env::temp_dir().join(format!("yai-stop-race-{}-{}",
+            std::process::id(), runtime_now_millis()));
+        let path = directory.join("checkpoint.json");
+        let worker = checkpoint(CaseRuntimeStop::Running, "run:stop-race", "work:stop-race");
+        write_checkpoint_at(&path, &worker).unwrap();
+        let mut stopped = worker.clone();
+        stopped.stop_requested = true;
+        write_checkpoint_at(&path, &stopped).unwrap();
+        // The worker finishes an already-governed iteration using its older
+        // in-process value. Publishing progress must not erase the stop.
+        let mut advanced = worker;
+        advanced.operations += 1;
+        write_checkpoint_at(&path, &advanced).unwrap();
+        let observed = read_checkpoint_at(&path, &advanced.case_id).unwrap();
+        assert!(observed.stop_requested, "worker overwrote the operator stop request");
+        assert_eq!(observed.operations, advanced.operations);
+        assert!(request_checkpoint_stop_at(&path, &advanced.case_id, "run:wrong", None).is_err());
+        let repeated = request_checkpoint_stop_at(&path, &advanced.case_id, &advanced.run_id, None).unwrap();
+        assert!(repeated.stop_requested);
+        assert_eq!(repeated.operations, advanced.operations);
+        let mut resumed = repeated;
+        authorize_checkpoint_resume(&mut resumed, CheckpointResumeIntent::DirectOperator).unwrap();
+        write_resumed_checkpoint_at(&path, &resumed).unwrap();
+        assert!(!read_checkpoint_at(&path, &advanced.case_id).unwrap().stop_requested,
+            "explicit admitted resume may clear the request");
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

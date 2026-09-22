@@ -512,9 +512,16 @@ impl LmdbRecordStore {
         case: &str,
         name: &str,
     ) -> Result<(CaseState, CaseSourceState), String> {
-        let state = self.get_case_state_authorized(auth, case)?;
-        self.resolve_security_context(
-            auth,
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.case_source_authorized_txn(&txn, auth, case, name)
+    }
+
+    fn case_source_authorized_txn<T: Transaction>(
+        &self, txn: &T, auth: &AuthenticatedPrincipal, case: &str, name: &str,
+    ) -> Result<(CaseState, CaseSourceState), String> {
+        let state = self.get_case_state_txn(txn, case)?.ok_or("source_not_visible")?;
+        self.resolve_security_context_txn(
+            txn, auth,
             state.tenant_id.as_deref().ok_or("source_requires_tenant")?,
         )?
         .require_owner()?;
@@ -532,6 +539,35 @@ impl LmdbRecordStore {
             return Err("source_not_visible".into());
         }
         Ok((state, source))
+    }
+
+    /// Observe one exact historical acquisition attempt under the same current
+    /// operator/Participant authority used to advance it. Current source posture
+    /// remains separate: old success never overrides later revoke. This reads no
+    /// source bytes, advances no progress and cannot dispatch an acquisition.
+    pub fn observe_source_attempt_authorized(
+        &self, auth: &AuthenticatedPrincipal, case: &str, participant: &str,
+        source_id: &str, attempt: u64,
+    ) -> Result<(u64, SourceProgress, SourcePhase), String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let (state, source) = self.case_source_authorized_txn(&txn, auth, case, source_id)
+            .map_err(|error| if error == "source_not_visible" {
+                "execution_not_visible".to_string()
+            } else { error })?;
+        if source.declaration.source_id != source_id
+            || source.declaration.participant_id != participant || attempt == 0
+        {
+            return Err("execution_not_visible".into());
+        }
+        let current = source.progress.ok_or("execution_not_visible")?;
+        let history = self.list_case_transitions_txn(&txn, case)?;
+        let progress = history.iter().rev().find_map(|transition| match &transition.payload {
+            TransitionPayload::CaseSourceProgressed { progress }
+                if progress.source_id == source_id && progress.attempt == attempt => Some(progress.clone()),
+            _ => None,
+        }).ok_or("execution_not_visible")?;
+        progress.validate()?;
+        Ok((state.generation, progress, current.phase))
     }
 
     pub fn declare_case_source(
@@ -562,6 +598,99 @@ impl LmdbRecordStore {
                 declaration: declaration.clone(),
             },
         )
+    }
+
+    /// Admit one exact acquisition attempt. Only the caller that commits the
+    /// first progress may dispatch; retries observe the existing attempt even
+    /// when their original generation is now stale. No separate job ledger.
+    pub fn begin_source_attempt_authorized(
+        &self,
+        auth: &AuthenticatedPrincipal,
+        case: &str,
+        participant: &str,
+        source_id: &str,
+        attempt: u64,
+        expected_generation: u64,
+    ) -> Result<bool, String> {
+        self.admit_source_attempt_authorized(auth, case, participant, source_id, attempt,
+            expected_generation, None)
+    }
+
+    /// Resume a specific settled interruption, not a still-running carrier.
+    /// The exact previous progress is the idempotency identity for this advance.
+    pub fn resume_source_attempt_authorized(
+        &self, auth: &AuthenticatedPrincipal, case: &str, participant: &str,
+        source_id: &str, attempt: u64, expected_generation: u64, previous_progress: &str,
+    ) -> Result<bool, String> {
+        self.admit_source_attempt_authorized(auth, case, participant, source_id, attempt,
+            expected_generation, Some(previous_progress))
+    }
+
+    fn admit_source_attempt_authorized(
+        &self, auth: &AuthenticatedPrincipal, case: &str, participant: &str,
+        source_id: &str, attempt: u64, expected_generation: u64, resume: Option<&str>,
+    ) -> Result<bool, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let (state, source) = self.case_source_authorized_txn(&txn, auth, case, source_id)?;
+        if source.declaration.source_id != source_id
+            || source.declaration.participant_id != participant
+            || attempt == 0
+        {
+            return Err("source_not_visible".into());
+        }
+        if self.list_case_transitions_txn(&txn, case)?.iter().any(|t| {
+            matches!(&t.payload, TransitionPayload::CaseSourceProgressed { progress }
+                if progress.source_id == source_id && progress.attempt == attempt
+                    && resume.is_none_or(|prior| progress.phase == SourcePhase::Acquiring
+                        && progress.previous_progress_id.as_deref() == Some(prior)))
+        }) {
+            return Ok(false);
+        }
+        if state.generation != expected_generation {
+            return Err("source_attempt_stale_generation".into());
+        }
+        if let Some(prior) = resume {
+            if !source.progress.as_ref().is_some_and(|p| p.progress_id == prior
+                && p.attempt == attempt && matches!(p.phase,
+                    SourcePhase::AwaitingReview | SourcePhase::Inaccessible | SourcePhase::NeedsProcessing)) {
+                return Err("source_attempt_not_resumable".into());
+            }
+        } else {
+            let next = source.progress.as_ref().map_or(Some(1), |p| p.attempt.checked_add(1));
+            if next != Some(attempt) || source.progress.as_ref().is_some_and(|p| {
+                matches!(p.phase, SourcePhase::Acquiring | SourcePhase::AwaitingReview | SourcePhase::Revoked)
+            }) {
+                return Err("source_attempt_requires_observation_or_resume".into());
+            }
+        }
+        let progress = SourceProgress {
+            schema: SOURCE_PROGRESS_SCHEMA.into(), progress_id: String::new(),
+            source_id: source_id.into(),
+            previous_progress_id: source.progress.as_ref().map(|p| p.progress_id.clone()),
+            attempt, phase: SourcePhase::Acquiring, revision: None, decision_ref: None,
+            detail: if resume.is_some() { "acquisition_resumed" } else { "acquisition_started" }.into(),
+        }.seal()?;
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", progress.progress_id), case, state.generation,
+            TransitionSource {
+                component: "yai.source_acquisition".into(),
+                participant_id: Some(participant.into()),
+                principal_id: Some(auth.projected_principal_id()),
+                source_ref: Some(source_id.into()),
+            },
+            TransitionPayload::CaseSourceProgressed { progress },
+        );
+        pending.scope = Some(crate::transition::TransitionScope {
+            case_id: case.into(), participant_refs: vec![participant.into()],
+            resource_refs: vec![source.declaration.resource_attachment_id.clone()],
+            policy_refs: vec![],
+        });
+        let context = self.resolve_security_context_txn(
+            &txn, auth, state.tenant_id.as_deref().ok_or("source_requires_tenant")?,
+        )?;
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok(true)
     }
 
     pub fn progress_case_source(
