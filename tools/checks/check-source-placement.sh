@@ -38,24 +38,24 @@ if [ -e "$ROOT/lib" ]; then
   exit 1
 fi
 
-# Studio dependencies/build output are isolated generated trees, not core source.
+# Cargo and Studio dependencies/build output are generated trees, not core source.
 # Allow the YAI application boundary and only the desktop entrypoint/build script
 # as additional Rust source.
-bad_rs=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.rs' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/engine/*" ! -path "$ROOT/cmd/yai/*" ! -path "$ROOT/application/*" ! -path "$ROOT/studio/src-tauri/src/*" ! -path "$ROOT/studio/src-tauri/build.rs" -print)
+bad_rs=$(find "$ROOT" \( -path "$ROOT/application/target" -o -path "$ROOT/engine/target" -o -path "$ROOT/cmd/yai/target" -o -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.rs' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/engine/*" ! -path "$ROOT/cmd/yai/*" ! -path "$ROOT/application/*" ! -path "$ROOT/studio/src-tauri/src/*" ! -path "$ROOT/studio/src-tauri/build.rs" -print)
 if [ -n "$bad_rs" ]; then
   printf '%s\n' "$bad_rs" >&2
   printf 'Rust files are only allowed under engine/, cmd/yai/, application/, or the Studio desktop shell\n' >&2
   exit 1
 fi
 
-bad_c=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" -print)
+bad_c=$(find "$ROOT" \( -path "$ROOT/application/target" -o -path "$ROOT/engine/target" -o -path "$ROOT/cmd/yai/target" -o -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" -print)
 if [ -n "$bad_c" ]; then
   printf '%s\n' "$bad_c" >&2
   printf 'C files are only allowed under system/, cmd/yaid/, tests/\n' >&2
   exit 1
 fi
 
-bad_h=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.h' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/include/yai/*" -print)
+bad_h=$(find "$ROOT" \( -path "$ROOT/application/target" -o -path "$ROOT/engine/target" -o -path "$ROOT/cmd/yai/target" -o -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.h' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/include/yai/*" -print)
 if [ -n "$bad_h" ]; then
   printf '%s\n' "$bad_h" >&2
   printf 'Headers are only allowed under include/yai/\n' >&2
