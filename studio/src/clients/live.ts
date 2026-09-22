@@ -1,4 +1,4 @@
-import type { ApplicationCatalog, TenantPresentation } from "./application";
+import type { ApplicationCatalog, SourceDeclarationInput, TenantPresentation } from "./application";
 export const APPLICATION_PROTOCOL = "yai.studio.application.v1";
 
 export type ResultState =
@@ -151,6 +151,8 @@ export class LiveClient {
   caseLifecycle(action: "close" | "cancel", input: { case_ref: string; reason: string }) { return this.call<unknown>(`case.${action}`, input); }
   resolveReview(action: "approve" | "deny" | "defer", input: { case_ref: string; review_ref: string; participant_ref: string; reason: string }) { return this.call<unknown>(`review.${action}`, input); }
   recordWorkflowInput(input: { case_ref: string; node_ref: string; value: string }) { return this.call<unknown>("workflow.input.record", input); }
+  declareSource(input: SourceDeclarationInput) { return this.call<unknown>("source.declare", input); }
+  revokeSource(input: { case_ref: string; source_ref: string; reason: string }) { return this.call<unknown>("source.revoke", input); }
   listCases() { return this.call<CaseListProjection>("case.list"); }
   openCase(case_ref: string) { return this.call<CaseAttachment>("case.open", { case_ref, reason: "studio_local_attachment" }); }
   caseSummary(case_ref: string, expected_generation?: number) { return this.call<LiveWorkspace>("case.summary", { case_ref, expected_generation }); }

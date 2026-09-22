@@ -1080,3 +1080,15 @@ distinction in `yai-dev` client-connection code at `5c1c7b9d0` (last relevant
 change `e9ad7f498`) and pre-drain IPC cleanup at `dda93ee3`. Those mechanisms
 provide no reusable frontend draft or tab implementation. Studio retains its
 current Workbench owners; historical Session/Agent runtime ownership is rejected.
+
+### Governed Source setup
+
+Environment and Resource Surfaces offer declaration against already-attached
+Resources. The form uses the projected operation names and, for database/HTTP
+Sources, only exposed named requests. Roles and bootstrap intent are explicit.
+YAI validates the actual perimeter, Participant and authority; a declaration
+does not acquire bytes or publish policy. Source revocation requires a reason
+and retains canonical history. The current published application boundary has
+no Source acquisition operation; attachment also requires a qualified native
+binding/carrier that Studio does not reconstruct from a path. These remaining
+setup interactions stay separate from the working declaration/revocation path.

@@ -616,3 +616,8 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
  .settings-content .setting-row { grid-template-columns: minmax(0,1fr); gap: 12px; }
  .settings-content > span { display: none; }.settings-content h2 { margin-top: 0; }
 }
+
+.environment-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0 20px; }.environment-actions > span, .action-scope { color: var(--yai-text-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }.application-action-dialog .source-role-options { display: flex; flex-wrap: wrap; gap: 16px; }.source-role-options label, .application-action-dialog .checkbox-setting { display: flex; align-items: center; gap: 6px; }.source-role-options input[type=checkbox], .checkbox-setting input[type=checkbox] { width: auto; }
+
+/* Action forms keep their identity and submission controls visible while fields scroll. */
+.application-action-dialog { display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }.application-action-dialog > header { flex: 0 0 auto; }.application-action-dialog > form { display: flex; flex-direction: column; min-height: 0; }.application-action-fields { overflow: auto; min-height: 0; padding: 2px 4px; }.application-action-dialog > form > footer { flex: 0 0 auto; }.application-action-dialog .action-result { flex: 0 0 auto; max-height: 30vh; overflow: auto; }

@@ -143,6 +143,13 @@ already-running Host and the persistent qualification Case; it does not start,
 enrich or reset that Case. All use the fixture Vite server on port 1422 for the
 browser renderer, and report their test-bridge/native boundaries explicitly.
 
+Environment now offers Declare Source for existing compatible Resources, plus
+Revoke Source on the typed Source Surface. Declaration supports discovery paths
+and qualified named SQLite/HTTP requests; it does not fetch or acquire content.
+`YAI_STUDIO_TEST_BINARY=/path/to/published/yai npm run test:environment` checks
+these authored interactions against a real Host in a disposable profile, with
+path/name refusals, duplicate reuse, identity collision and canonical replay.
+
 Window-local sessions retain each Case's tabs,
 selection, navigation and dirty buffers across attachment switches and Host resync.
 A dirty preview pins itself; reopening its file selects the existing tab. Undo and

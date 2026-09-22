@@ -143,6 +143,14 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    compact section selector. Select editor text, use Edit > Cut then Undo, and
    verify that menu focus did not lose the selection.
 
+   On a disposable Case with a qualified Resource, use Environment > Declare
+   Source. Check that the new Source appears while Files remains unchanged until
+   acquisition. Repeat the same declaration: no duplicate or generation advance.
+   Change its path under the same name: expect refusal. Open that Source, revoke
+   it with a reason, and verify its revoked posture and retained history. Named
+   database/HTTP Source forms must offer only names exposed by their Resource.
+   `npm run test:environment` qualifies this through the real local Host.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

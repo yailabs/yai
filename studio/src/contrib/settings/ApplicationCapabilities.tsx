@@ -8,7 +8,7 @@ const consumed = new Set([
   "application.capabilities", "case.list", "case.open", "case.summary", "material.read",
   "events.subscribe", "events.heartbeat", "tenant.list", "case.create", "case.close", "case.cancel",
   "review.approve", "review.deny", "review.defer", "workflow.input.record",
-  "participant.role.add", "participant.principal.link",
+  "participant.role.add", "participant.principal.link", "source.declare", "source.revoke",
 ]);
 
 export function ApplicationCapabilities({ platform }: { platform: PlatformServices }) {

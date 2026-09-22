@@ -30,7 +30,7 @@ export function ApplicationActionDialog({ title, description, submitLabel, child
   };
   return <div className="modal-backdrop application-action-backdrop" role="presentation"><section className="application-action-dialog" ref={root} role="dialog" aria-modal="true" aria-label={title}>
     <header><h2>{title}</h2><p>{description}</p></header>
-    <form onSubmit={event => void send(event)}><fieldset disabled={pending}>{children}</fieldset>
+    <form onSubmit={event => void send(event)}><div className="application-action-fields"><fieldset disabled={pending}>{children}</fieldset></div>
       {result && result.result_state !== "success" && <div className="action-result" role="alert"><strong>{uncertain ? "Confirmation was lost" : "YAI did not accept the action"}</strong><p>{explanation}</p>{uncertain && <p>The action may have reached YAI. Check current Case state before trying again; Studio will not resubmit it automatically.</p>}<details><summary>Technical details</summary><code>{result.operation_ref} · {result.error?.code ?? result.result_state}<br />{result.correlation_ref}</code></details></div>}
       <footer><Button type="button" disabled={pending} onClick={close}>{uncertain ? "Close and inspect state" : "Cancel"}</Button><Button type="submit" disabled={pending || !enabled || uncertain}>{pending ? "Waiting for YAI…" : submitLabel}</Button></footer>
     </form>

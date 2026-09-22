@@ -59,7 +59,7 @@ Activity discloses its latest-20 limit and links to the full Timeline.
 This is a bounded read/product-quality foothold, not S4 completion.
 
 **CURRENT — Capability Surface convergence and broader product quality.** The
-last reconciled publication is `ed11ecd921c851f1673207d6bbfe5371c4a39e67` while the
+last reconciled publication is `589b570e4f312aa0418971c881d2d81ea87e6129` while the
 execution-lifecycle worktree changes are independently owned. The running Host
 can predate the checkout: discover its actual catalog before offering new
 operations. The first authored action slice consumes Case create/cancel/close,
@@ -69,6 +69,16 @@ real published Host on a disposable profile, including authority/bounds refusals
 projection refresh, replay and lost-acknowledgement non-resubmission. Settings >
 Advanced shows actual advertised versus UI-integrated operations. This is
 partial convergence, not governed Save, runtime supervision or full UI parity.
+
+Environment now authors Source declarations (discovery and exposed SQLite/HTTP
+names) and revocation through `source.declare`/`source.revoke`. Real Host tests
+qualify refusals, immutable identity reuse, refresh and replay. Declaration does
+not acquire content. The published Host has no `source.acquire` operation; the
+concurrent execution-lifecycle implementation is not imported early. Resource
+attachment still requires the qualified native binding/secure carrier: the
+current raw `resource.attach` input is not a human-readable root-path setup API,
+and Studio does not fabricate its digest/carrier in React. These are named
+Application/Studio setup gaps, not missing Resource ownership.
 
 **ESTABLISHED — Material presentation and local Workbench quality.** Exact retained
 bytes now feed image/PDF/audio/video renderers; Markdown is rendered with a lazy

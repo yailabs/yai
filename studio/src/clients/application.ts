@@ -16,6 +16,13 @@ export interface ApplicationCatalog {
   operations: ApplicationOperation[]; capabilities: ApplicationCapability[];
 }
 export interface TenantPresentation { membership: string; tenant: { tenant_id: string; organization_ref: string } }
+/** Authored source setup; action values are the published Application contract. */
+export interface SourceDeclarationInput {
+  case_ref: string; perimeter: string; logical_name: string; participant_ref: string; resource_ref: string;
+  roles: Array<"knowledge" | "operational" | "policy">;
+  action: { action: "discover"; path: string } | { action: "database_query" | "http_fetch"; name: string };
+  bootstrap_policy: boolean; media_type: string;
+}
 export interface ApplicationAvailability {
   state: "checking" | "available" | "unavailable";
   catalog?: ApplicationCatalog; reason?: string;
@@ -76,5 +83,7 @@ export class ApplicationAccess implements Disposable {
   caseLifecycle(action: "close" | "cancel", input: { case_ref: string; reason: string }) { return this.invoke(`case.${action}`, () => this.client.caseLifecycle(action, input)); }
   resolveReview(action: "approve" | "deny" | "defer", input: { case_ref: string; review_ref: string; participant_ref: string; reason: string }) { return this.invoke(`review.${action}`, () => this.client.resolveReview(action, input)); }
   recordWorkflowInput(input: { case_ref: string; node_ref: string; value: string }) { return this.invoke("workflow.input.record", () => this.client.recordWorkflowInput(input)); }
+  declareSource(input: SourceDeclarationInput) { return this.invoke("source.declare", () => this.client.declareSource(input)); }
+  revokeSource(input: { case_ref: string; source_ref: string; reason: string }) { return this.invoke("source.revoke", () => this.client.revokeSource(input)); }
   dispose() { this.epoch++; this.stop.dispose(); this.listeners.clear(); }
 }
