@@ -1,3 +1,4 @@
+import { ReviewActions } from "./applicationActions";
 import type { AuxiliaryViewProps } from "../../workbench/kernel/types";
 import { Icon } from "../../components/Icon";
 import { Button, PanelHeader } from "../../components/primitives";
@@ -5,7 +6,7 @@ import { CollectionList } from "../../components/CollectionList";
 import { fileInput, materialInput, resourceInput, sourceInput } from "../surfaces/inputs";
 import { factIcon, factKind, factReferences, findFact } from "./facts";
 
-export function InspectorView({ workspace, selection, actions }: AuxiliaryViewProps) {
+export function InspectorView({ workspace, selection, actions, platform }: AuxiliaryViewProps) {
   if (selection.startsWith("settings:")) return <div className="context-scroll inspector-view"><PanelHeader title="Application preferences" /><p className="surface-note">These preferences belong to Studio. Case objects remain available in the Explorer.</p></div>;
   const fact = findFact(workspace, selection);
   const kind = factKind(workspace, selection);
@@ -25,6 +26,7 @@ export function InspectorView({ workspace, selection, actions }: AuxiliaryViewPr
       {kind === "source" && <Button onClick={() => actions.openSurface(sourceInput(workspace, selection, true))}>Open Source</Button>}
       {kind === "resource" && <Button onClick={() => actions.openSurface(resourceInput(workspace, selection, true))}>Open Resource</Button>}
     </section>
+    {kind === "review" && <ReviewActions key={selection} application={platform.application} workspace={workspace} reviewRef={selection} refresh={() => { void platform.commands.executeCommand("studio.case.refresh"); }} />}
     {!!references.length && <section className="inspector-group"><h3>Referenced objects <span>{references.length}</span></h3>{references.map(id => {
       const related = findFact(workspace, id); const relatedKind = factKind(workspace, id);
       return relatedKind === "case fact" ? <p key={id} title={id}>{id}<small> · Detail not projected</small></p> : <button key={id} onClick={() => actions.inspect(id)}><Icon name={factIcon(relatedKind)} /><strong>{related.title}</strong><small>{relatedKind}</small></button>;

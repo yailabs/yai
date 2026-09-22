@@ -118,6 +118,21 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    references. Authority must show the projected latest decision and grants,
    without presenting a historical allow as permission for a new operation.
 
+   In Settings > Advanced, inspect the connected Host's actual operations and
+   distinguish "Studio integrated" from "UI not integrated". With a disposable
+   qualification profile exposing the published actions, use File > New Case:
+   select an authorized Tenant, then explicitly add a Participant role and link
+   your authenticated identity. Open Work and provide a declared HumanInput;
+   an oversized input must be refused, a valid input must refresh progression.
+   Inspect a real pending Review in Authority and exercise approve/deny/defer
+   only on designated test Cases: an ineligible Participant must be refused.
+   Case cancellation and closure are durable operations, not window controls;
+   premature closure must report YAI's cancellation requirement. Never run these
+   destructive lifecycle checks on the persistent product oracle or Golden.
+   `npm run test:application` automates this sequence on its own disposable
+   profile and also injects a lost acknowledgement after a real commit: Studio
+   must show uncertainty and must not resubmit the action.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

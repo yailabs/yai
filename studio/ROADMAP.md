@@ -48,7 +48,7 @@ shared Workbench owners. The reliability suite qualifies these interactions at
 1600×960, 1440×900, 1280×800 and 1000×650; its instrumented desktop bridge is
 separate from native PTY acceptance.
 
-**CURRENT — Populated Case navigation and presentation.** Knowledge exposes
+**ESTABLISHED — Populated Case navigation and presentation.** Knowledge exposes
 searchable, bounded document/unit/entity/topic/contradiction collections. Every
 qualified graph endpoint is retained, including explicitly unresolved references;
 pages and neighborhoods state their visible/total relation counts. Inspector
@@ -58,12 +58,17 @@ grants and the latest recorded decision, without implying a new authorization.
 Activity discloses its latest-20 limit and links to the full Timeline.
 This is a bounded read/product-quality foothold, not S4 completion.
 
-**NEXT — Capability Surface convergence and broader product quality.** The
-last reconciled publication is `8750df04e80073a264789bd755a3caaed89d4c8a` while the
+**CURRENT — Capability Surface convergence and broader product quality.** The
+last reconciled publication is `ed11ecd921c851f1673207d6bbfe5371c4a39e67` while the
 execution-lifecycle worktree changes are independently owned. The running Host
 can predate the checkout: discover its actual catalog before offering new
-operations. This reliability change does not claim consumption of the additional
-Application actions, governed Save, runtime supervision or the full visual upgrade.
+operations. The first authored action slice consumes Case create/cancel/close,
+Participant role/self-link setup, Review approve/deny/defer and Workflow
+HumanInput. `tests/studio/application-actions.mjs` qualifies these against a
+real published Host on a disposable profile, including authority/bounds refusals,
+projection refresh, replay and lost-acknowledgement non-resubmission. Settings >
+Advanced shows actual advertised versus UI-integrated operations. This is
+partial convergence, not governed Save, runtime supervision or full UI parity.
 
 `CASE.PRODUCT.VERTICAL.COHERENCE.0` established
 `case:studio-live-qualification` as the durable operator-owned product oracle.
@@ -94,11 +99,11 @@ Studio sequence is:
 |---|---|---|---|---|---|
 | Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system; exact material identity fencing and the syntax-aware editor foundation are established | Capability Surface convergence, then feature-local Product Quality Passes | Typed presentation facts | 🟡 **PARTIAL** |
 | Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | 🟢 **ESTABLISHED** |
-| Application / X03 | `yai-application` plus existing owners | Authorized local list/open/summary, retained content resolution and generation invalidation | Publish parity, then `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0` | Owner projections and disclosure contracts | 🟡 **PARTIAL** |
+| Application / X03 | `yai-application` plus existing owners | Published 61-operation catalog; Studio reads plus authored Case/Participant/Review/HumanInput actions | Continue action-level `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0` | Published typed owners; running Host version can lag checkout | 🟡 **PARTIAL** |
 | Host / S1 | `application/yai-host` plus `yai-application` | Resident same-user Unix Host, singleton discovery, typed IPC, events, lifecycle CLI and Studio client | `S1.RUNTIME.SUPERVISION.1` after bounded capability convergence | Integrate the existing scheduler without duplicating its lease/execution owners | 🟡 **PARTIAL** |
 | Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | 🔴 **OPEN** |
 | Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, governed exact reads, renderer selection, exact material identity and syntax-aware local dirty/revert | Governed save after capability convergence | Participant-origin admitted file mutation and revision-conflict contract | 🟡 **PARTIAL** |
-| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy and Workflow resolution reads | Actions and workflow progression UX | Mutation-complete application operations | 🔴 **OPEN** |
+| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy/grant/decision reads; Review decisions and HumanInput forms with backend refusals | Policy management, workflow configuration and broader progression UX | Published typed operations; execution lifecycle remains separately owned | 🟡 **PARTIAL** |
 | Compute / S7 | Provider governance plus Studio | Case-bound targets only; model/runtime/deployment facts remain distinct | Generic models/providers/targets experience | Provider discovery/configuration contracts | 🔴 **OPEN** |
 | YVEX / S8 | YVEX public management plane | Generic inference posture only | Native management plane | Versioned public YVEX capabilities | ⚪ **LATER** |
 | External / S10–S12 | Selected future owners | No public external/mobile contract | Later selection | S1 and explicit interface programs | ⚪ **LATER** |
@@ -109,8 +114,11 @@ The published Application parity work adds or advances typed
 operations for Case lifecycle, Participants, policy/review, Resources, Sources,
 Workflow, handoff, identity/Tenant, Recall/working state and cognitive binding.
 It also makes disconnect-safe execution and runtime supervision explicit
-blockers. This editor milestone records that delta but does not consume it.
-Studio integration belongs to `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0`.
+blockers. The editor milestone recorded that delta without consuming it.
+Current convergence integrates only the authored actions above. Provider,
+policy, Source/Resource setup, handoff and semantic/cognitive forms remain
+Studio debt even when their operation is advertised. Runtime/source execution
+worktree contracts are not imported before independent publication and sync.
 
 ## Surface/backend responsibility
 
@@ -119,8 +127,8 @@ Studio integration belongs to `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0`.
 | Environment | Sources / Resources | Typed Sources/Resources and hierarchical files; exact retained reads through the authorized Source resolver | Participant-origin filesystem mutation, save receipt and stale-revision refusal are not qualified |
 | Knowledge | M07 derived source knowledge | Bounded authorized derivation with retained backing | Rich navigation remains Studio/S4; absent derivation stays empty |
 | Memory | Transition ledger, graph and Recall | Timeline bounded; Experience relations may be empty | Typed relation traversal remains S4 |
-| Authority | Policy / Review / Grant | Bound policies and reviews bounded | Actions and complete chains remain S6/application work |
-| Work | Workflow / Execution | Definition and current resolution bounded | Studio mutations and general events remain S6/X03 work |
+| Authority | Policy / Review / Grant | Bound facts plus Review approve/deny/defer | Policy management and complete chains remain S6; backend checks each decision |
+| Work | Workflow / Execution | Definition/resolution plus participant HumanInput | Definition/binding/patch forms and execution management remain Studio/S6 debt |
 | Compute | Provider governance | Case-bound targets partial | Model catalog, runtime/provider discovery and deployment management remain S7 |
 | YVEX | External runtime | Generic inference target only | Native management is absent until S8 |
 | Conversation | Committed Turns | Read-only | SEND remains an application mutation gap |

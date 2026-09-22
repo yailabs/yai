@@ -1,3 +1,5 @@
+import { ApplicationAccess } from "../clients/application";
+import type { LiveClient } from "../clients/live";
 import { CommandService } from "./commands";
 import { ConfigurationService } from "./configuration";
 import { ContextKeyService } from "./context";
@@ -22,9 +24,12 @@ export class PlatformServices extends DisposableStore {
   }));
   readonly theme = this.add(new ThemeService());
 
-  constructor(readonly host: HostServices) {
+  readonly application?: ApplicationAccess;
+
+  constructor(readonly host: HostServices, applicationClient?: LiveClient) {
     super();
     this.add(host);
+    if (applicationClient) this.application = this.add(new ApplicationAccess(applicationClient, host));
     this.context.update("studio.host.native", host.capabilities.nativeDesktop);
     this.context.update("terminal.available", host.capabilities.terminalAvailable);
     this.theme.apply();

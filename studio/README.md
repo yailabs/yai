@@ -312,3 +312,22 @@ qualified endpoint accounting, keyboard and pointer navigation at four sizes.
 `STUDIO_PROJECTION=/path/to/captured-case-summary.json` optionally replays a
 previous `case.summary` response. That mode is recorded projection evidence,
 not a claim of live transport or mutation qualification.
+
+Authored application actions use the actual connected Host catalog. File > New
+Case includes explicit Participant setup and self-linking; the Case menu exposes
+cancellation/closure, Inspector offers pending Review decisions, and Work accepts
+declared HumanInput. These remain YAI-authorized mutations. Settings > Advanced
+shows advertised operations separately from integrated UI. An older running Host
+can truthfully offer fewer actions than the checkout; restart it explicitly when
+qualifying a newer published build.
+
+```sh
+YAI_STUDIO_TEST_BINARY=/absolute/path/to/published/yai npm run test:application
+```
+
+This suite uses the same fixture Vite server for rendering, but sends live
+application requests to a real Unix Host through a test-only browser bridge.
+It creates and removes its own temporary YAI_HOME, uses normal product operations
+for Case/Participant/Workflow/policy/Review setup, checks positive and refusal
+paths and CLI canonical replay, and never mutates the operator qualification
+Case. It does not claim native Tauri transport qualification by itself.

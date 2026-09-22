@@ -322,3 +322,48 @@ test("Inspector uses qualified Knowledge content and exact revision closure for 
   assert.deepEqual(factReferences(workspace, "unit:1"), ["document:1"]);
   assert.deepEqual(factReferences(workspace, "document:1"), ["source:1", "file:1"]);
 });
+
+test("application discovery follows Host instances and gates operations without granting authority", async () => {
+  const { ApplicationAccess, isApplicationCatalog } = require(path.join(studio, "clients/application.js"));
+  const catalog = ids => ({schema:'yai.application_capability_catalog.v1',application_protocol:'yai.studio.application.v1',capabilities:[],operations:ids.map(operation_id=>({operation_id,meaning:operation_id,input_contract:'input',output_contract:'output',impact:'canonical_mutation',authority:'current_case_authority'}))});
+  assert.equal(isApplicationCatalog({...catalog([]),operations:[null]}),false);
+  assert.equal(isApplicationCatalog({...catalog([]),application_protocol:'future'}),false);
+  let state={state:'live',telemetry:{instance_id:'host:A'}}; let notify;
+  let finish; let calls=0, mutations=0;
+  const host={snapshot:()=>state,subscribe:handler=>{notify=handler;return{dispose(){notify=undefined}}},capabilities:{nativeDesktop:true}};
+  const client={applicationCapabilities:()=>{calls++;return new Promise(resolve=>finish=resolve)},createCase:async input=>{mutations++;return{result_state:'unauthorized',error:{code:'tenant_access_denied'},data:input}}};
+  const access=new ApplicationAccess(client,host);
+  assert.equal(access.supports('case.create'),false);
+  assert.equal((await access.createCase({case_ref:'case:a',tenant_id:'tenant:a'})).result_state,'not_implemented');
+  assert.equal(mutations,0);
+  const old=finish;
+  state={state:'stopped'};notify();
+  old({result_state:'success',data:catalog(['case.create'])});await Promise.resolve();
+  assert.equal(access.supports('case.create'),false);
+  await access.refresh(); assert.equal(calls,1); // Explicit Stop cannot trigger auto-start by discovery.
+  state={state:'live',telemetry:{instance_id:'host:B'}};notify();
+  finish({result_state:'success',data:catalog(['case.create'])});await Promise.resolve();
+  assert.equal(access.supports('case.create'),true);
+  assert.equal(access.supports('review.approve'),false);
+  const result=await access.createCase({case_ref:'case:a',tenant_id:'tenant:a'});
+  assert.equal(result.result_state,'unauthorized');assert.equal(mutations,1); // Catalog readiness is not authority.
+  notify(); assert.equal(calls,2); // Repeated telemetry is not another catalog read.
+  access.dispose();assert.equal(notify,undefined);
+});
+
+test("typed application actions preserve exact inputs and never retry lost transport acknowledgements", async () => {
+  const { LiveClient }=require(path.join(studio,'clients/live.js'));
+  const oldWindow=global.window; const requests=[];
+  global.window={__TAURI__:{core:{invoke:async(command,{request})=>{requests.push(request);if(request.operation_ref==='case.close')throw Error('lost acknowledgement');return{operation_ref:request.operation_ref,result_state:'success',correlation_ref:request.correlation_ref}}}}};
+  try{
+    const client=new LiveClient();
+    await client.createCase({tenant_id:'tenant:chosen',case_ref:'case:chosen'});
+    await client.resolveReview('deny',{case_ref:'case:chosen',review_ref:'review:exact',participant_ref:'participant:current',reason:'operator reason'});
+    await client.recordWorkflowInput({case_ref:'case:chosen',node_ref:'node:exact',value:'EXACT INPUT'});
+    const closed=await client.caseLifecycle('close',{case_ref:'case:chosen',reason:'operator close'});
+    assert.deepEqual(requests.map(request=>request.operation_ref),['case.create','review.deny','workflow.input.record','case.close']);
+    assert.deepEqual(requests[1].input,{case_ref:'case:chosen',review_ref:'review:exact',participant_ref:'participant:current',reason:'operator reason'});
+    assert.equal(requests[2].input.value,'EXACT INPUT'); assert.equal(closed.result_state,'transport_unavailable');
+    assert.equal(new Set(requests.map(request=>request.correlation_ref)).size,4);
+  }finally{global.window=oldWindow;}
+});

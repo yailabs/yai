@@ -19,7 +19,8 @@
     "test:browser": "node ../tests/studio/workbench.mjs",
     "test:browser:fixture": "node ../tests/studio/workbench.mjs",
     "test:desktop:csp": "node ../tests/studio/desktop-csp.mjs",
-    "test:knowledge": "node ../tests/studio/knowledge-navigation.mjs"
+    "test:knowledge": "node ../tests/studio/knowledge-navigation.mjs",
+    "test:application": "node ../tests/studio/application-actions.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.0",

@@ -64,11 +64,12 @@ not the application Host.
 The same facade now exposes machine-readable `application.capabilities` metadata
 and a separate current `case.capabilities` view. The former describes stable
 product support, operation contracts, impact and client posture; the latter is
-Case/Participant-qualified Resource requestability and never a grant. Studio has
-not added UI in this wave: catalog entries marked `application_ready` are typed
-inputs for future contributions, while `ui_already_consumed`, `ui_target` and
-`not_ui_relevant` keep presentation status explicit without making React a
-semantic owner. See the generated [capability matrix](reference/application-capabilities.md).
+Case/Participant-qualified Resource requestability and never a grant. Studio
+discovers the connected Host's actual catalog and invalidates it on connection
+loss or instance change. Settings > Advanced distinguishes advertised operations
+from explicitly integrated Studio interactions; `application_ready` does not
+imply a complete UI or current execution permission. See the generated
+[capability matrix](reference/application-capabilities.md).
 The catalog currently exposes 61 typed operations across 26 Application-ready
 families. Five PRODUCT families retain machine-readable blockers rather than
 fake buttons or generic command passthrough: RuntimeInstance supervision for
@@ -76,6 +77,17 @@ Case run/resume/stop, and a disconnect-safe execution submission/result contract
 for Conversation, controlled effects, cognitive realization and governed source
 acquisition. Studio may consume the partial operations listed for those families,
 but it must not present the blocked execution stage as available.
+
+Authored live forms currently consume Case creation/cancellation/closure,
+Participant role addition and authenticated self-linking, Review
+approve/deny/defer, and Workflow HumanInput. Creation, Participant setup and
+identity linking remain separate explicit YAI actions; opening a window does
+not implicitly grant authority. Review decisions do not execute their effects.
+Successful actions refresh the authorized projection. Refusals retain the form
+and explain the supplied reason. If a transport acknowledgement is lost, the
+action may already have committed: Studio blocks resubmission in that dialog
+and asks the operator to inspect current state. There is no optimistic canonical
+mutation, frontend policy evaluation or automatic retry of a mutation.
 
 ### TARGET — one YAI product, many client surfaces
 

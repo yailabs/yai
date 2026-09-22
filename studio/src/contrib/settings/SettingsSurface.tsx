@@ -1,3 +1,5 @@
+import { ApplicationCapabilities } from "./ApplicationCapabilities";
+import { useApplicationAvailability } from "../case/applicationActions";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState } from "../../components/primitives";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
@@ -6,6 +8,7 @@ import type { SettingDefinition, SettingSection } from "../../workbench/settings
 const sections: readonly SettingSection[] = ["General", "Appearance", "Workbench", "Terminal", "YAI Host", "Providers", "YVEX", "Security", "Advanced"];
 
 export function SettingsSurface({ workspace, actions, platform, settings, selection }: SurfaceRendererProps) {
+  const application = useApplicationAvailability(platform.application);
   const [section, setSection] = useState<SettingSection>("General");
   const [query, setQuery] = useState("");
   const [, refresh] = useState(0);
@@ -23,7 +26,7 @@ export function SettingsSurface({ workspace, actions, platform, settings, select
   }, [definitions, query, section]);
   return <div className="settings-surface" data-surface-type="studio.settings">
     <aside><h1>Settings</h1><div className="settings-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search settings" aria-label="Search settings" /></div>{sections.map((item) => <button key={item} aria-pressed={!query && section === item} onClick={() => { setQuery(""); setSection(item); actions.inspect(`settings:${item.toLocaleLowerCase().replaceAll(" ", "-")}`); }}>{item}</button>)}</aside>
-    <div className="settings-content"><span>{query ? "Search results" : "Studio settings"}</span><h2>{query ? `Results for “${query}”` : section}</h2><p className="settings-scope-note">Local preferences stay in Studio. Case and host settings require their qualified owners.</p>{!query && section === "YAI Host" && <YaiHostSettings platform={platform} />}{(query || section !== "YAI Host") && visible.map((definition) => <SettingRow key={definition.id} definition={definition} value={platform.configuration.get(definition.id) ?? definition.defaultValue} update={(value) => platform.configuration.update(definition.id, value)} dataKind={workspace.presentation.dataKind} backend={workspace.presentation.backendPosture} />)}{(query || section !== "YAI Host") && !visible.length && <EmptyState title="No matching settings" body="Try a setting title, description or section." />}</div>
+    <div className="settings-content"><span>{query ? "Search results" : "Studio settings"}</span><h2>{query ? `Results for “${query}”` : section}</h2><p className="settings-scope-note">Local preferences stay in Studio. Case and host settings require their qualified owners.</p>{!query && section === "YAI Host" && <YaiHostSettings platform={platform} />}{!query && section === "Advanced" && <ApplicationCapabilities platform={platform} />}{!query && section === "Providers" && <section className="setting-row"><div><h3>Provider actions</h3><p>{application.catalog?.operations.some(item => item.operation_id.startsWith("provider.")) ? "The connected Host exposes provider governance operations. Studio configuration forms are not integrated yet." : "The connected Host does not currently advertise provider governance operations."}</p><button className="ui-button" onClick={() => actions.openPerspective("Compute")}>View current targets</button></div></section>}{(query || section !== "YAI Host") && visible.map((definition) => <SettingRow key={definition.id} definition={definition} value={platform.configuration.get(definition.id) ?? definition.defaultValue} update={(value) => platform.configuration.update(definition.id, value)} dataKind={workspace.presentation.dataKind} backend={workspace.presentation.backendPosture} />)}{(query || section !== "YAI Host") && !visible.length && <EmptyState title="No matching settings" body="Try a setting title, description or section." />}</div>
   </div>;
 }
 
