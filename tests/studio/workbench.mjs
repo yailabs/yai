@@ -46,7 +46,7 @@ try {
   if (await shell.getAttribute("data-case-source") !== "fixture") throw new Error("fixture data posture missing");
   if (await shell.getAttribute("data-host") !== "web") throw new Error("web host posture missing");
   if (await page.locator(".desktop-resize-handle").count()) throw new Error("browser mode exposed native resize handles");
-  if (await page.locator(".live-rail button").count() !== 7) throw new Error("registered View Containers missing");
+  if (await page.locator(".live-rail > button").count() !== 7) throw new Error("registered View Containers missing");
   if (await page.locator(".live-sidebar [data-view-container='Overview']").count() !== 1) throw new Error("registered Sidebar View missing");
   await page.getByText("Terminal requires desktop host").waitFor();
   report("One Workbench renders registered Activity Bar, Sidebar, Panel and browser host posture");
@@ -97,7 +97,7 @@ try {
   await page.keyboard.press("Control+p");
   const quickOpen = page.getByRole("dialog", { name: "Quick Open" });
   await quickOpen.waitFor();
-  await quickOpen.getByRole("textbox").fill("runtime configuration");
+  await quickOpen.getByRole("textbox").fill("runtime-config.json");
   await screenshot("quick-open");
   await page.keyboard.press("Enter");
   await page.locator("[data-surface-type='material.text-editor'] .cm-content").waitFor();
@@ -117,11 +117,11 @@ try {
   report("Fixture Case search provider navigates through the shared Surface model");
 
   await page.keyboard.press("Control+p");
-  await page.getByRole("dialog", { name: "Quick Open" }).getByRole("textbox").fill("Qualification tone");
+  await page.getByRole("dialog", { name: "Quick Open" }).getByRole("textbox").fill("qualification-tone.wav");
   await page.keyboard.press("Enter");
   await page.locator("[data-surface-type='material.audio'] audio").waitFor();
   await page.keyboard.press("Control+p");
-  await page.getByRole("dialog", { name: "Quick Open" }).getByRole("textbox").fill("Runtime capture");
+  await page.getByRole("dialog", { name: "Quick Open" }).getByRole("textbox").fill("runtime.capture");
   await page.keyboard.press("Enter");
   await page.getByText("No trusted renderer").waitFor();
   await page.getByRole("button", { name: "Open externally unavailable" }).waitFor();

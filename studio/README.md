@@ -369,3 +369,32 @@ It creates and removes its own temporary YAI_HOME, uses normal product operation
 for Case/Participant/Workflow/policy/Review setup, checks positive and refusal
 paths and CLI canonical replay, and never mutates the operator qualification
 Case. It does not claim native Tauri transport qualification by itself.
+
+### Operational qualification
+
+The current Case IDE adds authored Recall/Working State, policy document intake,
+Workflow/Handoff actions, generic provider setup, a committed Case Journal,
+full-canvas graphs and exact Workbench navigation. Settings > Advanced discloses
+connected operations and named interaction debt from the running Host catalog.
+A policy upload is not folder acquisition; a qualification-evidence import is not
+a provider probe; Source declaration does not imply acquisition.
+
+Run the retained interaction suites against a Vite development server on the
+selected `STUDIO_TEST_URL` (default `http://127.0.0.1:1422`). Real Application
+suites require `YAI_STUDIO_TEST_BINARY` pointing to the published CLI/Host build
+and create/remove only their own temporary profiles:
+
+```sh
+npm run test:operational
+npm run test:capabilities
+```
+
+Use `tests/studio/operational-live.mjs` separately with explicit
+`YAI_STUDIO_TEST_HOME` and `YAI_STUDIO_TEST_BINARY` for read-only operator Case
+acceptance. `STUDIO_ADVANCE_WORLD=1` additionally selects real persistent
+qualification enrichment through normal product operations; it requires a
+persistent `STUDIO_WORLD_ROOT`. This is never routine automated test setup.
+The reusable `tests/qualification/studio-product-vertical/operational_world.py`
+provides inspect/advance/serve with explicit `YAI_HOME`, `--yai`, `--root` and
+`--evidence`. Re-running advance verifies/reuses existing identities. Its
+loopback HTTP/MCP peer is temporary unless the operator explicitly runs serve.

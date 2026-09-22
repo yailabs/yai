@@ -383,6 +383,64 @@ local desktop terminal mechanics.
 `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` until the operator reports a verdict at
 the exact SHA.
 
+## Studio operational Case acceptance
+
+Use the existing `case:studio-live-qualification` and its existing YAI_HOME.
+Do not reset it, the Golden Case or the continuity canary. The reusable
+`tests/qualification/studio-product-vertical/operational_world.py` requires an
+explicit profile/root, inspects before advancing and uses normal CLI operations.
+It retains repository, SQLite and HTTP Sources plus governed filesystem,
+process and MCP observations. Repeat execution reuses canonical identities and
+request outcomes. Stop its loopback peer normally; retained observations must
+not be shown as current endpoint health.
+
+Check these additional UI behaviors at 1600×960, 1440×900, 1280×800 and 1000×650:
+
+1. Use Identity and Manage at the bottom of the Activity Bar. Confirm the actual
+   Principal, Tenant and Case Participant differ. Open Settings, then Compute;
+   Provider/YVEX management must not be duplicated under preferences.
+2. Open a Source, navigate to its File, select a Knowledge unit, then use
+   Alt+Left/Right and the titlebar controls. The Surface and Inspector must follow
+   the same navigation history. A new destination invalidates Forward.
+3. Open Knowledge Graph. Pan, wheel-zoom, drag a node, Fit, filter node/relation
+   kinds, select an edge with the keyboard and inspect its exact endpoints.
+   Unresolved references stay explicit; Focus Work Surface restores the layout.
+4. In Memory run Recall with an explicit task and cut. Check the exact text,
+   refs, reasons and limitations. Compile Working State only after explicitly
+   admitting the current Participant view if required. Defer/expand W4 groups,
+   refresh explicitly and inspect current control. Frontier preparation needs
+   two real alternatives; preparation does not execute them. A changed Case
+   refuses stale preparation.
+5. Open Journal in the bottom Panel. Check actual committed generations,
+   search/type/component filters, pause and follow. A normal CLI mutation must
+   reach two attached LiveClients via resident Host events and authoritative
+   refetch, without page reload. The latest-160 limit must remain visible.
+6. In a disposable Case, import a supported policy document into Authority.
+   Check typed rules and provenance, validate, publish, and then bind explicitly.
+   Ordinary JSON must be refused as policy. A policy-only Source belongs in
+   Authority; documentary content retains its Environment provenance. Folder
+   drops currently report the missing intake contract. No frontend simulation or
+   model explanation grants authority.
+7. In a disposable Case, define/bind two human checkpoints, record input, propose
+   and adopt a patch. A stale competing patch must leave topology unchanged.
+   Exercise exact-reference Handoff offer/accept/result/reconcile and decline
+   across same-Tenant Cases; no implicit Resource transfer occurs.
+8. In Compute configure an exact OpenAI-compatible endpoint/model supplied by the
+   operator. Import only measured qualification evidence, set trust, then bind.
+   Check target/model/adapter distinction and observed health. The UI does not
+   probe directly. No endpoint means no invented provider or Conversation Turn.
+9. Confirm Terminal still has one compact header, real PTY input/output, proper
+   last-shell closing and reopen behavior. Output/Executions/Evidence/Problems
+   must disclose their qualified projection bounds rather than fake live data.
+
+The retained browser product suites call the real Host on disposable profiles;
+the browser bridge is not native WebView acceptance. `operational-live.mjs`
+separately records the operator Case and real event sequence. Keep external YVEX,
+automated local, native desktop and human acceptance as separate evidence axes.
+`HUMAN_GOLDEN_CASE = PENDING_OPERATOR` until the operator records acceptance at the
+actual published SHA. Application operation coverage is not full Studio parity,
+and none of these checks automatically promotes root X03/X04.
+
 ## Studio offline visual acceptance
 
 This lane reviews the actual Studio shell with synthetic content. It needs no

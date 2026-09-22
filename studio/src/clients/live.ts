@@ -1,4 +1,9 @@
-import type { ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
+import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
+import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
+import type { CaseCapabilityView, ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
+import type { PolicyIngestResult, PolicyLifecycleAction, PolicyLifecycleInput, PolicyLifecycleResult } from "./policy";
+import type { IdentityPresentation } from "./application";
+import type { RecallRequest, RecallResult, WorkingStateRequest, WorkingStateResult, WorkingState, WorkingRefreshRequest, PageRequest, FrontierResult, DecisionPrepareInput, DecisionPreparation } from "./memory";
 export const APPLICATION_PROTOCOL = "yai.studio.application.v1";
 
 export type ResultState =
@@ -79,11 +84,11 @@ export interface LiveWorkspace {
     status: string;
     message?: string;
     definition?: { nodes?: unknown[] };
-    resolution?: { nodes: Array<{ node_id: string; node_kind: string; posture: string; reason: string; evidence_refs: string[] }> };
+    resolution?: { effective_topology_digest?: string; completed?: boolean; nodes: Array<{ node_id: string; node_kind: string; posture: string; reason: string; evidence_refs: string[] }> };
     nodes: Array<{ node_id: string; node_kind: string; posture: string; reason: string }>;
     edges: LiveEdge[];
   };
-  compute: { status: string; message: string; targets: Array<{ id: string; provider_key: string; adapter: string; model_id: string; locality: string; endpoint: string; posture?: unknown; management: string }> };
+  compute: { status: string; message: string; targets: Array<{ id: string; provider_key: string; adapter: string; model_id: string; locality: string; endpoint: string; posture?: ProviderPosture | string; management: string }> };
   conversation: { read_only: boolean; turns: Array<{ id: string; thread_ref: string; participant_ref: string; generation: number; parts: Array<{ modality: string; media_type: string; text?: string }> }> };
   freshness: { generation: number; resync_operation: string };
 }
@@ -143,7 +148,32 @@ export class LiveClient {
     }
   }
 
+  defineWorkflow(input: WorkflowDefinitionInput) { return this.call<WorkflowDefinition>("workflow.define", { definition: input }); }
+  bindWorkflow(input: WorkflowBindInput) { return this.call<unknown>("workflow.bind", input); }
+  proposeWorkflowPatch(input: { case_ref: string; patch: WorkflowPatchInput }) { return this.call<WorkCommit>("workflow.patch.propose", input); }
+  adoptWorkflowPatch(input: { case_ref: string; patch_ref: string }) { return this.call<WorkCommit>("workflow.patch.adopt", input); }
+  offerHandoff(input: HandoffOfferInput) { return this.call<WorkCommit>("handoff.offer", input); }
+  acceptHandoff(input: HandoffAcceptInput) { return this.call<WorkCommit>("handoff.accept", input); }
+  declineHandoff(input: HandoffDeclineInput) { return this.call<WorkCommit>("handoff.decline", input); }
+  resultHandoff(input: HandoffResultInput) { return this.call<WorkCommit>("handoff.result.record", input); }
+  reconcileHandoff(input: { source_case_ref: string; handoff_ref: string }) { return this.call<WorkCommit>("handoff.reconcile", input); }
+  registerProvider(input: ProviderRegistration) { return this.call<ProviderTarget>("provider.register", input); }
+  qualifyProvider(input: ProviderQualificationInput) { return this.call<ProviderQualification>("provider.qualify", input); }
+  trustProvider(input: { target_ref: string; posture: "approved" | "denied" }) { return this.call<unknown>("provider.trust.set", input); }
+  bindProvider(input: ProviderBindingInput) { return this.call<unknown>("provider.case.bind", input); }
+  caseCapabilities(input: { case_ref: string; participant_ref: string }) { return this.call<CaseCapabilityView>("case.capabilities", input); }
+  publishSource(input: { case_ref: string; source_ref: string; reason: string }) { return this.call<unknown>("source.publish", input); }
   applicationCapabilities() { return this.call<ApplicationCatalog>("application.capabilities"); }
+  currentIdentity() { return this.call<IdentityPresentation>("identity.current"); }
+  bootstrapIdentity(input: { tenant_id: string; organization_ref: string }) { return this.call<unknown>("identity.bootstrap", input); }
+  tenant(input: { tenant_id: string }) { return this.call<TenantPresentation>("tenant.get", input); }
+  recall(request: RecallRequest) { return this.call<RecallResult>("semantic.recall", { request }); }
+  prepareFrontier(working_state: WorkingState, max_candidates: number) { return this.call<FrontierResult>("decision.frontier.prepare", { working_state, max_candidates }); }
+  prepareDecision(input: DecisionPrepareInput) { return this.call<DecisionPreparation>("decision.request.prepare", input); }
+  compileWorkingState(request: WorkingStateRequest, pageable: boolean) { return this.call<WorkingStateResult>("semantic.working_state.compile", { request, pageable }); }
+  refreshWorkingState(working_state: WorkingState, request: WorkingRefreshRequest) { return this.call<WorkingStateResult>("semantic.working_state.refresh", { working_state, request }); }
+  pageWorkingState(working_state: WorkingState, request: PageRequest) { return this.call<WorkingStateResult>("semantic.working_state.page", { working_state, request }); }
+  admitParticipantView(input: { case_ref: string; participant_ref: string; consumer: "model"; view_kind: "model_context" }) { return this.call<unknown>("participant.view.admit", input); }
   listTenants() { return this.call<TenantPresentation[]>("tenant.list"); }
   createCase(input: { tenant_id: string; case_ref: string }) { return this.call<unknown>("case.create", input); }
   addParticipantRole(input: { case_ref: string; participant_ref: string; role: string }) { return this.call<unknown>("participant.role.add", input); }
@@ -156,6 +186,8 @@ export class LiveClient {
   bindPolicy(input: CasePolicyBindingInput) { return this.call<unknown>("policy.case.bind", input); }
   replacePolicy(input: CasePolicyReplacementInput) { return this.call<unknown>("policy.case.replace", input); }
   unbindPolicy(input: CasePolicyUnbindingInput) { return this.call<unknown>("policy.case.unbind", input); }
+  ingestPolicy(input: { tenant_id: string; source_bytes: number[] }) { return this.call<PolicyIngestResult>("policy.ingest", input); }
+  policyLifecycle(action: PolicyLifecycleAction, input: PolicyLifecycleInput) { return this.call<PolicyLifecycleResult>(`policy.${action}`, input); }
   listCases() { return this.call<CaseListProjection>("case.list"); }
   openCase(case_ref: string) { return this.call<CaseAttachment>("case.open", { case_ref, reason: "studio_local_attachment" }); }
   caseSummary(case_ref: string, expected_generation?: number) { return this.call<LiveWorkspace>("case.summary", { case_ref, expected_generation }); }

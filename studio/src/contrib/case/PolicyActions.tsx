@@ -8,8 +8,8 @@ import { useApplicationAvailability } from "./applicationActions";
 type PolicyAction = "bind" | "replace" | "unbind";
 const titles: Record<PolicyAction, string> = { bind: "Bind Policy", replace: "Replace Policy", unbind: "Unbind Policy" };
 
-export function PolicyActions({ application, workspace, bindingRef, refresh }: {
-  application?: ApplicationAccess; workspace: CasePresentation; bindingRef?: string; refresh(): void | Promise<void>;
+export function PolicyActions({ application, workspace, bindingRef, artifactRef, refresh }: {
+  application?: ApplicationAccess; workspace: CasePresentation; bindingRef?: string; artifactRef?: string; refresh(): void | Promise<void>;
 }) {
   useApplicationAvailability(application);
   const [pending, setPending] = useState<{ action: PolicyAction; generation: number }>();
@@ -25,7 +25,7 @@ export function PolicyActions({ application, workspace, bindingRef, refresh }: {
       return pending.action === "replace" ? application.replacePolicy({ ...common, artifact_ref, prior_binding_ref: bindingRef! }) : application.bindPolicy({ ...common, artifact_ref });
     }} committed={refresh} resync={refresh}>
       {binding && <p className="action-scope">Current binding: {binding.policy_key} · version {binding.version}</p>}
-      {pending.action !== "unbind" && <label>Published policy artifact<input name="artifact" autoFocus required placeholder="Exact artifact reference from YAI" /></label>}
+      {pending.action !== "unbind" && <label>Published policy artifact<input name="artifact" autoFocus required defaultValue={artifactRef} placeholder="Exact artifact reference from YAI" /></label>}
       <label>Reason<textarea name="reason" autoFocus={pending.action === "unbind"} required rows={3} /></label>
       <small>Based on Case generation {pending.generation}. The backend refuses changes based on stale state.</small>
       {pending.generation !== workspace.case.generation && <p role="alert">The Case changed while this action was open. Close and reopen the action after inspecting the current binding.</p>}

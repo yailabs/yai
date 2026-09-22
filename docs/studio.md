@@ -482,8 +482,9 @@ telemetry. Runtime sessions here belong to YVEX, not a new YAI Case Session.
 Such controls require real versioned public management capabilities, permissions,
 results and truthful failure states. They must not bypass YAI inference
 qualification, read YVEX internals or make YVEX a Case owner. No management API
-is invented or implemented. During this wave YVEX is not inspected/administered;
-provider qualification remains black-box consumption as specified by AGENTS.
+is invented or implemented. Normal provider qualification remains black-box
+consumption as specified by AGENTS; an operator's separately authorized producer
+deployment attempt does not establish Studio management capabilities.
 
 ## Provider Experience
 
@@ -494,8 +495,11 @@ model identity, qualification, unavailable/refusal posture and provenance.
 Discovery, operator consent and suitability remain YAI application semantics.
 YVEX is a strategic first-party integration with additional qualified management
 capabilities; inference semantics remain generic. Studio now renders the generic
-provider target/posture already exposed by YAI, with sanitized endpoint identity.
-Live provider configuration and YVEX management remain unimplemented.
+provider target/posture exposed by YAI, with sanitized endpoint identity. Compute
+supports typed target registration, import of measured qualification evidence,
+trust decisions and explicit Case binding. Qualification records supplied
+evidence; it does not perform an undisclosed probe. Native YVEX management and
+Tenant-wide target discovery remain unimplemented.
 
 The UI preserves four different concepts:
 
@@ -1120,3 +1124,71 @@ regions. This is a local layout choice: groups, local buffers, terminal processe
 and hidden region state remain alive. Restore returns the prior visibility and
 geometry. A direct region command exits focus mode and reveals that region; it
 does not create another window or alter Case state.
+
+## Operational Case surfaces and governed intake
+
+Studio's primary perspectives evolve from reporting toward operational surfaces
+as typed YAI capabilities qualify. Navigation, menus, search, settings and panels
+extend the same Workbench; they do not establish parallel application owners.
+Back/Forward records Case-local presentation locations, including active Surface
+and explicit Inspector selection. Activity remains a concise latest-20 feed.
+Journal is a searchable, pausable projection of committed Transition history;
+its current latest-160 bound is disclosed and is not a full ledger browser.
+Executions and Evidence can show committed lifecycle/observation references;
+that is distinct from a live execution handle, result body or receipt projection.
+
+A policy document is a carrier with provenance, not an authority role inferred
+from its filename. Qualified Source roles route policy-only Sources and their
+policy material to Authority. Mixed documentary/normative material can retain
+its documentary Source and exact original while its qualified normative region
+participates in the policy lifecycle. Studio must not remove documentary
+provenance or silently treat ordinary JSON, Markdown, TOML or prose as authority.
+The current explicit policy upload sends exact selected bytes to `policy.ingest`.
+YAI's supported compiler profiles, validation blockers, typed rules, conflicts
+and lifecycle results determine what is renderable. Publication and Case binding
+remain separate explicit actions. Neither drag-and-drop nor an LLM can activate
+policy. Recursive folder intake and a mixed-region routing preview require
+qualified acquisition and route projections; Studio currently refuses directory
+drops rather than scanning the filesystem.
+
+Authority renders typed rule effects, subjects/roles, operations, constraints,
+reasons and provenance where returned by the owner. Current Case bindings are
+separate from transient imported-artifact results. The Application does not yet
+supply a general policy catalog/read operation, combined EffectivePolicy
+explanation or policy simulation. Reconstructing those in React would create a
+second authority evaluator. A future explanatory model may narrate qualified
+rules and their interactions, but its output remains candidate explanation,
+never permission or an executable policy decision.
+
+Recall exposes documentary evidence, historical experience, exact cut, selection
+reasons and closure limitations. Working State exposes current mandatory control,
+explicit evidence groups, budgets, omissions and W4 paging. Expanding a group is
+an explicit operation. Decision Frontier preparation requires actual alternatives
+from the exact requalified Working State; request preparation neither scores nor
+executes them. No retrieval score becomes confidence, and a captured result does
+not attest current authority after the Case changes. Ambient refresh belongs to
+an actual consumer lineage; an inspection Surface cannot invent that lineage.
+
+Work composes Workflow, Handoff and current projected operational history.
+Workflow authoring currently supports bounded human checkpoints and explicit
+patch adoption; YAI retains topology and progression semantics. Handoff uses
+exact same-Tenant Case identities and transfers neither authority nor Resources.
+Absent inbox/effective-topology/execution projections remain visible boundaries.
+
+Compute distinguishes model identity, provider adapter/runtime, exact deployment,
+qualification, trust, health observations and Case binding. Registration does not
+qualify a target. Importing measured probe evidence records an existing observation;
+it does not run a network probe. Binding does not bypass execution-time authority.
+YVEX compatibility is a generic OpenAI-compatible target with optional extension
+telemetry; it is not proof of producer identity or native management. Operational
+provider/YVEX controls belong in Compute; Settings contains local preferences and
+navigation to that management Surface.
+
+Graphs occupy the Work Surface, with shared pan/zoom, drag, search, filters,
+selection, neighborhoods and relation inspection. Knowledge uses associative
+layout; Experience uses temporal layout. Workflow retains directed progression.
+Layout and clustering never create semantic relations. Unresolved exact refs
+remain explicit. Historical archaeology inspected `yai-dev` at `5c1c7b9d0`,
+including the non-executable graph view stub and the adjacent lineage graph
+projection boundary: exact relation identity and explanation are retained in the
+current projection/Inspector seam; historical UI/runtime ownership is not copied.

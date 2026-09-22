@@ -1,5 +1,9 @@
+import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
+import type { ProviderRegistration, ProviderQualificationInput, ProviderBindingInput } from "./compute";
 import { APPLICATION_PROTOCOL, type LiveClient, type OperationResult } from "./live";
 import type { HostServices } from "../platform/host";
+import type { PolicyLifecycleAction, PolicyLifecycleInput } from "./policy";
+import type { RecallRequest, WorkingStateRequest, WorkingState, WorkingRefreshRequest, PageRequest, DecisionPrepareInput } from "./memory";
 import { toDisposable, type Disposable } from "../platform/lifecycle";
 
 export interface ApplicationOperation {
@@ -16,6 +20,7 @@ export interface ApplicationCatalog {
   operations: ApplicationOperation[]; capabilities: ApplicationCapability[];
 }
 export interface TenantPresentation { membership: string; tenant: { tenant_id: string; organization_ref: string } }
+export interface IdentityPresentation { principal: { principal_id: string; authentication_method: string }; tenants: TenantPresentation[]; authentication: { binding_ref: string } }
 /** Authored source setup; action values are the published Application contract. */
 export interface SourceDeclarationInput {
   case_ref: string; perimeter: string; logical_name: string; participant_ref: string; resource_ref: string;
@@ -26,6 +31,15 @@ export interface SourceDeclarationInput {
 export interface CasePolicyBindingInput { case_ref: string; artifact_ref: string; expected_generation: number; reason: string }
 export interface CasePolicyReplacementInput extends CasePolicyBindingInput { prior_binding_ref: string }
 export interface CasePolicyUnbindingInput { case_ref: string; binding_ref: string; expected_generation: number; reason: string }
+export type ResourceOperationKind = "filesystem_write" | "process_signal" | { resource_access: string };
+export function resourceOperationLabel(kind: ResourceOperationKind): string {
+  return (typeof kind === "string" ? kind : kind.resource_access).replaceAll("_", " ");
+}
+export interface CaseCapabilityView {
+  case_id: string; case_generation: number; participant_id: string; view_id: string; effective_policy_id: string;
+  entries: Array<{ resource: { attachment_id: string }; operation_kind: ResourceOperationKind; requires_current_decision: boolean; policy_constraints: Array<{ kind: string; effect?: string; required?: boolean; resolution: string }> }>;
+  exclusions: Array<{ resource_id: string; operation_kind: ResourceOperationKind; reason: string }>;
+}
 export interface ApplicationAvailability {
   state: "checking" | "available" | "unavailable";
   catalog?: ApplicationCatalog; reason?: string;
@@ -79,7 +93,32 @@ export class ApplicationAccess implements Disposable {
   private invoke<T>(operation: string, action: () => Promise<OperationResult<T>>) {
     return this.supports(operation) ? action() : Promise.resolve(this.unavailable<T>(operation));
   }
+  defineWorkflow(input: WorkflowDefinitionInput) { return this.invoke("workflow.define", () => this.client.defineWorkflow(input)); }
+  bindWorkflow(input: WorkflowBindInput) { return this.invoke("workflow.bind", () => this.client.bindWorkflow(input)); }
+  proposeWorkflowPatch(input: { case_ref: string; patch: WorkflowPatchInput }) { return this.invoke("workflow.patch.propose", () => this.client.proposeWorkflowPatch(input)); }
+  adoptWorkflowPatch(input: { case_ref: string; patch_ref: string }) { return this.invoke("workflow.patch.adopt", () => this.client.adoptWorkflowPatch(input)); }
+  offerHandoff(input: HandoffOfferInput) { return this.invoke("handoff.offer", () => this.client.offerHandoff(input)); }
+  acceptHandoff(input: HandoffAcceptInput) { return this.invoke("handoff.accept", () => this.client.acceptHandoff(input)); }
+  declineHandoff(input: HandoffDeclineInput) { return this.invoke("handoff.decline", () => this.client.declineHandoff(input)); }
+  resultHandoff(input: HandoffResultInput) { return this.invoke("handoff.result.record", () => this.client.resultHandoff(input)); }
+  reconcileHandoff(input: { source_case_ref: string; handoff_ref: string }) { return this.invoke("handoff.reconcile", () => this.client.reconcileHandoff(input)); }
+  registerProvider(input: ProviderRegistration) { return this.invoke("provider.register", () => this.client.registerProvider(input)); }
+  qualifyProvider(input: ProviderQualificationInput) { return this.invoke("provider.qualify", () => this.client.qualifyProvider(input)); }
+  trustProvider(input: { target_ref: string; posture: "approved" | "denied" }) { return this.invoke("provider.trust.set", () => this.client.trustProvider(input)); }
+  bindProvider(input: ProviderBindingInput) { return this.invoke("provider.case.bind", () => this.client.bindProvider(input)); }
+  caseCapabilities(input: { case_ref: string; participant_ref: string }) { return this.invoke("case.capabilities", () => this.client.caseCapabilities(input)); }
+  publishSource(input: { case_ref: string; source_ref: string; reason: string }) { return this.invoke("source.publish", () => this.client.publishSource(input)); }
   tenants() { return this.invoke("tenant.list", () => this.client.listTenants()); }
+  identity() { return this.invoke("identity.current", () => this.client.currentIdentity()); }
+  bootstrapIdentity(input: { tenant_id: string; organization_ref: string }) { return this.invoke("identity.bootstrap", () => this.client.bootstrapIdentity(input)); }
+  tenant(input: { tenant_id: string }) { return this.invoke("tenant.get", () => this.client.tenant(input)); }
+  recall(request: RecallRequest) { return this.invoke("semantic.recall", () => this.client.recall(request)); }
+  prepareFrontier(working_state: WorkingState, max_candidates: number) { return this.invoke("decision.frontier.prepare", () => this.client.prepareFrontier(working_state, max_candidates)); }
+  prepareDecision(input: DecisionPrepareInput) { return this.invoke("decision.request.prepare", () => this.client.prepareDecision(input)); }
+  compileWorkingState(request: WorkingStateRequest, pageable: boolean) { return this.invoke("semantic.working_state.compile", () => this.client.compileWorkingState(request, pageable)); }
+  refreshWorkingState(state: WorkingState, request: WorkingRefreshRequest) { return this.invoke("semantic.working_state.refresh", () => this.client.refreshWorkingState(state, request)); }
+  pageWorkingState(state: WorkingState, request: PageRequest) { return this.invoke("semantic.working_state.page", () => this.client.pageWorkingState(state, request)); }
+  admitParticipantView(input: { case_ref: string; participant_ref: string; consumer: "model"; view_kind: "model_context" }) { return this.invoke("participant.view.admit", () => this.client.admitParticipantView(input)); }
   createCase(input: { tenant_id: string; case_ref: string }) { return this.invoke("case.create", () => this.client.createCase(input)); }
   addParticipantRole(input: { case_ref: string; participant_ref: string; role: string }) { return this.invoke("participant.role.add", () => this.client.addParticipantRole(input)); }
   linkCurrentPrincipal(input: { case_ref: string; participant_ref: string }) { return this.invoke("participant.principal.link", () => this.client.linkCurrentPrincipal(input)); }
@@ -91,5 +130,7 @@ export class ApplicationAccess implements Disposable {
   bindPolicy(input: CasePolicyBindingInput) { return this.invoke("policy.case.bind", () => this.client.bindPolicy(input)); }
   replacePolicy(input: CasePolicyReplacementInput) { return this.invoke("policy.case.replace", () => this.client.replacePolicy(input)); }
   unbindPolicy(input: CasePolicyUnbindingInput) { return this.invoke("policy.case.unbind", () => this.client.unbindPolicy(input)); }
+  ingestPolicy(input: { tenant_id: string; source_bytes: number[] }) { return this.invoke("policy.ingest", () => this.client.ingestPolicy(input)); }
+  policyLifecycle(action: PolicyLifecycleAction, input: PolicyLifecycleInput) { return this.invoke(`policy.${action}`, () => this.client.policyLifecycle(action, input)); }
   dispose() { this.epoch++; this.stop.dispose(); this.listeners.clear(); }
 }

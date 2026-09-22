@@ -38,6 +38,6 @@ export function InspectorView({ workspace, selection, actions, platform }: Auxil
       const outgoing = edge.from === selection;
       const related = outgoing ? edge.to : edge.from;
       return { id: edge.id, title: findFact(workspace, related).title, detail: `${outgoing ? "→ Outgoing" : "← Incoming"} · ${edge.kind.replaceAll("_", " ")}`, icon: factIcon(factKind(workspace, related)), searchText: related };
-    })} onSelect={id => { const edge = relations.find(item => item.id === id)!; actions.inspect(edge.from === selection ? edge.to : edge.from); }} /></section>}
+    })} onSelect={id => actions.inspect(id)} /></section>}
   </div>;
 }

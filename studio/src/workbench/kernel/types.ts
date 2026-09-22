@@ -11,7 +11,7 @@ export interface WorkbenchActions {
   inspect(id: string): void;
   openSurface(input: SurfaceInput): void;
   openPerspective(id: string): void;
-  openSettings(): void;
+  openSettings(section?: string): void;
   updateSurface(id: string, patch: Partial<Omit<SurfaceInput, "id" | "identity">>): void;
   replaceSurface(id: string, input: SurfaceInput): void;
 }
@@ -53,6 +53,12 @@ export interface SidebarViewContribution {
   component: ComponentType<SidebarViewProps>;
 }
 
+export interface ActivityFooterContribution {
+  id: string;
+  order: number;
+  component: ComponentType<WorkbenchRenderContext>;
+}
+
 export interface SurfaceRendererProps extends WorkbenchRenderContext {
   input: SurfaceInput;
 }
@@ -92,4 +98,16 @@ export interface AuxiliaryViewContribution {
 export interface InspectorContribution {
   kind: string;
   component: ComponentType<AuxiliaryViewProps>;
+}
+
+export interface QuickOpenContribution { id: string; items(context: WorkbenchRenderContext): readonly WorkbenchSearchItem[] }
+
+export interface WorkbenchSearchItem {
+  id: string;
+  label: string;
+  detail?: string;
+  category: string;
+  icon: IconName;
+  disabled?: boolean;
+  run(): void;
 }

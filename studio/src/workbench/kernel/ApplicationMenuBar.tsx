@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlatformServices } from "../../platform/services";
 import type { MenuLocation } from "../../platform/menus";
+import { Icon } from "../../components/Icon";
 
-const locations: MenuLocation[] = ["YAI", "File", "Edit", "View", "Go", "Case", "Terminal", "Help"];
+const defaultLocations: MenuLocation[] = ["YAI", "File", "Edit", "View", "Go", "Case", "Terminal", "Help"];
 
-export function ApplicationMenuBar({ platform }: { platform: PlatformServices }) {
+export function ApplicationMenuBar({ platform, locations = defaultLocations, compact = false }: { platform: PlatformServices; locations?: MenuLocation[]; compact?: boolean }) {
   const [open, setOpen] = useState<MenuLocation>();
   const [, render] = useState(0);
   const root = useRef<HTMLElement>(null);
@@ -30,19 +31,19 @@ export function ApplicationMenuBar({ platform }: { platform: PlatformServices })
     window.addEventListener("pointerdown", dismiss); window.addEventListener("keydown", keyboard);
     return () => { window.removeEventListener("pointerdown", dismiss); window.removeEventListener("keydown", keyboard); };
   }, []);
-  return <nav ref={root} className="desktop-menu" aria-label="Application menu" onPointerDownCapture={() => rememberFocus(document.activeElement)} onFocusCapture={event => rememberFocus(event.relatedTarget)} onKeyDown={(event) => {
+  return <nav ref={root} className={`desktop-menu${compact ? " activity-manage" : ""}`} aria-label={compact ? "Manage Studio" : "Application menu"} onPointerDownCapture={() => rememberFocus(document.activeElement)} onFocusCapture={event => rememberFocus(event.relatedTarget)} onKeyDown={(event) => {
       const target = event.target as HTMLElement;
       const triggers = [...root.current!.querySelectorAll<HTMLButtonElement>('[aria-haspopup="menu"]')];
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         const index = triggers.findIndex((button) => button.parentElement?.contains(target));
         const next = triggers[(index + (event.key === "ArrowRight" ? 1 : -1) + triggers.length) % triggers.length];
-        next?.focus(); if (open) setOpen(next?.textContent as MenuLocation);
+        next?.focus(); if (open) setOpen(next?.dataset.location as MenuLocation);
       }
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         if (target.getAttribute("aria-haspopup") === "menu") {
-          setOpen(target.textContent as MenuLocation);
+          setOpen(target.dataset.location as MenuLocation);
           requestAnimationFrame(() => target.parentElement?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus());
         } else {
           const buttons = [...target.closest('[role="menu"]')?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []];
@@ -56,7 +57,7 @@ export function ApplicationMenuBar({ platform }: { platform: PlatformServices })
       const items = platform.menus.getMenu(location);
       if (!items.length) return null;
       return <div className="desktop-menu-group" key={location}>
-        <button aria-haspopup="menu" aria-expanded={open === location} onClick={() => setOpen(open === location ? undefined : location)} onPointerEnter={() => open && setOpen(location)}>{location}</button>
+        <button data-location={location} aria-label={compact ? location : undefined} aria-haspopup="menu" aria-expanded={open === location} onClick={() => setOpen(open === location ? undefined : location)} onPointerEnter={() => open && setOpen(location)}>{compact ? <Icon name="settings" size={20} /> : location}</button>
         {open === location && <div className="desktop-menu-popover" role="menu" aria-label={`${location} menu`}>
           {items.map((item, index) => {
             const previous = items[index - 1];

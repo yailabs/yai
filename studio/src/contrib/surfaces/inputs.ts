@@ -1,6 +1,7 @@
 import type { CasePresentation } from "../../clients/dataSource";
 import type { IconName } from "../../components/Icon";
 import type { SurfaceInput } from "../../workbench/surface/model";
+import { isPolicySource } from "../case/environment";
 
 export const surfaceTypes = {
   perspective: "case.perspective",
@@ -17,6 +18,8 @@ export const surfaceTypes = {
   table: "data.table",
   timeline: "case.timeline",
   graph: "case.graph",
+  recall: "memory.recall",
+  workingState: "memory.working-state",
   settings: "studio.settings",
   unavailable: "material.unavailable",
 } as const;
@@ -33,6 +36,11 @@ export function settingsInput(): SurfaceInput {
 export function timelineInput(pinned = false): SurfaceInput {
   const identity = "case-view:memory-timeline";
   return { id: pinned ? identity : "surface:preview", identity, surfaceType: surfaceTypes.timeline, title: "Case Timeline", icon: "memory", pinned, viewId: "Memory", metadata: { projection: "memory.timeline" } };
+}
+
+export function memoryInput(kind: "recall" | "workingState", pinned = true): SurfaceInput {
+  const identity = `case-view:${kind}`;
+  return { id: identity, identity, surfaceType: surfaceTypes[kind], title: kind === "recall" ? "Recall" : "Working State", icon: "memory", pinned, viewId: "Memory" };
 }
 
 export function graphInput(projection: "memory" | "knowledge", pinned = false): SurfaceInput {
@@ -104,7 +112,8 @@ export function fileInput(
 export function sourceInput(workspace: CasePresentation, objectRef: string, pinned = false): SurfaceInput {
   const source = workspace.environment.sources.find((item) => item.id === objectRef);
   const identity = `source:${objectRef}`;
-  return { id: pinned ? identity : "surface:preview", identity, surfaceType: surfaceTypes.source, title: source?.label ?? objectRef, icon: "source", pinned, objectRef, viewId: "Environment" };
+  const policy = source && isPolicySource(source);
+  return { id: pinned ? identity : "surface:preview", identity, surfaceType: surfaceTypes.source, title: source?.label ?? objectRef, icon: policy ? "authority" : "source", pinned, objectRef, viewId: policy ? "Authority" : "Environment" };
 }
 
 export function resourceInput(workspace: CasePresentation, objectRef: string, pinned = false): SurfaceInput {

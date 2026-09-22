@@ -1,6 +1,6 @@
 import { toDisposable, type Disposable } from "../../platform/lifecycle";
 
-export type SettingSection = "General" | "Appearance" | "Workbench" | "Terminal" | "YAI Host" | "Providers" | "YVEX" | "Security" | "Advanced";
+export type SettingSection = "General" | "Appearance" | "Workbench" | "Editor" | "Terminal" | "Identity" | "YAI Host" | "Security" | "Advanced";
 export type SettingScope = "local" | "case" | "host";
 
 export interface SettingDefinition {

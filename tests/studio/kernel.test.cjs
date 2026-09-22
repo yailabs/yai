@@ -17,6 +17,26 @@ const { materialIdentity, validateMaterialRead, validateMaterialContent, Materia
 const { detectEditorLanguage } = require(path.join(studio, "contrib/surfaces/editorLanguage.js"));
 const { buildFileTree } = require(path.join(studio, "contrib/case/environment.js"));
 
+test("policy routing uses declared roles without losing dual-role material or inferring filenames", () => {
+  const { environmentMaterials, isPolicySource } = require(path.join(studio, "contrib/case/environment.js"));
+  const { sourceInput } = require(path.join(studio, "contrib/surfaces/inputs.js"));
+  const sources = [
+    {id:'source:rules',label:'ordinary.txt',roles:['policy']},
+    {id:'source:handbook',label:'handbook.md',roles:['policy','knowledge']},
+    {id:'source:documentation',label:'policy.json',roles:['knowledge']},
+  ];
+  const files=sources.map(source=>({id:`file:${source.id}`,source_ref:source.id,path:source.label}));
+  const workspace={environment:{sources,files}};
+  const shown=environmentMaterials(workspace);
+  assert.deepEqual(shown.sources.map(item=>item.id),['source:handbook','source:documentation']);
+  assert.deepEqual(shown.files.map(item=>item.path),['handbook.md','policy.json']);
+  assert.equal(isPolicySource(sources[2]),false);
+  assert.equal(sourceInput(workspace,'source:rules').viewId,'Authority');
+  assert.equal(sourceInput(workspace,'source:handbook').viewId,'Authority');
+  assert.equal(sourceInput(workspace,'source:documentation').viewId,'Environment');
+  assert.equal(workspace.environment.files.length,3,'presentation must not remove original provenance');
+});
+
 test("commands register, gate, execute and dispose without global state", async () => {
   const context = new ContextKeyService();
   const commands = new CommandService(context);
@@ -316,7 +336,7 @@ test("graph accounts for every qualified endpoint without inventing object detai
 test("Inspector uses qualified Knowledge content and exact revision closure for file navigation", () => {
   const { findFact, factKind, factReferences } = require(path.join(studio, "contrib/case/facts.js"));
   const file = { id: "file:1", source_ref: "source:1", revision_ref: "r:1", path: "guide.md", digest: "digest:1" };
-  const workspace = { case: {}, presentation: {}, overview: { participants: [] }, environment: { files: [file, { ...file, id: "file:wrong", revision_ref: "r:2" }], sources: [], resources: [] }, knowledge: { units: [{ id: "unit:1", source_ref: "document:1", text: "EXACT_TEXT_FROM_YAI", kind: "claim", posture: "derived", references: [], topics: [] }], sources: [{ ...file, id: "document:1" }], entities: [], contradictions: [] } };
+  const workspace = { memory: { relations: [] }, work: { edges: [], nodes: [] }, case: {}, presentation: {}, overview: { participants: [] }, environment: { files: [file, { ...file, id: "file:wrong", revision_ref: "r:2" }], sources: [], resources: [] }, knowledge: { units: [{ id: "unit:1", source_ref: "document:1", text: "EXACT_TEXT_FROM_YAI", kind: "claim", posture: "derived", references: [], topics: [] }], sources: [{ ...file, id: "document:1" }], entities: [], contradictions: [], relations: [] } };
   assert.equal(findFact(workspace, "unit:1").detail, "EXACT_TEXT_FROM_YAI");
   assert.equal(factKind(workspace, "unit:1"), "knowledge unit");
   assert.deepEqual(factReferences(workspace, "unit:1"), ["document:1"]);

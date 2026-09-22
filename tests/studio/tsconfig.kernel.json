@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "module": "CommonJS",
     "moduleResolution": "Node",
     "rootDir": "../..",
@@ -31,6 +34,7 @@
     "../../studio/src/contrib/case/environment.ts",
     "../../studio/src/workbench/kernel/registry.ts",
     "../../studio/src/contrib/case/graph.ts",
-    "../../studio/src/contrib/case/facts.ts"
+    "../../studio/src/contrib/case/facts.ts",
+    "../../studio/src/contrib/settings/capabilityPosture.ts"
   ]
 }

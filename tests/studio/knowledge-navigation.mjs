@@ -49,6 +49,11 @@ try {
  await page.locator('.graph-viewport').waitFor();
  assert.ok(await page.locator('.graph-node').count() <= 20);
  assert.match(await page.locator('.graph-summary').innerText(), new RegExp(`of ${facts.relations} relations`));
+ const canvas=page.getByRole('group',{name:'Graph objects and directed relations'});
+ const surface=await page.locator('.live-surface').boundingBox();const frame=await canvas.boundingBox();assert.ok(frame.height>surface.height*.65,'Graph must occupy the Surface, not a small inner widget');
+ const edge=page.locator('[data-relation-id]').first();await edge.focus();await page.keyboard.press('Enter');assert.equal(await page.locator('.inspector').getAttribute('data-inspected-ref'),await edge.getAttribute('data-relation-id'));
+ await page.getByRole('combobox',{name:'Graph relation kind'}).selectOption('contains');assert.ok(await page.locator('[data-relation-id]').count()>0);await page.getByRole('combobox',{name:'Graph relation kind'}).selectOption('');
+ const zoomBefore=await page.locator('.graph-tools').innerText();await page.mouse.move(frame.x+frame.width/2,frame.y+frame.height/2);await page.mouse.wheel(0,-240);await page.waitForFunction(old=>document.querySelector('.graph-tools').innerText!==old,zoomBefore);await page.getByRole('button',{name:'Fit',exact:true}).click();
  const firstNode = page.locator('.graph-node').first(); await firstNode.focus(); await page.keyboard.press('Enter');
  assert.equal(await firstNode.getAttribute('aria-pressed'),'true');
  await page.getByRole('button',{name:'Show related',exact:true}).click();
@@ -74,5 +79,5 @@ try {
   await page.screenshot({path:`${evidence}/knowledge-${width}x${height}.png`});
  }
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',qualification:capture?'recorded Host projection replay':'authored deterministic Case projection',generation:facts.generation,units:facts.units,nodes:facts.nodes,relations:facts.relations,proof:['full-set search','bounded DOM','exact Inspector content','endpoint completeness','keyboard selection','drag in SVG coordinates','fit','four viewport sizes'],consoleErrors:0}));
+ console.log(JSON.stringify({result:'PASS',qualification:capture?'recorded Host projection replay':'authored deterministic Case projection',generation:facts.generation,units:facts.units,nodes:facts.nodes,relations:facts.relations,proof:['full-set search','bounded DOM','exact Inspector content','endpoint completeness','keyboard selection','drag in SVG coordinates','fit','full Surface canvas','wheel zoom','relation filtering and edge Inspector','four viewport sizes'],consoleErrors:0}));
 } finally { await browser.close(); }

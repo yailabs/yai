@@ -34,7 +34,7 @@ export class NavigationService {
 
   subscribe(listener: () => void) {
     this.listeners.add(listener);
-    return { dispose: () => this.listeners.delete(listener) };
+    return { dispose: () => { this.listeners.delete(listener); } };
   }
 
   dispose() {

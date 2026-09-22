@@ -12,6 +12,17 @@ const actions = [
 ] as const;
 type Action = typeof actions[number]["id"];
 
+export function PublishSourcePolicyAction({ application, workspace, sourceRef, refresh }: {
+  application?: ApplicationAccess; workspace: CasePresentation; sourceRef: string; refresh(): void | Promise<void>;
+}) {
+  useApplicationAvailability(application);
+  const [open, setOpen] = useState(false);
+  const source = workspace.environment.sources.find(item => item.id === sourceRef);
+  if (!source?.roles.includes("policy") || !application) return null;
+  const enabled = application.supports("source.publish") && Boolean(source.revision_ref) && source.posture !== "revoked";
+  return <div className="environment-actions"><Button disabled={!enabled} onClick={() => setOpen(true)}>Publish Source policy…</Button>{open && <ApplicationActionDialog title="Publish Source policy" description="Validate and publish the exact acquired bootstrap-policy candidate, then bind it through the existing YAI Source lifecycle. YAI checks bootstrap eligibility, all required candidates, conflicts and current authority. Ordinary policy-role files do not qualify automatically." submitLabel="Publish and bind" close={() => setOpen(false)} enabled={enabled} submit={form => application.publishSource({ case_ref: workspace.case.case_ref, source_ref: sourceRef, reason: String(form.get("reason")).trim() })} committed={refresh} resync={refresh}><p>{source.label} · {source.revision_ref}</p><label>Review reason<textarea autoFocus required name="reason" rows={3} /></label></ApplicationActionDialog>}</div>;
+}
+
 export function DeclareSourceAction({ application, workspace, resourceRef, refresh }: {
   application?: ApplicationAccess; workspace: CasePresentation; resourceRef?: string; refresh(): void | Promise<void>;
 }) {

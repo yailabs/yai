@@ -2,6 +2,46 @@ import type { LiveEdge, LiveNode, LiveWorkspace } from "../../clients/live";
 
 export interface GraphNode extends LiveNode { referenceOnly?: boolean }
 export interface CaseGraph { nodes: GraphNode[]; edges: LiveEdge[] }
+export type GraphLayout = "relational" | "directed" | "temporal";
+
+/** Local geometry only. It neither infers nor appends a relation. */
+export function arrangeGraph(nodes: GraphNode[], edges: LiveEdge[], layout: GraphLayout, columns: number) {
+  if (layout === "temporal") return nodes.map((node, index) => ({ ...node, x: 115 + (index % columns) * 220, y: 55 + Math.floor(index / columns) * 110 }));
+  if (layout === "directed") {
+    const levels = new Map<string, number>();
+    const remaining = new Set(nodes.map(node => node.id));
+    let level = 0;
+    while (remaining.size) {
+      const roots = [...remaining].filter(id => !edges.some(edge => edge.to === id && edge.from !== id && remaining.has(edge.from)));
+      // Cycles are retained and placed together; layout does not claim a DAG.
+      const next = roots.length ? roots : [...remaining];
+      next.forEach(id => { levels.set(id, level); remaining.delete(id); }); level++;
+    }
+    const rows = new Map<number, number>();
+    return nodes.map(node => { const column = levels.get(node.id)!; const row = rows.get(column) ?? 0; rows.set(column, row + 1); return { ...node, x: 115 + column * 235, y: 60 + row * 100 }; });
+  }
+  // Deterministic bounded force layout for the currently displayed projection.
+  const positions = nodes.map((node, index) => ({ ...node, x: Math.cos(index * 2 * Math.PI / Math.max(1, nodes.length)) * Math.max(180, nodes.length * 24), y: Math.sin(index * 2 * Math.PI / Math.max(1, nodes.length)) * Math.max(120, nodes.length * 16) }));
+  const index = new Map(positions.map((node, i) => [node.id, i]));
+  for (let step = 0; step < 70; step++) {
+    const forces = positions.map(() => ({ x: 0, y: 0 }));
+    for (let a = 0; a < positions.length; a++) for (let b = a + 1; b < positions.length; b++) {
+      const dx = positions[a].x - positions[b].x || .1, dy = positions[a].y - positions[b].y || .1;
+      const squared = Math.max(400, dx * dx + dy * dy);
+      const strength = 900 / squared;
+      forces[a].x += dx * strength; forces[a].y += dy * strength;
+      forces[b].x -= dx * strength; forces[b].y -= dy * strength;
+    }
+    for (const edge of edges) {
+      const a = index.get(edge.from), b = index.get(edge.to); if (a === undefined || b === undefined || a === b) continue;
+      const dx = positions[b].x - positions[a].x, dy = positions[b].y - positions[a].y;
+      const strength = .07 * Math.max(0, (Math.hypot(dx, dy) - 230) / 230);
+      forces[a].x += dx * strength; forces[a].y += dy * strength; forces[b].x -= dx * strength; forces[b].y -= dy * strength;
+    }
+    positions.forEach((node, i) => { node.x += Math.max(-12, Math.min(12, forces[i].x - node.x * .035)); node.y += Math.max(-12, Math.min(12, forces[i].y - node.y * .035)); });
+  }
+  return positions;
+}
 export const textLabel = (text: string, fallback: string) => text.trim().split("\n").find(Boolean)?.slice(0, 90) || fallback;
 
 /** Presentation index only: an endpoint is never dropped or promoted to a new Case object. */

@@ -1,16 +1,9 @@
 import { useModalFocus } from "../../components/useModalFocus";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Icon, type IconName } from "../../components/Icon";
+import { Icon } from "../../components/Icon";
 
-export interface WorkbenchSearchItem {
-  id: string;
-  label: string;
-  detail?: string;
-  category: string;
-  icon: IconName;
-  disabled?: boolean;
-  run(): void;
-}
+export type { WorkbenchSearchItem } from "../kernel/types";
+import type { WorkbenchSearchItem } from "../kernel/types";
 
 export function fuzzyScore(query: string, text: string) {
   const needle = query.trim().toLocaleLowerCase();

@@ -2,7 +2,7 @@ import type { ContextPredicate, ContextKeyService } from "./context";
 import { toDisposable, type Disposable } from "./lifecycle";
 
 export type MenuLocation =
-  | "YAI" | "File" | "Edit" | "View" | "Go" | "Case" | "Terminal" | "Help"
+  | "YAI" | "File" | "Edit" | "View" | "Go" | "Case" | "Terminal" | "Help" | "Manage"
   | "tree/context" | "editor/context" | "graph/node/context"
   | "graph/edge/context" | "inspector/context" | "terminal/context";
 

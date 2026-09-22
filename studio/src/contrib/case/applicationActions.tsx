@@ -16,17 +16,21 @@ export function NewCaseDialog({ application, close, created }: { application: Ap
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [caseRef, setCaseRef] = useState("");
+  const [bootstrap, setBootstrap] = useState(false);
+  const [revision, setRevision] = useState(0);
   useEffect(() => { let active = true; void application.tenants().then(result => {
     if (!active) return;
     if (result.result_state === "success" && Array.isArray(result.data) && result.data.every(item => typeof item?.tenant?.tenant_id === "string" && typeof item.membership === "string")) setTenants(result.data);
     else setError(result.error?.safe_message ?? "Authorized Tenants are unavailable.");
     setLoading(false);
-  }); return () => { active = false; }; }, [application]);
+  }); return () => { active = false; }; }, [application, revision]);
+  if (bootstrap) return <ApplicationActionDialog title="Set up local identity" description="Enroll this authenticated local Principal and establish the Tenant/organization through YAI. No cloud account or Case is created by this action." submitLabel="Set up identity" close={() => setBootstrap(false)} enabled={application.supports("identity.bootstrap")} submit={form => application.bootstrapIdentity({ tenant_id: String(form.get("tenant")).trim(), organization_ref: String(form.get("organization")).trim() })} committed={() => { setError(undefined); setLoading(true); setRevision(value => value + 1); }}><label>Tenant reference<input autoFocus required name="tenant" placeholder="tenant:my-work" /></label><label>Organization reference<input required name="organization" placeholder="organization:my-work" /></label></ApplicationActionDialog>;
   return <ApplicationActionDialog title="New Case" description="Create durable Case continuity in one of your authorized Tenants. Sources, Resources and provider bindings are configured separately." submitLabel="Create Case" close={close} enabled={application.supports("case.create") && tenants.length > 0} submit={form => application.createCase({ tenant_id: String(form.get("tenant")), case_ref: caseRef.trim() })} committed={() => created(caseRef.trim())}>
     <label>Tenant<select name="tenant" required aria-label="Tenant">{tenants.map(({ tenant, membership }) => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.tenant_id} · {membership}</option>)}</select></label>
     <label>Case reference<input autoFocus required name="case" value={caseRef} onChange={event => setCaseRef(event.target.value)} placeholder="case:research-project" pattern="case:[A-Za-z0-9_.:-]+" /></label>
     <small>YAI derives the display name from this durable reference.</small>
     {error && <p role="alert">{error}</p>}{loading ? <p role="status">Loading authorized Tenants…</p> : !tenants.length && !error && <p>No authorized Tenant is available yet.</p>}
+    {!loading && !tenants.length && application.supports("identity.bootstrap") && <Button onClick={() => setBootstrap(true)}>Set up local identity…</Button>}
   </ApplicationActionDialog>;
 }
 

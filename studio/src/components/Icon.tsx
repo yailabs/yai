@@ -13,6 +13,7 @@ const paths = {
   audio: "M9 18V6l9-2v12 M9 18a3 2 0 1 1-3-2 3 2 0 0 1 3 2 M18 16a3 2 0 1 1-3-2 3 2 0 0 1 3 2",
   video: "M4 6h11v12H4z M15 10l5-3v10l-5-3",
   source: "M8 7h8 M7 4h10v6H7z M7 14h10v6H7z M12 10v4",
+  network: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M3 12h18 M12 3c-5 5-5 13 0 18 M12 3c5 5 5 13 0 18",
   resource: "M8 3v5 M16 3v5 M6 8h12v3a6 6 0 0 1-12 0z M12 17v4",
   work: "M5 5h4v4H5z M15 15h4v4h-4z M7 9v8h8 M9 7h8v8",
   provider: "M7 3v4 M17 3v4 M5 7h14v4a7 7 0 0 1-14 0z M12 18v4",

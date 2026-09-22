@@ -119,7 +119,7 @@ try {
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.file.settings'));
  await page.getByRole('button',{name:'Advanced',exact:true}).click();
  await page.getByRole('region',{name:'Application capabilities'}).waitFor();
- assert.match(await page.locator('.application-capabilities').innerText(),/UI not integrated/);
+ assert.match(await page.locator('.application-capabilities').innerText(),/UI debt/);
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
   await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/capabilities-${width}x${height}.png`});
   assert.ok(await page.locator('.kernel-status').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight));

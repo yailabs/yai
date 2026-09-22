@@ -6,8 +6,8 @@ export function Button({ className = "", ...props }: ButtonHTMLAttributes<HTMLBu
 export function IconButton({ className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`ui-icon-button ${className}`} {...props} />;
 }
-export function SearchInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className="ui-search" type="search" {...props} />;
+export function SearchInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={`ui-search ${className}`} type="search" {...props} />;
 }
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "info" | "success" | "warning" | "error" }) {
   return <span className={`ui-badge tone-${tone}`}>{children}</span>;
