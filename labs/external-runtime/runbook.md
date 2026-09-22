@@ -121,6 +121,33 @@ make check-docs
 
 ## Failure Interpretation
 
+### Repeatable real-provider latency sampling
+
+For a locally installed llama.cpp or vLLM server, use the same explicit prompt
+and output cap through the generic OpenAI-compatible transport. Bind servers to
+loopback, run one model server at a time, and retain their exact launch arguments,
+runtime version, model revision/digest, precision, context size and GPU posture.
+Installation or a valid HTTP response alone does not qualify YAI execution.
+
+```bash
+python3 labs/shared/bin/benchmark-provider-http.py \
+  --endpoint http://127.0.0.1:43117/v1 \
+  --model '<exact served model>' \
+  --runtime '<runtime and version>' \
+  --weights '<revision/digest and precision>' \
+  --samples 5 \
+  --output build/evidence/providers/<unique-run-id>
+```
+
+The output directory must be new. It contains the manifest, unedited response
+bodies and provider-reported usage for each request, plus aggregate nonstreaming
+request latency with the first warmup excluded. Missing usage remains missing;
+words are not tokens. This does not measure TTFT, pure decode throughput, model
+correctness, or YAI overhead. Different precision/quantization is an explicit
+comparison limitation, not an equal-compute result. Follow direct transport
+sampling with the relevant real YAI product flow in an isolated qualification
+profile; retain those results separately from deterministic fixture evidence.
+
 - HTTP failures are endpoint evidence, not provider-quality conclusions.
 - Missing provider timing, token usage or response content must be reported as
   `Not measured`.
