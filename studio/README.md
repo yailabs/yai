@@ -300,3 +300,15 @@ npm run test:desktop:csp
 
 This lane uses authored asynchronous application responses and an instrumented
 Tauri bridge; it does not substitute for resident Host or native PTY acceptance.
+
+Populated Knowledge/Inspector qualification (same fixture Vite server):
+
+```sh
+npm run test:knowledge
+```
+
+This checks full-set search, bounded lists/canvas, exact Inspector content,
+qualified endpoint accounting, keyboard and pointer navigation at four sizes.
+`STUDIO_PROJECTION=/path/to/captured-case-summary.json` optionally replays a
+previous `case.summary` response. That mode is recorded projection evidence,
+not a claim of live transport or mutation qualification.

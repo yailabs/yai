@@ -29,6 +29,8 @@
     "../../studio/src/workbench/settings/registry.ts",
     "../../studio/src/contrib/surfaces/inputs.ts",
     "../../studio/src/contrib/case/environment.ts",
-    "../../studio/src/workbench/kernel/registry.ts"
+    "../../studio/src/workbench/kernel/registry.ts",
+    "../../studio/src/contrib/case/graph.ts",
+    "../../studio/src/contrib/case/facts.ts"
   ]
 }

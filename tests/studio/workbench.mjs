@@ -146,7 +146,7 @@ try {
   await page.getByPlaceholder("Send is not qualified").waitFor();
   await screenshot("conversation-quality-pass");
   await page.getByRole("button", { name: "Activity", exact: true }).click();
-  await page.getByText(/Through generation/).waitFor();
+  await page.getByText(/Latest \d+ of \d+ events/).waitFor();
   await screenshot("activity-quality-pass");
   report("Auxiliary Bar switches registered Conversation, Inspector and Activity contributions");
 

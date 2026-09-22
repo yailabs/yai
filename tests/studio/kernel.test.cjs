@@ -287,3 +287,38 @@ test("unrelated Case generation does not stale a dirty exact revision", () => {
   assert.equal(buffers.snapshot("A").source.generation, 2);
   assert.throws(() => buffers.initialize("A", "wrong file", { ...source, key: "other", path: "other.md" }), /identity/);
 });
+
+test("graph accounts for every qualified endpoint without inventing object detail or relations", () => {
+  const { knowledgeGraph, completeGraph, graphSlice } = require(path.join(studio, "contrib/case/graph.js"));
+  const edges = [{ id: "e:1", from: "unit:1", to: "document:1", kind: "derived_from" }, { id: "e:2", from: "document:1", to: "resource:1", kind: "backed_by" }, { id: "e:3", from: "unit:1", to: "missing:1", kind: "references" }];
+  const workspace = { knowledge: { sources: [{ id: "document:1", path: "guide.md" }], units: [{ id: "unit:1", text: "EXACT_UNIT_SENTINEL", kind: "text_block" }], entities: [], contradictions: [], relations: edges }, environment: { sources: [], files: [], resources: [{ id: "resource:1", label: "Repository" }] } };
+  const graph = knowledgeGraph(workspace);
+  assert.equal(graph.nodes.length, 4);
+  assert.deepEqual(graph.edges, edges);
+  for (const edge of graph.edges) for (const id of [edge.from, edge.to]) assert.ok(graph.nodes.some(node => node.id === id));
+  assert.equal(graph.nodes.find(node => node.id === "document:1").referenceOnly, undefined);
+  assert.equal(graph.nodes.find(node => node.id === "missing:1").referenceOnly, true);
+  assert.equal(graph.nodes.find(node => node.id === "unit:1").label, "EXACT_UNIT_SENTINEL");
+  const many = completeGraph(Array.from({ length: 107 }, (_, i) => ({ id: `n:${i}`, label: `node ${i}` })), Array.from({ length: 106 }, (_, i) => ({ id: `e:${i}`, from: "n:0", to: `n:${i + 1}`, kind: "references" })));
+  const ids = new Set(), relationIds = new Set();
+  const count = graphSlice(many, "", "n:0").pages;
+  for (let page = 0; page < count; page++) {
+    const slice = graphSlice(many, "", "n:0", page);
+    assert.ok(slice.nodes.length <= 20);
+    assert.ok(slice.nodes.some(node => node.id === "n:0"));
+    slice.nodes.forEach(node => ids.add(node.id)); slice.edges.forEach(edge => relationIds.add(edge.id));
+  }
+  assert.equal(ids.size, 107); assert.equal(relationIds.size, 106);
+  assert.deepEqual(graphSlice(many, "node 106", undefined).nodes.map(node => node.id), ["n:106"]);
+  assert.equal(graphSlice(many, "absent", undefined, 999).page, 0);
+});
+
+test("Inspector uses qualified Knowledge content and exact revision closure for file navigation", () => {
+  const { findFact, factKind, factReferences } = require(path.join(studio, "contrib/case/facts.js"));
+  const file = { id: "file:1", source_ref: "source:1", revision_ref: "r:1", path: "guide.md", digest: "digest:1" };
+  const workspace = { case: {}, presentation: {}, overview: { participants: [] }, environment: { files: [file, { ...file, id: "file:wrong", revision_ref: "r:2" }], sources: [], resources: [] }, knowledge: { units: [{ id: "unit:1", source_ref: "document:1", text: "EXACT_TEXT_FROM_YAI", kind: "claim", posture: "derived", references: [], topics: [] }], sources: [{ ...file, id: "document:1" }], entities: [], contradictions: [] } };
+  assert.equal(findFact(workspace, "unit:1").detail, "EXACT_TEXT_FROM_YAI");
+  assert.equal(factKind(workspace, "unit:1"), "knowledge unit");
+  assert.deepEqual(factReferences(workspace, "unit:1"), ["document:1"]);
+  assert.deepEqual(factReferences(workspace, "document:1"), ["source:1", "file:1"]);
+});

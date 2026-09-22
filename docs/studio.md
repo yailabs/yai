@@ -775,6 +775,16 @@ integration. They do not necessarily share vocabulary, clustering, layout or
 edge semantics. Each graph is a derived application projection, never canonical
 truth or an independent frontend store.
 
+Current bounded graph presentation accounts for every qualified endpoint.
+Endpoints without projected object detail remain explicit references. Full-set
+search, paginated neighborhoods, keyboard selection and coordinate-correct pan,
+zoom and fit are local presentation state. Visible/total counts disclose the
+relations outside the current page or filter; absence from the canvas is not
+absence from YAI. Knowledge collections distinguish documents, units, entities,
+topics and contradictions without inferring missing categories. Inspector
+exposes exact projected text and provenance references through shared local
+navigation. Rich temporal and graph exploration remains a further S4 program.
+
 Memory's target temporal view is a horizontal canvas able to present lanes,
 branches, overlapping activity, generation markers, event selection and links
 to graph/Inspector. Chronology never implies causality. Timeline, Graph,

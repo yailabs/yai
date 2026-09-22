@@ -111,6 +111,13 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    window with a dirty buffer and cancel: the window and draft must stay open.
    At 1000×650, verify that the bottom status bar remains within the window.
 
+   In Knowledge, switch Documents/Units/Topics, search a unit beyond the first
+   page and inspect its exact text and Source. Open the graph, select an object
+   with Enter, use Show related, drag and Fit; visible/total counts must explain
+   paginated relations. Inspect a Knowledge document and follow its Source/file
+   references. Authority must show the projected latest decision and grants,
+   without presenting a historical allow as permission for a new operation.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

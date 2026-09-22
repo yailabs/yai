@@ -37,7 +37,7 @@ Canonical status vocabulary, shared with the root YAI/YVEX roadmaps:
 
 ## Studio execution board
 
-**CURRENT — Root reliability before capability convergence.** Window-local
+**ESTABLISHED — Root reliability.** Window-local
 Case interaction sessions now retain drafts, tabs and navigation across
 attachment/refetch failures. Exact material identity and bytes gate buffer
 initialization; dirty previews pin, duplicate opens reuse the existing tab,
@@ -48,8 +48,18 @@ shared Workbench owners. The reliability suite qualifies these interactions at
 1600×960, 1440×900, 1280×800 and 1000×650; its instrumented desktop bridge is
 separate from native PTY acceptance.
 
+**CURRENT — Populated Case navigation and presentation.** Knowledge exposes
+searchable, bounded document/unit/entity/topic/contradiction collections. Every
+qualified graph endpoint is retained, including explicitly unresolved references;
+pages and neighborhoods state their visible/total relation counts. Inspector
+shows exact projected Knowledge text and navigable provenance. Overview now
+provides compact perspective destinations; Authority includes already-projected
+grants and the latest recorded decision, without implying a new authorization.
+Activity discloses its latest-20 limit and links to the full Timeline.
+This is a bounded read/product-quality foothold, not S4 completion.
+
 **NEXT — Capability Surface convergence and broader product quality.** The
-published baseline remains `4ba459e06fdefbbcf640f998f9f588cb8679f611` while the
+last reconciled publication is `8750df04e80073a264789bd755a3caaed89d4c8a` while the
 execution-lifecycle worktree changes are independently owned. The running Host
 can predate the checkout: discover its actual catalog before offering new
 operations. This reliability change does not claim consumption of the additional
@@ -319,8 +329,9 @@ root ROADMAP says.
   navigation.
 - **Dependencies:** adequate typed application projections and S2 Surface,
   Inspector, navigation and context seams.
-- **Current gaps:** current inspectors and temporal views remain bounded and
-  several relations cannot resolve a navigable endpoint.
+- **Current gaps:** current inspectors and temporal views remain bounded. A
+  relation endpoint without projected detail is explicitly a reference, not a
+  fabricated object; full typed resolution remains open.
 - **Completion boundary:** every displayed meaningful object/relation resolves
   through a typed Inspector and coordinated timeline/graph/work navigation.
 - **Non-goals:** a canonical frontend graph store or causality inferred from
