@@ -3033,3 +3033,22 @@ summary {
   flex-direction: column;
   gap: 0;
 }
+
+/* Editing failures remain visible without obscuring or replacing the active content. */
+.editing-notice {
+  position: absolute;
+  right: 14px;
+  bottom: 34px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(510px, calc(100% - 28px));
+  padding: 12px 14px;
+  background: var(--yai-floating);
+  color: var(--yai-text);
+  border: 1px solid var(--yai-warning);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}

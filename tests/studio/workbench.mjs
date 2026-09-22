@@ -8,7 +8,7 @@ const { chromium } = require("playwright-core");
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : fallback; };
-const base = option("--url", "http://127.0.0.1:1420");
+const base = option("--url", process.env.STUDIO_TEST_URL ?? "http://127.0.0.1:1420");
 const output = path.resolve(option("--output", "/tmp/yai-studio-workbench"));
 const executablePath = process.env.CHROMIUM_PATH || "/usr/bin/chromium";
 const width = Number(option("--width", "1440"));

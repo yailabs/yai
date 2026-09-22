@@ -158,6 +158,12 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    `npm run test:authority` automates the positive/stale paths and replay through
    the real Host. It does not imply a policy artifact browser or import workflow.
 
+   Exercise Edit > Copy/Cut/Paste and Undo/Redo in a file, then Paste into
+   Settings search. Start Paste and switch files before clipboard permission
+   resolves: Studio must cancel it without contaminating either buffer. In the
+   desktop terminal, Ctrl-Shift-V pastes and Ctrl-C still interrupts the shell.
+   `npm run test:editing` covers the clipboard/refusal/focus paths in the browser.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

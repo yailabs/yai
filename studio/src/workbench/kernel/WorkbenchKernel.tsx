@@ -1,6 +1,6 @@
 import { SurfaceTabs } from "../surface/SurfaceTabs";
 import { OpenWith } from "../surface/OpenWith";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CasePresentation, CaseSearchResult } from "../../clients/dataSource";
 import type { MaterialReadProjection, OperationResult } from "../../clients/live";
 import { Icon } from "../../components/Icon";
@@ -32,6 +32,8 @@ export interface WorkbenchKernelProps {
 }
 
 export function WorkbenchKernel({ workspace, stream, platform, registry, readMaterial, searchCase, refresh, openCaseSwitcher }: WorkbenchKernelProps) {
+  const editingNotice = useSyncExternalStore(useCallback(listener => platform.editing.subscribe(listener).dispose, [platform.editing]), platform.editing.snapshot);
+  useEffect(() => platform.editing.attach().dispose, [platform.editing]);
   const containers = useMemo(() => registry.viewContainers(), [registry]);
   const [activeContainer, setActiveContainer] = useState(containers[0]?.id ?? "Overview");
   const [selection, setSelection] = useState(workspace.case.case_ref);
@@ -169,9 +171,8 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     }, when.truthy("surface.searchable"));
     command("studio.search.case", "Search Current Case", () => setSearchMode("case"));
     command("studio.window.close", "Close Window", platform.host.closeWindow);
-    command("studio.edit.undo", "Undo", () => dispatchSurfaceCommand("undo"), when.truthy("surface.editable")); command("studio.edit.redo", "Redo", () => dispatchSurfaceCommand("redo"), when.truthy("surface.editable"));
-    command("studio.edit.cut", "Cut", () => document.execCommand("cut")); command("studio.edit.copy", "Copy", () => document.execCommand("copy")); command("studio.edit.paste", "Paste", () => document.execCommand("paste"));
-    command("studio.edit.replace", "Replace", () => dispatchSurfaceCommand("replace"), when.truthy("surface.editable")); command("studio.edit.selectAll", "Select All", () => dispatchSurfaceCommand("selectAll"), when.truthy("surface.active"));
+    for (const [name, title] of [["undo", "Undo"], ["redo", "Redo"], ["cut", "Cut"], ["copy", "Copy"], ["paste", "Paste"], ["selectAll", "Select All"]] as const) command(`studio.edit.${name}`, title, () => platform.editing.execute(name), when.truthy(`edit.${name}`));
+    command("studio.edit.replace", "Replace", () => dispatchSurfaceCommand("replace"), when.all(when.truthy("surface.editable"), when.not(when.truthy("terminal.focused"))));
     command("studio.view.toggleExplorer", "Explorer", () => setLeftOpen((value) => !value));
     command("studio.view.toggleContext", "Context Panel", () => setRightOpen((value) => !value));
     command("studio.view.toggleBottomPanel", "Bottom Panel", () => setBottomOpen((value) => !value));
@@ -301,6 +302,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
       <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>Generation {workspace.case.generation}</span><span>{activeInput?.title ?? activeContainer}</span></div>
       <div><button className="host-status" data-state={hostState.state} onClick={() => { openSettings(); setSelection("settings:yai-host"); }} title="Open Settings > YAI Host">YAI {hostState.state === "live" ? "●" : hostState.state}</button>{workspace.presentation.dataKind === "fixture" && <span>Fixture data</span>}<span>{workspace.case.participant_ref}</span></div>
     </footer>
+    {editingNotice && <div className="editing-notice" role="alert"><span>{editingNotice}</span><IconButton aria-label="Dismiss editing notice" onClick={() => platform.editing.dismiss()}><Icon name="close" /></IconButton></div>}
     {searchMode === "commands" && <WorkbenchSearch title="Command Palette" placeholder="Type a command" items={commandItems()} onClose={() => setSearchMode(undefined)} />}
     {searchMode === "open" && <WorkbenchSearch title="Quick Open" placeholder="Search open Surfaces and exposed Case material" items={quickItems()} onClose={() => setSearchMode(undefined)} />}
     {searchMode === "surface" && <WorkbenchSearch title={`Find in ${activeInput?.title ?? "Surface"}`} placeholder="Search current Surface" resolveItems={surfaceItems} onClose={() => setSearchMode(undefined)} />}

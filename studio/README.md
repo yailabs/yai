@@ -156,6 +156,11 @@ and the captured Case generation. `YAI_STUDIO_TEST_BINARY=/path/to/published/yai
 npm run test:authority` qualifies all three positive/stale paths on a real Host.
 A stale refusal offers Close and refresh Case, and never retries the mutation.
 
+`npm run test:editing` exercises the OS clipboard, focused Edit menu commands,
+command-palette selection, permission refusal and late-paste identity fencing.
+Terminal clipboard commands use the same focus boundary; Ctrl-C remains a PTY
+control. Clipboard refusal is visible and never changes Case state.
+
 Window-local sessions retain each Case's tabs,
 selection, navigation and dirty buffers across attachment switches and Host resync.
 A dirty preview pins itself; reopening its file selects the existing tab. Undo and

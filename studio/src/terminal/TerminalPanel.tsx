@@ -7,6 +7,7 @@ import { Icon } from "../components/Icon";
 import { IconButton } from "../components/primitives";
 import { Splitter } from "../workbench/kernel/Splitter";
 
+import type { EditingService } from "../platform/editing";
 import { terminalEventName, type TerminalCommand } from "./commands";
 interface TerminalCreated { terminal_id: string; shell: string; cwd: string }
 interface TerminalOutput { terminal_id: string; data: number[] }
@@ -15,7 +16,7 @@ interface TerminalInstance extends TerminalCreated { status: "running" | "exited
 
 const encoder = new TextEncoder();
 
-export function TerminalPanel({ visible = true, scrollback = 5000, toolbarTarget, onEmpty }: { visible?: boolean; scrollback?: number; toolbarTarget?: HTMLElement | null; onEmpty?(): void }) {
+export function TerminalPanel({ editing, visible = true, scrollback = 5000, toolbarTarget, onEmpty }: { editing: EditingService; visible?: boolean; scrollback?: number; toolbarTarget?: HTMLElement | null; onEmpty?(): void }) {
   const desktop = Boolean(window.__TAURI__);
   const [terminals, setTerminals] = useState<TerminalInstance[]>([]);
   const [activeId, setActiveId] = useState<string>();
@@ -140,7 +141,7 @@ export function TerminalPanel({ visible = true, scrollback = 5000, toolbarTarget
       <IconButton aria-label="New terminal" title="New Terminal" onClick={() => void createTerminal()}><Icon name="plus" size={15} /></IconButton>
       {showActiveToolbar && <IconButton aria-label="Kill active terminal" title="Kill Terminal" disabled={!activeId} onClick={() => activeId && void closeTerminal(activeId)}><Icon name="trash" size={15} /></IconButton>}
     </div>, toolbarTarget)}
-    <div className="terminal-stack">{terminals.map((terminal) => <TerminalViewport key={terminal.terminal_id} terminal={terminal} active={visible && activeId === terminal.terminal_id} register={registerRenderer} unregister={unregisterRenderer} scrollback={scrollback} />)}
+    <div className="terminal-stack">{terminals.map((terminal) => <TerminalViewport editing={editing} key={terminal.terminal_id} terminal={terminal} active={visible && activeId === terminal.terminal_id} register={registerRenderer} unregister={unregisterRenderer} scrollback={scrollback} />)}
       {error && <div className="terminal-empty error"><strong>Terminal unavailable</strong><code>{error}</code><button onClick={() => void createTerminal()}>Retry</button></div>}
     </div>
     {showInstancePane && <><Splitter label="Resize terminal list" axis="x" reverse value={instancePaneWidth} min={38} max={280} set={setInstancePaneWidth} />
@@ -154,9 +155,11 @@ export function TerminalPanel({ visible = true, scrollback = 5000, toolbarTarget
   </section>;
 }
 
-function TerminalViewport({ terminal, active, register, unregister, scrollback }: { terminal: TerminalInstance; active: boolean; register: (terminalId: string, renderer: Terminal) => void; unregister: (terminalId: string) => void; scrollback: number }) {
+function TerminalViewport({ editing, terminal, active, register, unregister, scrollback }: { editing: EditingService; terminal: TerminalInstance; active: boolean; register: (terminalId: string, renderer: Terminal) => void; unregister: (terminalId: string) => void; scrollback: number }) {
   const host = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<Terminal | null>(null);
+  const usable = useRef(active && terminal.status === "running");
+  usable.current = active && terminal.status === "running";
   useEffect(() => {
     if (!host.current || !window.__TAURI__) return;
     const renderer = new Terminal({
@@ -181,23 +184,34 @@ function TerminalViewport({ terminal, active, register, unregister, scrollback }
     };
     const observer = new ResizeObserver(sendResize);
     observer.observe(host.current);
-    const input = renderer.onData((data) => void window.__TAURI__?.core.invoke("terminal_write", { terminalId: terminal.terminal_id, data: Array.from(encoder.encode(data)) }));
+    let inputVersion = 0;
+    const input = renderer.onData((data) => { inputVersion++; void window.__TAURI__?.core.invoke("terminal_write", { terminalId: terminal.terminal_id, data: Array.from(encoder.encode(data)) }); });
     const binary = renderer.onBinary((data) => void window.__TAURI__?.core.invoke("terminal_write", { terminalId: terminal.terminal_id, data: Array.from(data, (character) => character.charCodeAt(0) & 0xff) }));
+    const editingTarget = editing.register({
+      element: host.current, focus: () => renderer.focus(),
+      enabled: command => command === "copy" && renderer.hasSelection() || command === "selectAll" || command === "paste" && usable.current,
+      execute: command => { if (command === "selectAll") renderer.selectAll(); },
+      selection: () => {
+        const version = inputVersion;
+        return { text: renderer.getSelection(), current: () => usable.current && rendererRef.current === renderer && inputVersion === version,
+          replace: text => renderer.paste(text) };
+      },
+    });
+    const selection = renderer.onSelectionChange(editing.changed);
     renderer.attachCustomKeyEventHandler((event) => {
       const primary = navigator.platform.toLowerCase().includes("mac") ? event.metaKey : event.ctrlKey && event.shiftKey;
-      if (primary && event.key.toLowerCase() === "c" && renderer.hasSelection()) {
-        void navigator.clipboard.writeText(renderer.getSelection());
-        return false;
-      }
-      if (primary && event.key.toLowerCase() === "v") {
-        void navigator.clipboard.readText().then((text) => renderer.paste(text));
+      const key = event.key.toLowerCase();
+      if (primary && (key === "v" || key === "c" && renderer.hasSelection())) {
+        event.preventDefault();
+        if (event.type === "keydown") void editing.execute(key === "v" ? "paste" : "copy");
         return false;
       }
       return true;
     });
     requestAnimationFrame(sendResize);
-    return () => { observer.disconnect(); input.dispose(); binary.dispose(); unregister(terminal.terminal_id); rendererRef.current = null; renderer.dispose(); };
-  }, [register, terminal.terminal_id, unregister]);
+    return () => { editingTarget.dispose(); selection.dispose(); observer.disconnect(); input.dispose(); binary.dispose(); unregister(terminal.terminal_id); rendererRef.current = null; renderer.dispose(); };
+  }, [editing, register, terminal.terminal_id, unregister]);
+  useEffect(() => editing.changed(), [editing, active, terminal.status]);
   useEffect(() => { if (rendererRef.current) rendererRef.current.options.scrollback = scrollback; }, [scrollback]);
   useEffect(() => { if (active) requestAnimationFrame(() => rendererRef.current?.focus()); }, [active]);
   return <div ref={host} className="terminal-viewport" hidden={!active} data-terminal-id={terminal.terminal_id} onMouseDown={() => rendererRef.current?.focus()} />;

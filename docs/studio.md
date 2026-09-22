@@ -1102,3 +1102,15 @@ checks publication, Tenant authority and generation. Stale refusal exposes an
 explicit close-and-refresh path without resubmission. Artifact import, lifecycle
 management and Tenant-wide policy browsing remain separate interactions; a bound
 policy projection is not an artifact catalog.
+
+### Focused editing commands
+
+Workbench Edit commands resolve the focused editor, native text field or terminal
+through a local editing service. Menus and the command palette preserve their
+originating control. Undo/redo enablement follows the actual editor history;
+read-only content and PTYs do not advertise unsupported edit actions. Clipboard
+operations are local host/browser interactions, never YAI mutations. A pending
+paste is discarded if focus, document identity, selection or local text changes,
+or its terminal is hidden/closed. Refused clipboard access produces a visible
+notice instead of a silent failure. Native editor and terminal key ownership is
+preserved.

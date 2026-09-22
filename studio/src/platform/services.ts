@@ -1,5 +1,6 @@
 import { ApplicationAccess } from "../clients/application";
 import type { LiveClient } from "../clients/live";
+import { EditingService } from "./editing";
 import { CommandService } from "./commands";
 import { ConfigurationService } from "./configuration";
 import { ContextKeyService } from "./context";
@@ -11,6 +12,7 @@ import { ThemeService } from "./theme";
 
 export class PlatformServices extends DisposableStore {
   readonly context = this.add(new ContextKeyService());
+  readonly editing = this.add(new EditingService(this.context));
   readonly commands = this.add(new CommandService(this.context));
   readonly menus = this.add(new MenuService(this.context));
   readonly keybindings = this.add(new KeybindingService(this.commands, this.context));

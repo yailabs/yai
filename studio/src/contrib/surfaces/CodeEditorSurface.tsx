@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 import { basicSetup } from "codemirror";
-import { defaultKeymap, historyKeymap, indentWithTab, redo, selectAll, undo } from "@codemirror/commands";
+import { defaultKeymap, historyKeymap, indentWithTab, redo, redoDepth, selectAll, undo, undoDepth } from "@codemirror/commands";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { openSearchPanel, searchKeymap } from "@codemirror/search";
 import { EditorState, StateEffect, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
+import type { EditingService } from "../../platform/editing";
 import type { SurfaceBufferSnapshot, SurfaceBufferService } from "../../workbench/surface/buffers";
 import { detectEditorLanguage, loadEditorLanguage } from "./editorLanguage";
 
@@ -42,6 +43,7 @@ const yaiSyntax = HighlightStyle.define([
 const editorSessions = new WeakMap<SurfaceBufferService, Map<string, { state: EditorState; scrollTop: number; scrollLeft: number }>>();
 
 interface Props {
+  editing: EditingService;
   buffers: SurfaceBufferService;
   identity: string;
   title: string;
@@ -53,7 +55,7 @@ interface Props {
   onCommand?(handler: (name: string) => void): () => void;
 }
 
-export default function CodeEditorSurface({ buffers, identity, title, path, mediaType, snapshot, readOnly, onChange, onCommand }: Props) {
+export default function CodeEditorSurface({ editing, buffers, identity, title, path, mediaType, snapshot, readOnly, onChange, onCommand }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -62,6 +64,7 @@ export default function CodeEditorSurface({ buffers, identity, title, path, medi
   useEffect(() => {
     let disposed = false;
     let instance: EditorView | undefined;
+    let unregister: (() => void) | undefined;
     const language = detectEditorLanguage(path, mediaType);
     void loadEditorLanguage(language).then((languageExtension) => {
       if (disposed || !host.current) return;
@@ -73,7 +76,7 @@ export default function CodeEditorSurface({ buffers, identity, title, path, medi
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
         EditorState.readOnly.of(readOnly),
         EditorView.contentAttributes.of({ "aria-label": `Edit ${title}`, "data-editor-language": language, spellcheck: "false" }),
-        EditorView.updateListener.of((update) => { if (update.docChanged) onChangeRef.current(update.state.doc.toString()); }),
+        EditorView.updateListener.of((update) => { if (update.docChanged) onChangeRef.current(update.state.doc.toString()); if (update.docChanged || update.selectionSet) editing.changed(); }),
       ];
       const nonce = document.querySelector<HTMLStyleElement>("#studio-style-nonce")?.nonce;
       if (nonce) extensions.push(EditorView.cspNonce.of(nonce));
@@ -86,14 +89,27 @@ export default function CodeEditorSurface({ buffers, identity, title, path, medi
       instance = new EditorView({ state, parent: host.current });
       if (saved) { instance.scrollDOM.scrollTop = saved.scrollTop; instance.scrollDOM.scrollLeft = saved.scrollLeft; }
       view.current = instance;
+      const current = instance;
+      unregister = editing.register({
+        element: current.dom, focus: () => current.focus(),
+        enabled: command => command === "selectAll" || command === "copy" && !current.state.selection.main.empty || !readOnly && (command === "paste" || command === "cut" && !current.state.selection.main.empty || command === "undo" && undoDepth(current.state) > 0 || command === "redo" && redoDepth(current.state) > 0),
+        execute: command => { if (command === "undo") undo(current); if (command === "redo") redo(current); if (command === "selectAll") selectAll(current); },
+        selection: () => {
+          const state = current.state;
+          return { text: state.selection.ranges.map(range => state.sliceDoc(range.from, range.to)).join("\n"),
+            current: () => view.current === current && current.state.doc === state.doc && current.state.selection.eq(state.selection),
+            replace: text => current.dispatch(current.state.replaceSelection(text), { scrollIntoView: true, userEvent: "input.paste" }) };
+        },
+      }).dispose;
     });
     return () => {
       disposed = true;
       if (instance) editorSessions.get(buffers)?.set(identity, { state: instance.state, scrollTop: instance.scrollDOM.scrollTop, scrollLeft: instance.scrollDOM.scrollLeft });
+      unregister?.();
       instance?.destroy();
       if (view.current === instance) view.current = null;
     };
-  }, [buffers, identity, mediaType, path, readOnly, snapshot.source.key, title]);
+  }, [editing, buffers, identity, mediaType, path, readOnly, snapshot.source.key, title]);
 
   useEffect(() => {
     const current = view.current;

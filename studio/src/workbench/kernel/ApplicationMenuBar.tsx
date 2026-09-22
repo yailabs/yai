@@ -19,7 +19,7 @@ export function ApplicationMenuBar({ platform }: { platform: PlatformServices })
   const restoreFocus = () => {
     if (!returnFocus.current?.isConnected) return;
     returnFocus.current.focus({ preventScroll: true });
-    if (selectedText.current?.commonAncestorContainer.isConnected && !returnFocus.current.closest(".cm-editor")) {
+    if (selectedText.current?.commonAncestorContainer.isConnected && !returnFocus.current.closest(".cm-editor, input, textarea")) {
       const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(selectedText.current);
     }
   };
