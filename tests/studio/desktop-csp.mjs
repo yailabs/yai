@@ -27,7 +27,7 @@ try {
         // Same contract as Tauri's asset handler: generated style nonce in HTML
         // and its response policy. This is a browser CSP test, not a native host.
         bytes=Buffer.from(bytes.toString().replace('<style id="studio-style-nonce">',`<style id="studio-style-nonce" nonce="${nonce}">`));
-        res.setHeader('Content-Security-Policy',`default-src 'self'; script-src 'self'; style-src 'self' 'nonce-${nonce}'; img-src 'self' data:; object-src 'none'; base-uri 'self'`);
+        res.setHeader('Content-Security-Policy',`default-src 'self'; script-src 'self'; style-src 'self' 'nonce-${nonce}'; img-src 'self' data:; media-src 'self' data:; object-src 'none'; base-uri 'self'`);
       }
       res.end(bytes);
     } catch {res.writeHead(404).end();}
@@ -43,9 +43,18 @@ try {
   assert.equal(await page.locator('.cm-editor').evaluate(el=>getComputedStyle(el).display),'flex');
   assert.equal(await page.locator('.cm-scroller').evaluate(el=>getComputedStyle(el).display),'flex');
   assert.ok(await page.locator('.cm-content').evaluate(el=>el.getBoundingClientRect().width>100));
-  assert.deepEqual(errors,[],'trusted editor styles were rejected by CSP');
+  const files=page.locator('.environment-files');
+  await files.getByRole('button',{name:'runtime-boundary.svg',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.image-stage img')?.naturalWidth>0);
+  await files.getByRole('button',{name:'runtime-contract.pdf',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.pdf-stage canvas')?.width>200);
+  await files.getByRole('button',{name:'qualification-tone.wav',exact:true}).click();
+  await page.waitForFunction(()=>Number.isFinite(document.querySelector('audio')?.duration));
+  await files.getByRole('button',{name:'qualification-clip.webm',exact:true}).click();
+  await page.waitForFunction(()=>Number.isFinite(document.querySelector('video')?.duration));
+  assert.deepEqual(errors,[],'trusted editor or material rendering was rejected by CSP');
   await page.evaluate(()=>{const style=document.createElement('style');style.textContent='#root{display:none!important}';document.head.appendChild(style);});
   assert.notEqual(await page.locator('#root').evaluate(el=>getComputedStyle(el).display),'none');
   assert.ok(errors.some(error=>error.includes('Content Security Policy')||error.includes('style-src')),'untrusted inline styles were not refused');
-  console.log(JSON.stringify({run_id:'studio-desktop-style-policy',result:'PASS',proof:'Production CodeMirror styles use response nonce; arbitrary inline stylesheet remains blocked',lane:'production browser with desktop-equivalent CSP'}));
+  console.log(JSON.stringify({run_id:'studio-desktop-style-policy',result:'PASS',proof:'Production CodeMirror nonce, inert SVG, PDF canvas and audio/video metadata; arbitrary inline stylesheet remains blocked',lane:'production browser with desktop-equivalent CSP'}));
 } finally { await browser?.close(); await new Promise(resolve=>server?server.close(resolve):resolve()); await rm(dist,{recursive:true,force:true}); }

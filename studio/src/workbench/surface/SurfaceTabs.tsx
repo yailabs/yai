@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { Icon } from "../../components/Icon";
 import type { SurfaceInput, SurfaceRole } from "./model";
 
@@ -9,7 +10,24 @@ export function SurfaceTabs({ inputs, activeId, describe, activate, pin, close }
   pin(id: string): void;
   close(id: string): void;
 }) {
-  return <div className="surface-tabs" role="tablist" aria-label="Open work surfaces" onKeyDown={(event) => {
+  const strip = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = strip.current;
+    if (!element) return;
+    const reveal = () => {
+      const tab = element.querySelector<HTMLElement>('[data-active="true"]');
+      if (!tab) return;
+      const bounds = element.getBoundingClientRect();
+      const active = tab.getBoundingClientRect();
+      if (active.right > bounds.right) element.scrollLeft += active.right - bounds.right;
+      if (active.left < bounds.left) element.scrollLeft -= bounds.left - active.left;
+    };
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [activeId, inputs]);
+  return <div ref={strip} className="surface-tabs" role="tablist" aria-label="Open work surfaces" onKeyDown={(event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const index = inputs.findIndex((input) => input.id === activeId);
     const next = event.key === "Home" ? 0 : event.key === "End" ? inputs.length - 1

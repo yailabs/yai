@@ -70,6 +70,18 @@ projection refresh, replay and lost-acknowledgement non-resubmission. Settings >
 Advanced shows actual advertised versus UI-integrated operations. This is
 partial convergence, not governed Save, runtime supervision or full UI parity.
 
+**ESTABLISHED — Material presentation and local Workbench quality.** Exact retained
+bytes now feed image/PDF/audio/video renderers; Markdown is rendered with a lazy
+trusted parser and qualified relative navigation. Markdown/SVG/CSV can preview
+explicitly unsaved local drafts. CSV/TSV gains bounded rows, full-set search/sort
+and accessible column sizing. Settings/layout share validated persistent values;
+Edit menus restore the prior editing focus, and active tabs remain visible after
+resizing. Real read-only Markdown acceptance
+uses the durable Case at generation 64; heterogeneous binary acceptance uses
+authored digest-qualified responses and does not claim new live binary Sources.
+The backend baseline remains `0c9d934a6594c2b1e4c461bbe69c55e73cd8ccc6`;
+concurrent execution-lifecycle work remains independently owned.
+
 `CASE.PRODUCT.VERTICAL.COHERENCE.0` established
 `case:studio-live-qualification` as the durable operator-owned product oracle.
 `STUDIO.ENVIRONMENT.AUTHORING.0` has established the bounded Environment
@@ -90,7 +102,7 @@ Studio sequence is:
         ↓
 🟢 STUDIO.MATERIAL.IDENTITY.EDITOR.0
         ↓
-🔴 STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0
+🟡 STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0
         ↓
 🔴 S1.RUNTIME.SUPERVISION.1
 ```

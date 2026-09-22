@@ -8,6 +8,21 @@ export function ApplicationMenuBar({ platform }: { platform: PlatformServices })
   const [open, setOpen] = useState<MenuLocation>();
   const [, render] = useState(0);
   const root = useRef<HTMLElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const selectedText = useRef<Range | undefined>(undefined);
+  const rememberFocus = (element: EventTarget | null) => {
+    if (!(element instanceof HTMLElement) || root.current?.contains(element)) return;
+    returnFocus.current = element;
+    const selection = window.getSelection();
+    selectedText.current = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : undefined;
+  };
+  const restoreFocus = () => {
+    if (!returnFocus.current?.isConnected) return;
+    returnFocus.current.focus({ preventScroll: true });
+    if (selectedText.current?.commonAncestorContainer.isConnected && !returnFocus.current.closest(".cm-editor")) {
+      const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(selectedText.current);
+    }
+  };
   useEffect(() => platform.context.subscribe(() => render((value) => value + 1)).dispose, [platform]);
   useEffect(() => {
     const dismiss = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(undefined); };
@@ -15,7 +30,7 @@ export function ApplicationMenuBar({ platform }: { platform: PlatformServices })
     window.addEventListener("pointerdown", dismiss); window.addEventListener("keydown", keyboard);
     return () => { window.removeEventListener("pointerdown", dismiss); window.removeEventListener("keydown", keyboard); };
   }, []);
-  return <nav ref={root} className="desktop-menu" aria-label="Application menu" onKeyDown={(event) => {
+  return <nav ref={root} className="desktop-menu" aria-label="Application menu" onPointerDownCapture={() => rememberFocus(document.activeElement)} onFocusCapture={event => rememberFocus(event.relatedTarget)} onKeyDown={(event) => {
       const target = event.target as HTMLElement;
       const triggers = [...root.current!.querySelectorAll<HTMLButtonElement>('[aria-haspopup="menu"]')];
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -46,7 +61,7 @@ export function ApplicationMenuBar({ platform }: { platform: PlatformServices })
           {items.map((item, index) => {
             const previous = items[index - 1];
             const separated = previous && previous.group !== item.group;
-            return <div className="registered-menu-item" key={item.id}>{separated && <hr />}<button role="menuitem" disabled={!platform.commands.isEnabled(item.command)} onClick={() => { setOpen(undefined); void platform.commands.executeCommand(item.command); }}><span>{item.checked ? "✓ " : ""}{platform.commands.title(item.command) ?? item.command}</span><kbd>{platform.keybindings.shortcutFor(item.command)?.replace("Mod", navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl").replaceAll("+", " ")}</kbd></button></div>;
+            return <div className="registered-menu-item" key={item.id}>{separated && <hr />}<button role="menuitem" disabled={!platform.commands.isEnabled(item.command)} onClick={() => { setOpen(undefined); restoreFocus(); void platform.commands.executeCommand(item.command); }}><span>{item.checked ? "✓ " : ""}{platform.commands.title(item.command) ?? item.command}</span><kbd>{platform.keybindings.shortcutFor(item.command)?.replace("Mod", navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl").replaceAll("+", " ")}</kbd></button></div>;
           })}
         </div>}
       </div>;

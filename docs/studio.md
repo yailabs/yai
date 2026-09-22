@@ -638,6 +638,18 @@ metadata/unavailable Surface and is never coerced into binary text. External
 open remains unavailable until YAI exposes a qualified local path or permitted
 temporary representation.
 
+Exact `material.read` content, whether UTF-8 or base64, is identity/digest-checked
+before any trusted renderer receives it. Live image/PDF/audio/video paths use
+those retained bytes, never a filesystem shortcut. SVG is displayed only as an
+inert image. Markdown uses a lazy maintained parser with raw HTML disabled;
+remote images are not fetched and only links resolving to qualified inventory
+become Workbench navigation. Markdown, SVG and CSV previews may show an explicitly
+labelled local draft; that draft has not been admitted to the Case. CSV/TSV use a
+lazy parser, an explicit first-row-as-column-names preference, bounded 50-row
+pages, full-input filtering/sorting and keyboard/pointer column sizing. Parse
+failures retain the Text Editor route; table rows are local representations of
+their material, not newly invented canonical objects.
+
 TARGET: trusted reusable data surfaces include Calendar, Form, Board, Chart,
 Gallery and Detail/Object in addition to the current bounded renderer families.
 Databases, provider tools and Computer surfaces can add trusted renderer types
@@ -691,6 +703,10 @@ Host. Only genuine local preferences are editable today, persisted as a small
 versioned browser/WebView local-storage representation. Case or Host settings
 require their respective typed operations and otherwise remain explanatory or
 unavailable. No settings database or Case truth is created.
+Explorer/context widths and the bottom-panel size use the same local preference
+owner as Settings and resizing. Invalid persisted numbers/types are ignored,
+numeric edits are validated, and terminal scrollback updates its existing
+renderer. Compact Settings navigation responds to available Surface width.
 
 ### Declarative Case Views — target
 

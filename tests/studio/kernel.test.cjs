@@ -367,3 +367,16 @@ test("typed application actions preserve exact inputs and never retry lost trans
     assert.equal(new Set(requests.map(request=>request.correlation_ref)).size,4);
   }finally{global.window=oldWindow;}
 });
+
+test('local preferences reject corrupt or unsafe values and retain bounded changes', () => {
+  const {ConfigurationService}=require(path.join(studio,'platform/configuration.js'));
+  const previous=global.window;let stored=JSON.stringify({version:1,values:{'terminal.scrollback':-1,'workbench.sidebar.width':99999,'workbench.openPreview':'yes','unknown':'value'}});
+  global.window={localStorage:{getItem:()=>stored,setItem:(_key,value)=>{stored=value}}};
+  try {
+    const preferences=new ConfigurationService({'terminal.scrollback':5000,'workbench.sidebar.width':204,'workbench.openPreview':true});let changes=0;preferences.subscribe(()=>changes++);
+    assert.equal(preferences.get('terminal.scrollback'),5000);assert.equal(preferences.get('workbench.sidebar.width'),204);assert.equal(preferences.get('workbench.openPreview'),true);assert.equal(preferences.get('unknown'),undefined);
+    preferences.update('terminal.scrollback',Infinity);preferences.update('terminal.scrollback',-20);preferences.update('terminal.scrollback',3.14);preferences.update('workbench.sidebar.width',204);assert.equal(changes,0);
+    preferences.update('terminal.scrollback',12000);preferences.update('workbench.sidebar.width',280);assert.equal(changes,2);assert.equal(JSON.parse(stored).values['workbench.sidebar.width'],280);
+    const restored=new ConfigurationService({'terminal.scrollback':5000,'workbench.sidebar.width':204,'workbench.openPreview':true});assert.equal(restored.get('terminal.scrollback'),12000);assert.equal(restored.get('workbench.sidebar.width'),280);
+  }finally{global.window=previous;}
+});

@@ -126,6 +126,23 @@ Surface; late responses cannot initialize a later preview file. Local edits are 
 there is no qualified participant-origin filesystem-content mutation in YAI, so
 Save is disabled and dirty close requires confirmation.
 
+Markdown Preview renders real retained Markdown and marks previews of unsaved
+local drafts. Relative links open only files already in qualified Case inventory;
+raw HTML and remote image fetches are disabled. Image, PDF and native audio/video
+renderers consume the same exact-byte `material.read` validation, including base64
+responses. CSV/TSV Table supports full-set search/sort, 50-row pages, optional
+column names from the first row, and keyboard/pointer column resizing. These paths
+do not manufacture live material when YAI lacks a retained revision.
+
+`npm run test:media` qualifies authored text/binary responses, digest refusal,
+inert SVG and local preview behavior. `node ../tests/studio/preferences.mjs`
+checks validated preferences, restart persistence, compact Settings and Edit-menu
+focus. `YAI_STUDIO_TEST_HOME=/selected/home YAI_STUDIO_TEST_BINARY=/path/to/yai
+node ../tests/studio/live-material-preview.mjs` is explicitly read-only against an
+already-running Host and the persistent qualification Case; it does not start,
+enrich or reset that Case. All use the fixture Vite server on port 1422 for the
+browser renderer, and report their test-bridge/native boundaries explicitly.
+
 Window-local sessions retain each Case's tabs,
 selection, navigation and dirty buffers across attachment switches and Host resync.
 A dirty preview pins itself; reopening its file selects the existing tab. Undo and

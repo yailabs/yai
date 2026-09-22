@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MaterialBody } from "../../clients/presentation";
+import type { MaterialReadProjection } from "../../clients/live";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
 import type { SurfaceBufferSource } from "../../workbench/surface/buffers";
 import { MaterialReadFence, materialIdentity, validateMaterialContent, validateMaterialRead, type MaterialIdentityToken } from "./materialIdentity";
@@ -7,7 +8,7 @@ import { MaterialReadFence, materialIdentity, validateMaterialContent, validateM
 export function materialText(body: MaterialBody) {
   if (body.kind === "text") return body.content;
   if (body.kind === "diff") return body.lines.map((line) => `${line.change === "add" ? "+ " : line.change === "remove" ? "- " : "  "}${line.text}`).join("\n");
-  if (body.kind === "document") return [body.title, body.intro, ...body.sections.flatMap((section) => [section.title, section.body, ...(section.points ?? [])])].join("\n\n");
+  if (body.kind === "document") return [`# ${body.title}`, body.intro, ...body.sections.flatMap((section) => [`## ${section.title}`, section.body, ...(section.points ?? []).map(point => `- ${point}`)])].join("\n\n");
   return undefined;
 }
 
@@ -43,12 +44,13 @@ export function bufferSource(identity: MaterialIdentityToken): SurfaceBufferSour
 interface ReadableMaterialState {
   identityKey?: string;
   content?: string;
+  data?: MaterialReadProjection;
   source?: SurfaceBufferSource;
   error?: string;
   loading: boolean;
 }
 
-export function useReadableMaterial(props: SurfaceRendererProps): ReadableMaterialState {
+export function useReadableMaterial(props: SurfaceRendererProps, representation: "text" | "bytes" = "text", skipRead = false): ReadableMaterialState {
   const { workspace, input, readMaterial } = props;
   const fixture = workspace.presentation.materials?.find((item) => item.id === input.objectRef)
     ?? workspace.presentation.materials?.find((item) => item.path === input.metadata?.path);
@@ -61,6 +63,7 @@ export function useReadableMaterial(props: SurfaceRendererProps): ReadableMateri
   const [state, setState] = useState<ReadableMaterialState>({ identityKey: activeKey, loading: authored === undefined });
 
   useEffect(() => {
+    if (skipRead) { setState({ identityKey: activeKey, loading: false }); return; }
     if (authored !== undefined) {
       const source = expected ? bufferSource(expected) : {
         key: activeKey,
@@ -99,16 +102,28 @@ export function useReadableMaterial(props: SurfaceRendererProps): ReadableMateri
         setState({ identityKey: expected.key, error: `Exact material identity mismatch. ${mismatch}`, loading: false });
         return;
       }
-      if (result.data.encoding !== "utf-8") {
+      if (result.data.encoding !== "utf-8" && representation === "text") {
         setState({ identityKey: expected.key, error: "This exact revision is binary and requires a trusted binary renderer.", loading: false });
         return;
       }
-      setState({ identityKey: expected.key, content: result.data.content, source: bufferSource(expected), loading: false });
+      setState({ identityKey: expected.key, content: result.data.encoding === "utf-8" ? result.data.content : undefined, data: result.data, source: bufferSource(expected), loading: false });
     }).catch((error: unknown) => {
       if (fence.current.accepts(request, expected.key)) setState({ identityKey: expected.key, error: error instanceof Error ? error.message : String(error), loading: false });
     });
     return () => fence.current.cancel(request);
-  }, [activeKey, authored, expected, fixture?.path, input.identity, input.metadata?.path, input.metadata?.sourceRef, input.metadata?.revisionRef, input.metadata?.digest, input.objectRef, input.title, readMaterial, workspace.case.case_ref, workspace.case.generation]);
+  }, [activeKey, authored, expected, fixture?.path, input.identity, input.metadata?.path, input.metadata?.sourceRef, input.metadata?.revisionRef, input.metadata?.digest, input.objectRef, input.title, readMaterial, representation, skipRead, workspace.case.case_ref, workspace.case.generation]);
 
   return state.identityKey === activeKey ? state : { identityKey: activeKey, loading: true };
+}
+
+export function materialBytes(data: MaterialReadProjection) {
+  return data.encoding === "utf-8" ? new TextEncoder().encode(data.content) : Uint8Array.from(atob(data.content), char => char.charCodeAt(0));
+}
+
+// Only already identity/digest-verified response bytes reach these inert media URLs.
+export function materialDataUrl(data: MaterialReadProjection) {
+  const bytes = materialBytes(data);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+  return `data:${data.media_type};base64,${btoa(binary)}`;
 }

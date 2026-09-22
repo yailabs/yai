@@ -2,9 +2,10 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExter
 import { Badge, Button, EmptyState } from "../../components/primitives";
 import type { MaterialView } from "../../clients/presentation";
 import type { SurfaceRendererProps, SurfaceSearchResult, WorkbenchRenderContext } from "../../workbench/kernel/types";
-import { expectedMaterialIdentity, materialText, useReadableMaterial } from "./materialRead";
+import { expectedMaterialIdentity, materialDataUrl, materialText, useReadableMaterial } from "./materialRead";
 import { validateMaterialContent, validateMaterialRead } from "./materialIdentity";
 
+const MarkdownPreview = lazy(() => import("./MarkdownPreview"));
 const CodeEditorSurface = lazy(() => import("./CodeEditorSurface"));
 
 export function presentationMaterial(workspace: SurfaceRendererProps["workspace"], objectRef?: string) {
@@ -46,9 +47,6 @@ export function TextEditorSurface(props: SurfaceRendererProps) {
 }
 
 export function MarkdownSurface(props: SurfaceRendererProps) {
-  const { workspace, input } = props;
-  const material = presentationMaterial(workspace, input.objectRef);
-  if (material?.body.kind === "document") return <article className="material-surface markdown-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} material={material} /><section className="material-document searchable-content"><h2>{material.body.title}</h2><p>{material.body.intro}</p>{material.body.sections.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p>{section.points && <ul>{section.points.map((point) => <li key={point}>{point}</li>)}</ul>}</section>)}</section></article>;
   return <ReadableTextPreview {...props} mode="markdown" />;
 }
 
@@ -72,36 +70,36 @@ export function StructuredTextSurface(props: SurfaceRendererProps) {
 function ReadableTextPreview(props: SurfaceRendererProps & { mode: "markdown" | "text" | "structured" }) {
   const { input, mode } = props;
   const loaded = useReadableMaterial(props);
-  return <article className={`material-surface ${mode}-surface`} data-surface-type={input.surfaceType}><MaterialHeader input={input} />{loaded.loading ? <div className="surface-loading">Reading exact retained revision…</div> : loaded.content !== undefined ? <pre className="text-surface-content searchable-content">{mode === "structured" ? prettyStructured(loaded.content, input.metadata?.mediaType ?? "") : loaded.content}</pre> : <EmptyState title="Content unavailable" body={loaded.error ?? "No qualified readable content projection."} />}</article>;
+  const subscribe = useCallback((listener: () => void) => props.buffers.subscribe(input.identity, listener).dispose, [props.buffers, input.identity]);
+  const buffer = useSyncExternalStore(subscribe, () => props.buffers.snapshot(input.identity));
+  const content = buffer?.dirty ? buffer.value : loaded.content;
+  return <article className={`material-surface ${mode}-surface`} data-surface-type={input.surfaceType}><MaterialHeader input={input} />{buffer?.dirty && <p className="preview-local-note">{buffer.stale ? "Stale local draft" : "Preview of unsaved local changes"} · not committed to YAI</p>}{buffer?.dirty && loaded.error && <p className="file-read-warning" role="alert">{loaded.error} Only the unsaved local draft is shown.</p>}{content !== undefined ? mode === "markdown" ? <Suspense fallback={<p className="surface-loading">Loading Markdown preview…</p>}><MarkdownPreview {...props} content={content} /></Suspense> : <pre className="text-surface-content searchable-content">{mode === "structured" ? prettyStructured(content, input.metadata?.mediaType ?? "") : content}</pre> : loaded.loading ? <div className="surface-loading">Reading exact retained revision…</div> : <EmptyState title="Content unavailable" body={loaded.error ?? "No qualified readable content projection."} />}</article>;
 }
 
-export function ImageSurface({ workspace, input, actions }: SurfaceRendererProps) {
+export function ImageSurface(props: SurfaceRendererProps) {
+  const { workspace, input, actions } = props;
   const material = presentationMaterial(workspace, input.objectRef);
   const body = material?.body.kind === "image" ? material.body : undefined;
+  const loaded = useReadableMaterial(props, "bytes", Boolean(body));
+  const subscribe = useCallback((listener: () => void) => props.buffers.subscribe(input.identity, listener).dispose, [props.buffers, input.identity]);
+  const buffer = useSyncExternalStore(subscribe, () => props.buffers.snapshot(input.identity));
+  const draft = input.metadata?.mediaType === "image/svg+xml" && buffer?.dirty ? buffer.value : undefined;
+  const source = useMemo(() => draft !== undefined ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(draft)}` : body?.source ?? (loaded.data ? materialDataUrl(loaded.data) : undefined), [draft, body?.source, loaded.data]);
   const [scale, setScale] = useState<"fit" | "actual" | "large">("fit");
-  return <article className="material-surface image-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} material={material} /><div className="surface-toolbar" role="toolbar" aria-label="Image controls"><div className="segmented"><button aria-pressed={scale === "fit"} onClick={() => setScale("fit")}>Fit</button><button aria-pressed={scale === "actual"} onClick={() => setScale("actual")}>100%</button><button aria-pressed={scale === "large"} onClick={() => setScale("large")}>150%</button></div>{body && <Badge>{body.width} × {body.height}</Badge>}</div>{body ? <button className={`image-stage ${scale}`} onClick={() => input.objectRef && actions.inspect(input.objectRef)} aria-label={`Inspect ${input.title}`}><img src={body.source} alt={body.alt} width={body.width} height={body.height} /></button> : <EmptyState title="Image unavailable" body="The Case exposes image media, but no qualified browser-safe image source." />}{body?.caption && <p className="surface-caption">{body.caption}</p>}</article>;
-}
-
-export function TableSurface({ workspace, input, actions }: SurfaceRendererProps) {
-  const material = presentationMaterial(workspace, input.objectRef);
-  const body = material?.body.kind === "table" ? material.body : undefined;
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<{ key: string; direction: 1 | -1 }>();
-  const rows = useMemo(() => {
-    if (!body) return [];
-    const needle = query.toLocaleLowerCase();
-    const filtered = body.rows.filter((row) => !needle || Object.values(row.values).some((value) => value.toLocaleLowerCase().includes(needle)));
-    return sort ? [...filtered].sort((a, b) => (a.values[sort.key] ?? "").localeCompare(b.values[sort.key] ?? "") * sort.direction) : filtered;
-  }, [body, query, sort]);
-  return <article className="material-surface table-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} material={material} />{body ? <><div className="surface-toolbar" role="toolbar" aria-label="Table controls"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter rows" aria-label="Filter table rows" /><span>{rows.length} of {body.rows.length} rows</span></div><div className="table-scroll"><table><thead><tr>{body.columns.map((column) => <th key={column.key} aria-sort={sort?.key === column.key ? sort.direction === 1 ? "ascending" : "descending" : "none"}><button onClick={() => setSort((current) => ({ key: column.key, direction: current?.key === column.key && current.direction === 1 ? -1 : 1 }))}>{column.label}</button></th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.id} tabIndex={0} onClick={() => actions.inspect(row.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); actions.inspect(row.id); } }}>{body.columns.map((column) => <td key={column.key}>{row.values[column.key] ?? "—"}</td>)}</tr>)}</tbody></table></div></> : <EmptyState title="Table unavailable" body="No qualified structured rows are available." />}</article>;
+  const [failed, setFailed] = useState<string>();
+  return <article className="material-surface image-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} material={material} />{draft !== undefined && <p className="preview-local-note">{buffer?.stale ? "Stale local SVG draft" : "Preview of unsaved local SVG"} · inert image</p>}{draft !== undefined && loaded.error && <p className="file-read-warning" role="alert">{loaded.error} Only the unsaved local draft is shown.</p>}<div className="surface-toolbar" role="toolbar" aria-label="Image controls"><div className="segmented"><button aria-pressed={scale === "fit"} onClick={() => setScale("fit")}>Fit</button><button aria-pressed={scale === "actual"} onClick={() => setScale("actual")}>100%</button><button aria-pressed={scale === "large"} onClick={() => setScale("large")}>150%</button></div>{body && <Badge>{body.width} × {body.height}</Badge>}</div>{source && failed !== source ? <button className={`image-stage ${scale}`} onClick={() => input.objectRef && actions.inspect(input.objectRef)} aria-label={`Inspect ${input.title}`}><img key={source} src={source} alt={body?.alt ?? input.title} width={body?.width} height={body?.height} onError={() => setFailed(source)} /></button> : <EmptyState title="Image unavailable" body={loaded.loading ? "Reading exact retained image…" : loaded.error ?? (failed ? "The WebView could not decode this exact image." : "No qualified image source is exposed.")} />}{body?.caption && <p className="surface-caption">{body.caption}</p>}</article>;
 }
 
 export function AudioSurface(props: SurfaceRendererProps) { return <MediaSurface {...props} kind="audio" />; }
 export function VideoSurface(props: SurfaceRendererProps) { return <MediaSurface {...props} kind="video" />; }
-function MediaSurface({ workspace, input, kind }: SurfaceRendererProps & { kind: "audio" | "video" }) {
+function MediaSurface(props: SurfaceRendererProps & { kind: "audio" | "video" }) {
+  const { workspace, input, kind } = props;
   const material = presentationMaterial(workspace, input.objectRef);
   const body = material?.body.kind === kind ? material.body : undefined;
-  return <article className={`material-surface media-surface ${kind}-surface`} data-surface-type={input.surfaceType}><MaterialHeader input={input} material={material} />{body?.source ? kind === "audio" ? <audio controls preload="metadata" src={body.source}>Audio playback is unavailable.</audio> : <video controls preload="metadata" src={body.source}>Video playback is unavailable.</video> : <EmptyState title={`${kind === "audio" ? "Audio" : "Video"} unavailable`} body={body?.unavailableReason ?? "No qualified media source is exposed to Studio."} />}{body?.caption && <p className="surface-caption">{body.caption}</p>}</article>;
+  const loaded = useReadableMaterial(props, "bytes", Boolean(body));
+  const source = useMemo(() => body?.source ?? (loaded.data ? materialDataUrl(loaded.data) : undefined), [body?.source, loaded.data]);
+  const [failed, setFailed] = useState<string>();
+  return <article className={`material-surface media-surface ${kind}-surface`} data-surface-type={input.surfaceType}><MaterialHeader input={input} material={material} />{source && failed !== source ? kind === "audio" ? <audio key={source} onError={() => setFailed(source)} controls preload="metadata" src={source}>Audio playback is unavailable.</audio> : <video key={source} onError={() => setFailed(source)} controls preload="metadata" src={source}>Video playback is unavailable.</video> : <EmptyState title={`${kind === "audio" ? "Audio" : "Video"} unavailable`} body={loaded.loading ? "Reading exact retained media…" : loaded.error ?? (failed ? "This WebView cannot play the qualified media format." : body?.unavailableReason ?? "No qualified media source is exposed to Studio.")} />}{body?.caption && <p className="surface-caption">{body.caption}</p>}</article>;
 }
 
 export function UnavailableMaterialSurface({ workspace, input, actions }: SurfaceRendererProps) {
@@ -126,18 +124,26 @@ export async function searchMaterialSurface({ workspace, readMaterial, buffers }
   return text?.split("\n").map((line, index) => ({ line: line.trim(), index })).filter(({ line }) => line.toLocaleLowerCase().includes(needle)).slice(0, 40).map(({ line, index }) => ({ id: `${input.identity}:${index}`, label: line || `Line ${index + 1}`, detail: `${input.title} · line ${index + 1}`, objectRef: input.objectRef })) ?? [];
 }
 
-export async function searchPdfSurface({ workspace }: Pick<SurfaceRendererProps, "workspace">, input: SurfaceRendererProps["input"], query: string): Promise<readonly SurfaceSearchResult[]> {
+export async function searchPdfSurface({ workspace, readMaterial }: Pick<SurfaceRendererProps, "workspace" | "readMaterial">, input: SurfaceRendererProps["input"], query: string): Promise<readonly SurfaceSearchResult[]> {
   const material = presentationMaterial(workspace, input.objectRef);
   const source = material?.body.kind === "pdf" ? material.body.source : undefined;
-  const materialId = material?.id;
+  const materialId = material?.id ?? input.objectRef;
   const needle = query.trim().toLocaleLowerCase();
-  if (!source || !materialId || !needle) return [];
+  if (!materialId || !needle) return [];
+  let data: Uint8Array<ArrayBuffer> | undefined;
+  if (!source) {
+    const expected = expectedMaterialIdentity({ workspace, input });
+    if (!expected) return [];
+    const result = await readMaterial({ case_ref: expected.caseRef, source_ref: expected.sourceRef, revision_ref: expected.revisionRef, path: expected.path, expected_generation: expected.generation });
+    if (result.result_state !== "success" || !result.data || validateMaterialRead(expected, result.data) || await validateMaterialContent(result.data)) return [];
+    data = result.data.encoding === "utf-8" ? new TextEncoder().encode(result.data.content) : Uint8Array.from(atob(result.data.content), char => char.charCodeAt(0));
+  }
   const [{ getDocument, GlobalWorkerOptions }, worker] = await Promise.all([
     import("pdfjs-dist"),
     import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
   ]);
   GlobalWorkerOptions.workerSrc = worker.default;
-  const task = getDocument({ url: source });
+  const task = getDocument(data ? { data } : { url: source });
   const document = await task.promise;
   try {
     const results: SurfaceSearchResult[] = [];

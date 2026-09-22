@@ -133,6 +133,16 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    profile and also injects a lost acknowledgement after a real commit: Studio
    must show uncertainty and must not resubmit the action.
 
+   Open a retained README with Markdown Preview: headings, lists and code blocks
+   must render, and a qualified relative file link must navigate through the
+   Workbench. Edit locally, then preview: the draft must be labelled unsaved.
+   In fixture qualification, exercise SVG Code/Preview, PDF pages/search, media
+   playback and a CSV Table with search/sort/column sizing. Binary mismatch must
+   refuse display. In Settings > Workbench, change Explorer width and restart;
+   confirm persistence and rejection of out-of-range values. At 1000×650, use the
+   compact section selector. Select editor text, use Edit > Cut then Undo, and
+   verify that menu focus did not lose the selection.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not
