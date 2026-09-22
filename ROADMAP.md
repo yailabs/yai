@@ -11,9 +11,9 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **APPLICATION.EXECUTION.LIFECYCLE.0 — IN_PROGRESS**. Audit actual operation coverage and qualify durable submission/observation, existing RuntimeInstance supervision and no blind redispatch across client loss. The previous 26/31 catalog posture is the starting claim under behavioral audit, not proof of complete per-action coverage. |
-| Latest major completed product boundary | Typed frontend-independent operations now cover identity/Tenant, Case/Participant administration, Policy/Review, Workflow/Handoff, provider governance, Resource/source partial lifecycle, Recall/W/paging/refresh and Decision preparation through the resident Application Host. |
-| Most important structural gap | The selected execution wave has qualified resident RuntimeInstance supervision, exact run/stop observation, bounded Resource execution and Source attempt no-redispatch. Conversation SEND, cognitive realize/compose, Application Case resume, complete effect reconciliation and unresolved Source carrier recovery remain incomplete. Remote Application transport, a production decision producer, adaptive cognitive routing and a public W → E consumer also remain open. |
+| Selected engineering boundary | **APPLICATION.EXECUTION.LIFECYCLE.0 — COMPLETE** at bounded typed submission/observation and no-redispatch scope. Next implementation boundary UNSELECTED. |
+| Latest major completed product boundary | Thirty-one eligible PRODUCT families have typed Application operations. Existing RuntimeInstance supervision, exact Case run/resume/stop, ordinary SEND, realization/composition, controlled effects/reconciliation and Source attempts remain observable across client loss without blind replay. |
+| Most important structural gap | Application availability is not complete Studio interaction coverage or universal recovery. Carrier loss can remain indeterminate; arbitrary legacy checkpoints are not automatically resumable. Stable exported SDK/general events, remote transport, a production decision producer, adaptive routing and public W → E remain open. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
 | Primary research boundary | Minimum Sufficient Cognition targets the least expensive qualified mechanism—deterministic logic, non-generative decision inference, generative reasoning, then human/review escalation—for each bounded step. A future YVEX Decision Readout/Core must provide real scoring/calibration evidence; adaptive routing, broader Recall/W sufficiency, Experiential State Read/Update and persistent deliberation remain open. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
@@ -594,8 +594,8 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 |---|---|---|---|
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
-| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | The code-owned [`yai-application` capability catalog](docs/reference/application-capabilities.md) classifies 42 bounded product/read/action/diagnostic/internal/target families and exposes 61 stable operation descriptors. Twenty-six of 31 Application-eligible current PRODUCT families are Ready, up from 15; five execution families retain test-enforced missing-lifecycle blockers, with safe partial operations listed explicitly. The resident Rust Application Host forwards the typed operations through private versioned Linux Unix IPC. No Application operation invokes/parses the CLI. Runtime supervision, disconnect-safe execution/result observation for the five blocked families, stable exported package/SDK, remote authentication and ordinary CLI-through-Host convergence remain incomplete. |
-| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. Native Studio discovers or starts one resident application Host per `YAI_HOME`, attaches through Tauri, renders authorized real-Case projections and receives Host-owned generation invalidations; two Studio processes can share the same Host while fixtures remain opt-in. `case:studio-live-qualification` remains the persistent product oracle and the desktop shell owns a separate real PTY. Runtime supervision, general product readiness, Studio mutation parity, multi-client mutation qualification, remote transport, Case-attached Open in Terminal and YVEX management remain open. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | The code-owned [`yai-application` catalog](docs/reference/application-capabilities.md) classifies 42 families and 81 operation descriptors; all 31 Application-eligible PRODUCT families are Ready. The resident Rust Host supervises or attaches to the existing scheduler and forwards typed operations over private Linux Unix IPC. Exact domain execution references support current-authority observation and no blind redispatch after client loss, with explicit unresolved/indeterminate outcomes. Application invokes no CLI; shared execution orchestration serves both consumers. Stable exported package/SDK, general events, remote authentication, ordinary CLI-through-Host convergence and complete Studio interactions remain open. |
+| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. Native Studio discovers or starts one resident application Host per `YAI_HOME`, attaches through Tauri, renders authorized real-Case projections and receives Host-owned generation invalidations; two Studio processes can share the same Host while fixtures remain opt-in. `case:studio-live-qualification` remains the persistent product oracle and the desktop shell owns a separate real PTY. Backend Runtime supervision is qualified separately; complete Studio lifecycle interactions, general product readiness, mutation parity, multi-client mutation qualification, remote transport, Case-attached Open in Terminal and YVEX management remain open. |
 
 ### Qualification
 
@@ -720,17 +720,17 @@ Importing CLI parser/formatting internals to reach domain behavior is likewise
 not the shared application boundary. SDK semantics must not be reconstructed
 from CLI syntax; both consume the YAI-owned operation meaning.
 
-**Current bounded API and remaining gap:** `yai-application` now owns 61 stable
+**Current bounded API and remaining gap:** `yai-application` now owns 81 stable
 operation descriptors and a deterministic capability catalog, with machine
 discovery, current Case requestability, identity/Tenant and Case administration,
-Policy/Review, Workflow/Handoff, provider governance, Resource/source partial
+Policy/Review, Workflow/Handoff, provider governance, Resource/source
 lifecycle, Recall/W/paging/refresh and typed Decision Frontier/Request
-preparation. Twenty-six of 31 Application-eligible current PRODUCT families are
-Ready. Five execution families retain exact blocker records because their
-current CLI/domain path lacks the reconnect-safe submission/result lifecycle—or,
-for Case run/resume/stop, resident RuntimeInstance supervision—needed by an
-independent client. No missing wrapper, refactor effort or absent UI qualifies
-as a blocker. Even `--json` is not a complete stable frontend-independent
+preparation. All 31 Application-eligible current PRODUCT families are Ready;
+the five former execution blockers now expose exact domain identity, resident
+supervision and reconnect-safe observation with honest unresolved/indeterminate
+posture. No universal replay/recovery or complete Studio parity is claimed.
+Future missing wrappers, refactor effort or absent UI cannot qualify as semantic
+blockers. Even `--json` is not a complete stable frontend-independent
 package. [Executable architecture](docs/architecture.md#current-applicationclient-seams-and-limit)
 records the exact seams.
 
@@ -891,14 +891,18 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **APPLICATION.EXECUTION.LIFECYCLE.0 — IN_PROGRESS**.
-The selected work includes a behavioral audit of the preceding Application
-surface claims, durable submission/observation over existing domain identities,
-Host/RuntimeInstance composition and cross-client no-redispatch qualification.
-No capability is promoted from catalog membership alone. The prior
-APPLICATION.CAPABILITY.OPERATION.PARITY.0 remains COMPLETE at bounded typed-operation
-convergence scope: 26 of 31 Application-eligible PRODUCT families are Ready and
-the remaining five have test-enforced missing execution-lifecycle contracts.
+Last implementation boundary: **APPLICATION.EXECUTION.LIFECYCLE.0 — COMPLETE**.
+The bounded execution contract reuses durable Turn/intent, ProviderSelection/
+Invocation, Operation/PREPARE/receipt, Source attempt and RuntimeWork identities.
+Lost-response retry, current-authority refusal, real Host loss/restart and exact
+observation are qualified independently of catalog counts. Historical completed
+effect observation no longer incorrectly requires `last_operation`; the final
+current admission fence is unchanged. RuntimeWorkItem v3 adds explicit resume
+lineage and retains v1/v2 reads and consumed budgets. Transition v19, CaseState
+v16, Recall/W/Decision contracts, canonical owners and LMDB 37/40 are unchanged.
+The prior APPLICATION.CAPABILITY.OPERATION.PARITY.0 remains COMPLETE at its
+historical 26/31 typed-operation boundary; this wave closes its five retained
+execution contracts, not by rewriting that historical claim.
 APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 remains COMPLETE at bounded
 product-surface classification and Application/CLI convergence scope.
 COGNITIVE.DECISION.HOT.PATH.0 remains COMPLETE at bounded model-free composition
@@ -930,17 +934,18 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| APPLICATION.EXECUTION.LIFECYCLE.0 | IN_PROGRESS | X03 X04 | Audit actual operation coverage; qualify durable submission and reconnect-safe observation over existing domain attempts, supervised RuntimeInstance and no blind redispatch. Close the five retained execution families only with executable positive/negative product evidence. |
+| APPLICATION.EXECUTION.LIFECYCLE.0 | COMPLETE | X03 X04 | 31/31 eligible PRODUCT families Application-ready through existing domain execution identity, supervised RuntimeInstance, exact no-redispatch observation and explicit uncertainty; real IPC lost-response/restart and Golden local evidence. Studio interaction completeness and universal recovery are not claimed. |
 <!-- execution:end -->
 
 The retroactive bounded inventory contains 38 current executable/internal
 capabilities plus four target-only entries: 18 PRODUCT_READ, 14 PRODUCT_ACTION,
 three OPERATOR_DIAGNOSTIC, three INTERNAL_MECHANIC and four TARGET_ONLY.
-Application-ready families are 26 of the 31 Application-eligible PRODUCT
-families, CLI-exposed families are 35 and Studio-consumable families are 27.
-Five execution families are explicitly deferred in the catalog with exact
-blocker class, missing contract and any safe partial operations; none is
-represented as a dummy operation.
+Application-ready families are 31 of the 31 Application-eligible PRODUCT
+families, CLI-exposed families are 35 and Studio-consumable families are 32
+including the Host carrier. Consumable does not mean authored UI: the concurrent
+Studio consumer map explicitly retains unintegrated actions. No eligible PRODUCT
+Application blocker remains; future debt still requires a test-enforced semantic
+blocker rather than a dummy operation. X03/X04 maturity is not promoted.
 
 **Primary programs: E / C / A / Q, with K / S / M preserving canonical, semantic and derived identity semantics.**
 [CASE.SOURCE.BOOTSTRAP.0][source-bootstrap], [SOURCE.GROUNDED.KNOWLEDGE.0][knowledge]

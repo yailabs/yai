@@ -1309,6 +1309,22 @@ pub(super) fn execute_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntime
         .ok_or_else(|| "runtime_work_not_bound_to_instance".to_string())?;
     let args = runtime_work_args(item);
     let journal_path = PathBuf::from(&item.journal_path);
+    if item.resume_from.is_some() {
+        let current = read_checkpoint(&item.case_id)?;
+        if current.work_item_id.as_deref() != Some(item.work_id.as_str()) {
+            let next = resumed_work_checkpoint(&current, item)?;
+            let owner = acquire_runtime_admission(&next)?;
+            let result = (|| {
+                let next = transfer_resumed_work_checkpoint_at(&checkpoint_path(&item.case_id), item)?;
+                run_loop(next, &args, &owner)
+            })();
+            let release = release_runtime_admission(&owner);
+            return match (result, release) {
+                (Err(error), _) | (_, Err(error)) => Err(error),
+                (Ok(checkpoint), Ok(())) => Ok(CaseRuntimeReport::from(&checkpoint)),
+            };
+        }
+    }
     let mut checkpoint = match read_checkpoint(&item.case_id) {
         Ok(mut existing) if existing.work_item_id.as_deref() == Some(item.work_id.as_str()) => {
             if existing.runtime_instance_id.as_deref() != Some(runtime_instance_id.as_str()) {
@@ -1683,6 +1699,7 @@ mod tests {
             },
             failpoint: None,
             workflow: None,
+            resume_from: None,
             enqueue_sequence: 1,
             state: RuntimeWorkState::Running,
             attempt_count: 1,

@@ -70,12 +70,15 @@ loss or instance change. Settings > Advanced distinguishes advertised operations
 from explicitly integrated Studio interactions; `application_ready` does not
 imply a complete UI or current execution permission. See the generated
 [capability matrix](reference/application-capabilities.md).
-The current catalog exposes 72 typed operations. Family-level blockers remain
-where the complete semantic action is not qualified: a listed partial operation
-never promotes the whole family. Studio consumes exact source attempts, governed
-Resource requests, bounded runtime submission/stop and read-only execution
-observation. Conversation SEND, complete ambiguous-delivery recovery and generic
-cognitive realization remain distinct missing contracts.
+The current catalog exposes 81 typed operations and 31/31 eligible PRODUCT
+families are Application-ready. Studio consumes exact source attempts, governed
+Resource requests, bounded runtime submission/stop and execution observation.
+Ordinary SEND, exact Case resume, realization/composition and controlled effect
+submission/reconciliation now have typed backend lifecycles; their new Studio
+interactions remain explicitly unintegrated. Nine new operation IDs are marked
+as debt in the existing consumer evidence map, not silently promoted by discovery.
+Ambiguous delivery stays indeterminate unless its domain permits reconciliation;
+Application readiness is not universal recovery or complete Studio parity.
 
 Authored live forms currently consume Case creation/cancellation/closure,
 Participant role addition and authenticated self-linking, Review

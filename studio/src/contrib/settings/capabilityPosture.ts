@@ -2,6 +2,15 @@
  * This is not an operation registry or authorization decision. Unknown/new IDs stay unqualified. */
 export interface StudioOperationPosture { state: "integrated" | "alternative" | "debt"; detail: string; proof?: string }
 export const studioOperationPostures: Readonly<Record<string, StudioOperationPosture>> = {
+  "case.resume": { state: "debt", detail: "Application supports exact queued-work continuation; Studio still needs checkpoint selection and resume/refusal interaction evidence." },
+  "cognitive.realization.prepare": { state: "debt", detail: "Application prepares an exact plan from retained Turn parts; authored selection and inspection remain unconnected." },
+  "cognitive.realize": { state: "debt", detail: "Reconnect-safe exact-plan submission is available; Studio must retain the plan reference and observe instead of redispatching." },
+  "cognitive.compose": { state: "debt", detail: "Application admits one explicit composition intent; source-part and prerequisite selection need an authored interaction." },
+  "conversation.send": { state: "debt", detail: "Ordinary SEND and durable Turn/intent observation are Application-ready; composer and lost-response interaction qualification remain open." },
+  "effect.propose": { state: "debt", detail: "Exact retained candidate normalization is available; Studio must not construct an authoritative Operation or imply permission." },
+  "effect.submit": { state: "debt", detail: "Exact canonical filesystem/process Operation submission is available; review, PREPARE and uncertain-outcome UI need qualification." },
+  "effect.reconcile": { state: "debt", detail: "Explicit domain-qualified reconciliation is available; Studio must distinguish observation from permitted no-effect recovery." },
+  "provider.suitability.record": { state: "debt", detail: "Typed operator attestation is available, distinct from measured qualification; evidence authoring remains unconnected." },
   "source.resume": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
   "source.acquire": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
   "resource.request": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/effect-actions.mjs" },

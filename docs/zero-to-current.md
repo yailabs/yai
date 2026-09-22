@@ -200,19 +200,15 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    Resource identities. The second is current Case-specific derived posture,
    not authority to execute an operation.
 
-   The published parity baseline recorded 61 Application operation descriptors,
-   26 Application-ready families and five execution-lifecycle blockers. The
-   active execution-lifecycle audit adds exact process attachment, durable run
-   submission, cooperative stop, Source acquisition/resume and submission
-   observation, governed Resource requests and explicit Knowledge
-   inspect/search/resolve/navigation, bringing the working catalog to 72
-   operations. This count is not proof of action-level completeness. The five
-   families remain deferred until lifecycle qualification closes. They are `case.lifecycle`,
-   `cognitive.bindings_and_realization`, `conversation.execution`,
-   `effect.controlled_execution` and `source.lifecycle`; safe partial operations
-   remain listed, and no wrapper/UI/CLI-placement rationale is accepted as a
-   blocker. Qualify the frontend-independent mutation path independently of the
-   CLI presentation:
+   The historical parity baseline recorded 61 operations and 26/31 Ready
+   families. The execution lifecycle now exposes 81 operations and 31/31 eligible
+   PRODUCT families, with no retained Application execution blocker. This includes
+   exact process attachment, supervised run/resume/stop, Source attempts,
+   governed Resource/effect submission and reconciliation, ordinary SEND,
+   realization/composition and Knowledge query/navigation. Operation counts are
+   not action-level proof or Studio interaction coverage. The catalog remains
+   the single surface owner; qualify the frontend-independent path independently
+   of CLI presentation:
 
    ```sh
    cargo test --manifest-path application/Cargo.toml -p yai-application \
@@ -241,8 +237,8 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    stops; a new submission still requires a running runtime. Changed content
    under the same identity is refused. Observation exposes no lease token, task text
    or compatibility path, creates no Transition and cannot redispatch. This
-   does not yet prove Host-supervised execution, Conversation SEND or the other
-   execution families. Process attachment is separately qualified in
+   is complemented by separate real Host/SEND/realization/effect lanes below.
+   Process attachment is separately qualified in
    `live_local_case` with exact process identity, review preservation, immutable
    retry and no signal/effect.
 
@@ -262,11 +258,28 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    `make smoke-application-active-runtime` is the separate deterministic-provider
    lane: typed setup and submission over real Host IPC, a gated provider call,
    exact `case.stop`, then Host restart and observation of the same terminal
-   work. Its second run kills the exact disposable Host during a gated provider
-   dispatch and checks recovery to `delivery_indeterminate`, one invocation and
-   no redispatch on duplicate submission. Stop is cooperative: a completion
-   already dispatched may settle normally. This does not qualify arbitrary
-   carrier recovery or human/External Golden acceptance.
+   work. Its crash variants kill the exact disposable Host during gated provider
+   or Source dispatch and require `delivery_indeterminate` with no duplicate
+   dispatch. Ordinary SEND, explicit composition and direct exact-plan realization
+   lose their acknowledgement, reconnect, and observe the same Turn/intent/
+   selection/result after restart. The audio-derived variants require exact
+   immutable derived content and explicit prerequisite closure. Invalid provider
+   responses remain failed evidence, not success. The resume-budget variant
+   preserves already-consumed invocation count across a new continuation item.
+   Stop is cooperative: a completion already dispatched may settle normally.
+
+   Use `execution.get` with the exact typed domain reference supplied/known at
+   submission. Never replace an unknown outcome with a fresh submission identity.
+   `cognitive.realization.prepare` supplies the exact plan before dispatch;
+   `cognitive.realize` binds its acknowledgement to canonical selection.
+   `effect.propose` normalizes an exact retained candidate without executing;
+   `effect.submit` crosses normal admission, and `effect.reconcile` permits only
+   the existing domain's recovery. A process signal is never blindly repeated.
+   Newer Operations must not hide an older completed receipt. Source carrier loss
+   does not authorize reacquisition, and absent dispatch evidence stays unresolved.
+   These are bounded contracts, not arbitrary carrier recovery or human/External
+   Golden acceptance. Interactive capability-work/Workflow SEND modes are not
+   silently enabled by the ordinary `conversation.send` operation.
 
    `resource.request` admits the existing canonical participant request before
    carrier advancement. `execution.get` accepts its exact `resource_request`
@@ -282,8 +295,18 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    proves pending review survives reopen and retry without dispatch, rejects
    the wrong reviewer, and requires real approval before the same operation
    produces its one receipt. Approval itself reports no external effect.
-   This partial surface is not yet proof
-   of all effect carriers or interrupted PREPARE/reconciliation through IPC.
+   For an already canonical filesystem/process Operation, `effect.submit`
+   advances the shared governed algorithm; `execution.get` uses domain
+   `controlled_effect` plus `operation_ref`. `effect.reconcile` names the exact
+   effect and current generation. Product tests perform real fixture writes
+   and signals, reject stale/hidden callers, preserve receipts after reopen,
+   and do not redispatch PREPARE-only attempts. Explicit filesystem no-effect
+   recovery may retry; process recovery remains observation-only even when
+   retry is requested. `make smoke-controlled-effect` additionally loses an
+   actual Host IPC acknowledgement and restarts the Host: the exact receipt,
+   generation and file inode survive without a second write. Separate dispatcher
+   tests exercise `effect.propose` over exact retained provider candidates;
+   these lanes do not claim every interrupted PREPARE/reconciliation boundary.
 
    `execution.get` also observes an exact Source ID + acquisition attempt under
    the declaring operator's current Case/Participant authority. The Application
@@ -309,11 +332,13 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    `--source-crash-in-flight` lane in `make smoke-application-active-runtime`
    kills a disposable Host after one gated HTTP source request arrives. A new
    Host observes the same exact attempt, retry does not dispatch, and both resume
-   and replacement-attempt submission refuse. Application posture `unresolved`
-   means admission without terminal evidence, not a running carrier; it does
-   not invent success, failure or safe resumability. Settled failure is instead
+   and replacement-attempt submission refuse. An attempt-scoped operational lock
+   distinguishes `running` before the crash from `delivery_indeterminate` after it;
+   older attempts without that evidence remain `unresolved`. These observations
+   do not invent success, failure or safe resumability. Settled failure is instead
    `interrupted`, with explicit resume as above. Automatic reconciliation of
-   an unresolved carrier remains absent; the family remains Deferred. Its
+   an unresolved carrier remains absent; Ready means safe observation, not
+   universal recovery. Its
    `--source-review` variant additionally restarts while awaiting review, refuses
    a wrong reviewer, approves through the real Application operation and resumes
    the exact attempt before crashing. Replaying that resume cannot dispatch twice.
@@ -343,7 +368,7 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    fixture Case search is test data only. Open Settings twice and confirm one
    singleton tab, internal section/search navigation, persistence of real local
    preferences, real `YAI Host` process/application/client telemetry, explicit
-   `Runtime supervision: not integrated`, and truthful provider/YVEX entries.
+   the actual Runtime supervision posture, and truthful provider/YVEX entries.
 6. In the desktop Terminal tool, create two terminals and confirm selection,
    input/output, ANSI, Unicode, scrollback and copy/paste. Resize the bottom,
    Explorer and Context panels and verify `stty size` changes. Exercise `vim`
@@ -446,8 +471,10 @@ Check these additional UI behaviors at 1600×960, 1440×900, 1280×800 and 1000�
 13. With a qualified target in the disposable Case, submit bounded Work, observe
     its exact execution, request cooperative stop of that runner, and reconnect.
     The same durable reference must be recovered without another provider call.
-    Settings > YAI Host reports actual supervision. Conversation SEND is separate
-    and remains unavailable; a running older Host may advertise fewer operations.
+    Settings > YAI Host reports actual supervision. Conversation SEND now has a
+    typed backend lifecycle but its Studio composer remains interaction debt;
+    a running older Host may advertise fewer operations. Check the connected
+    catalog rather than assuming the installed client and Host match.
 
 The retained browser product suites call the real Host on disposable profiles;
 the browser bridge is not native WebView acceptance. `operational-live.mjs`

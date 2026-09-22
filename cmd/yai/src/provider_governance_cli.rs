@@ -1,10 +1,7 @@
 //! Product/admin adapters for Tenant-scoped provider governance.
 
 use super::*;
-use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
-use serde_json::{Map, Value};
-use std::collections::HashSet;
-use std::fmt;
+use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::provider_governance::{
     ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderProbeEvidence,
@@ -266,101 +263,7 @@ fn provider_show(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Clone, Debug)]
-struct StrictValue(Value);
-
-impl<'de> Deserialize<'de> for StrictValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct StrictVisitor;
-        impl<'de> Visitor<'de> for StrictVisitor {
-            type Value = StrictValue;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("JSON without duplicate object keys")
-            }
-
-            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::Bool(value)))
-            }
-
-            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::Number(value.into())))
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::Number(value.into())))
-            }
-
-            fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                serde_json::Number::from_f64(value)
-                    .map(|number| StrictValue(Value::Number(number)))
-                    .ok_or_else(|| E::custom("non-finite JSON number"))
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::String(value.to_string())))
-            }
-
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::String(value)))
-            }
-
-            fn visit_none<E>(self) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::Null))
-            }
-
-            fn visit_unit<E>(self) -> Result<Self::Value, E> {
-                Ok(StrictValue(Value::Null))
-            }
-
-            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let mut values = Vec::new();
-                while let Some(value) = sequence.next_element::<StrictValue>()? {
-                    values.push(value.0);
-                }
-                Ok(StrictValue(Value::Array(values)))
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut values = Map::new();
-                let mut keys = HashSet::new();
-                while let Some(key) = map.next_key::<String>()? {
-                    if !keys.insert(key.clone()) {
-                        return Err(serde::de::Error::custom(format!(
-                            "duplicate JSON key: {key}"
-                        )));
-                    }
-                    let value = map.next_value::<StrictValue>()?;
-                    values.insert(key, value.0);
-                }
-                Ok(StrictValue(Value::Object(values)))
-            }
-        }
-        deserializer.deserialize_any(StrictVisitor)
-    }
-}
-
-pub(super) fn strict_json(body: &[u8]) -> Result<Value, String> {
-    let mut deserializer = serde_json::Deserializer::from_slice(body);
-    let value = StrictValue::deserialize(&mut deserializer)
-        .map_err(|error| format!("provider_response_json_invalid: {error}"))?;
-    deserializer
-        .end()
-        .map_err(|error| format!("provider_response_json_trailing_data: {error}"))?;
-    Ok(value.0)
-}
+pub(super) use yai_application::provider_execution::{strict_json, public_error_code};
 
 type ParsedEndpoint = super::provider_transport::ProviderEndpoint;
 
@@ -464,21 +367,6 @@ fn probe_failure_code(error: &str) -> String {
         .filter(|c| c.is_ascii_alphanumeric() || "._:-/".contains(*c))
         .take(128)
         .collect()
-}
-
-pub(super) fn public_error_code(body: &[u8]) -> String {
-    let code = strict_json(body).ok().and_then(|v| {
-        v.pointer("/error/code")
-            .or_else(|| v.pointer("/error/type"))
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-    });
-    code.filter(|s| {
-        s.len() <= 64
-            && s.chars()
-                .all(|c| c.is_ascii_alphanumeric() || "_-".contains(c))
-    })
-    .unwrap_or_else(|| "provider_rejected_request".into())
 }
 
 fn probe_status_error(response: &ProbeHttpResponse) -> String {

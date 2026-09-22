@@ -29,15 +29,14 @@ use yai_core_engine::compatibility::{
     inspect_legacy_jsonl, legacy_summary_has_marker, parse_legacy_summary_fields,
 };
 use yai_core_engine::context::{
-    build_context_frame, render_openai_compatible, ContextFrame, ContinuationDisposition,
-    InvocationOutputContract, Projection, ProjectionPurpose, ProjectionRequest,
-    ProviderContinuationReference, ProviderModelProfile, RenderedInput, SemanticContextArtifact,
+    ContinuationDisposition, InvocationOutputContract, ProjectionPurpose,
+    ProviderContinuationReference, RenderedInput, SemanticContextArtifact,
 };
 use yai_core_engine::graph::GraphSummary;
 use yai_core_engine::journal::{Journal, JournalInspection, JOURNAL_RECORD_SCHEMA};
 use yai_core_engine::memory::{
     derive_operational_memory, retrieve_operational_memory, MemorySummary, OperationalMemoryEntry,
-    OperationalMemoryLifecycle, RetrievalQualification, DEFAULT_RETRIEVAL_LIMIT,
+    OperationalMemoryLifecycle, RetrievalQualification,
 };
 use yai_core_engine::projection::ProjectionSummary;
 use yai_core_engine::provider_governance::ProviderLocality;
@@ -45,7 +44,7 @@ use yai_core_engine::query::{QueryFilter, QueryResult};
 use yai_core_engine::reconcile::ReconcileSummary;
 use yai_core_engine::record::{Record, RecordKind};
 use yai_core_engine::residency::{
-    ResidencyPlan, DEFAULT_SEMANTIC_UNIT_BUDGET,
+    DEFAULT_SEMANTIC_UNIT_BUDGET,
 };
 use yai_core_engine::store::lmdb::{
     GraphMaterializeReport, LmdbRecordStore, RecordStoreStatusKind, ReplayMetadata,
@@ -768,38 +767,7 @@ fn yai_env_file() -> Option<PathBuf> {
     candidate.is_file().then_some(candidate)
 }
 
-fn parse_env_assignment(line: &str) -> Option<(String, String)> {
-    let line = line.trim();
-    if line.is_empty() || line.starts_with('#') {
-        return None;
-    }
-    let line = line.strip_prefix("export ").unwrap_or(line).trim();
-    let (key, value) = line.split_once('=')?;
-    let key = key.trim();
-    if key.is_empty()
-        || !key
-            .chars()
-            .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-        || key.chars().next().is_some_and(|ch| ch.is_ascii_digit())
-    {
-        return None;
-    }
-
-    let value = value.trim();
-    let value = if value.len() >= 2 {
-        let bytes = value.as_bytes();
-        if (bytes[0] == b'"' && bytes[value.len() - 1] == b'"')
-            || (bytes[0] == b'\'' && bytes[value.len() - 1] == b'\'')
-        {
-            &value[1..value.len() - 1]
-        } else {
-            value
-        }
-    } else {
-        value
-    };
-    Some((key.to_string(), value.to_string()))
-}
+use yai_application::provider_execution::parse_env_assignment;
 
 fn env_file_var(name: &str) -> Option<String> {
     let path = yai_env_file()?;
@@ -928,7 +896,7 @@ use replay::*;
 mod review;
 use review::*;
 
-use yai_application::{provider_transport, resource_transport};
+use yai_application::provider_transport;
 
 #[path = "provider.rs"]
 mod provider;

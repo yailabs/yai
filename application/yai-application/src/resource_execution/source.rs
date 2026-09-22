@@ -9,6 +9,79 @@ use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
 use yai_core_engine::transition::TransitionPayload;
 
+/// Operational lifetime only, never permission to acquire or resume. The
+/// canonical attempt admission and current Resource fences still decide that.
+pub struct AcquisitionCarrier {
+    _lock: std::fs::File,
+    case: String,
+    source: String,
+    attempt: u64,
+}
+
+fn carrier_path(home: &Path, case: &str, source: &str, attempt: u64) -> std::path::PathBuf {
+    home.join("run/source-carriers").join(format!("{}.lock",
+        yai_core_engine::context::stable_digest(&format!("{case}\0{source}\0{attempt}"))))
+}
+
+pub fn acquire_carrier(
+    home: &Path, store: &LmdbRecordStore, auth: &AuthenticatedPrincipal,
+    case: &str, source: &str, attempt: u64,
+) -> Result<AcquisitionCarrier, String> {
+    let (_, current) = store.case_source_authorized(auth, case, source)?;
+    let path = carrier_path(home, case, &current.declaration.source_id, attempt);
+    // An older uninstrumented attempt cannot acquire a retrospective liveness
+    // witness. Absence of the marker is not evidence that its carrier died.
+    if current.progress.as_ref().is_some_and(|p| p.attempt == attempt && p.phase == SourcePhase::Acquiring)
+        && !path.exists() {
+        return Err("source_carrier_lifetime_unknown".into());
+    }
+    let lock = crate::runtime_execution::acquire_execution_carrier(&path)
+        .map_err(|error| error.replace("execution_carrier", "source_carrier"))?;
+    Ok(AcquisitionCarrier { _lock: lock, case: case.into(),
+        source: current.declaration.source_id, attempt })
+}
+
+pub fn execution_posture(home: &Path, case: &str, source: &str, attempt: u64, phase: &SourcePhase)
+    -> Result<crate::SourceExecutionPosture, String> {
+    use crate::SourceExecutionPosture;
+    if phase != &SourcePhase::Acquiring { return Ok(phase.into()); }
+    let file = match std::fs::OpenOptions::new().read(true).write(true)
+        .open(carrier_path(home, case, source, attempt)) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(SourceExecutionPosture::Unresolved),
+        Err(e) => return Err(format!("source_carrier_observation:{e}")),
+    };
+    match file.try_lock() {
+        Ok(()) => Ok(SourceExecutionPosture::DeliveryIndeterminate),
+        Err(std::fs::TryLockError::WouldBlock) => Ok(SourceExecutionPosture::Running),
+        Err(std::fs::TryLockError::Error(e)) => Err(format!("source_carrier_observation:{e}")),
+    }
+}
+
+/// Combine canonical progress and ephemeral carrier observation without
+/// reporting an old Acquiring cut as indeterminate after a terminal commit.
+/// The second authorized read is also the current disclosure fence.
+pub fn observe_execution(
+    home: &Path, store: &LmdbRecordStore, auth: &AuthenticatedPrincipal,
+    case: &str, participant: &str, source: &str, attempt: u64,
+) -> Result<crate::SourceExecutionObservation, String> {
+    let (generation, progress, current_source_phase) =
+        store.observe_source_attempt_authorized(auth, case, participant, source, attempt)?;
+    let posture = execution_posture(home, case, source, attempt, &progress.phase)?;
+    let (latest_generation, latest, latest_phase) =
+        store.observe_source_attempt_authorized(auth, case, participant, source, attempt)?;
+    if generation != latest_generation || progress.progress_id != latest.progress_id
+        || current_source_phase != latest_phase {
+        return Err("source_execution_observation_stale".into());
+    }
+    Ok(crate::SourceExecutionObservation {
+        schema: "yai.source_execution_observation.v1".into(),
+        case_ref: case.into(), participant_ref: participant.into(), source_ref: source.into(),
+        attempt, progress_ref: progress.progress_id, posture, phase: progress.phase,
+        current_source_phase, observed_generation: generation,
+    })
+}
+
 pub fn progress(
     store: &LmdbRecordStore,
     auth: &AuthenticatedPrincipal,
@@ -55,11 +128,12 @@ pub fn acquire(
     if let Some(prior) = source.progress.as_ref().filter(|p|
         p.phase == SourcePhase::AwaitingReview || (!refresh && matches!(p.phase,
             SourcePhase::Inaccessible | SourcePhase::NeedsProcessing))) {
+        let carrier = acquire_carrier(home, store, auth, case, &declaration.source_id, prior.attempt)?;
         let admitted = store.resume_source_attempt_authorized(auth, case,
             &declaration.participant_id, &declaration.source_id, prior.attempt,
             state.generation, &prior.progress_id)?;
         if admitted {
-            advance_admitted(home, store, auth, case, name, prior.attempt)?;
+            advance_admitted(home, store, auth, case, name, prior.attempt, &carrier)?;
         }
         return Ok(());
     }
@@ -69,9 +143,10 @@ pub fn acquire(
     }
     let attempt = source.progress.as_ref().map_or(Some(1), |p| p.attempt.checked_add(1))
         .ok_or("source_attempt_exhausted")?;
+    let carrier = acquire_carrier(home, store, auth, case, &declaration.source_id, attempt)?;
     if store.begin_source_attempt_authorized(auth, case, &declaration.participant_id,
         &declaration.source_id, attempt, state.generation)? {
-        advance_admitted(home, store, auth, case, name, attempt)?;
+        advance_admitted(home, store, auth, case, name, attempt, &carrier)?;
     }
     Ok(())
 }
@@ -85,8 +160,12 @@ pub fn advance_admitted(
     case: &str,
     name: &str,
     attempt: u64,
+    carrier: &AcquisitionCarrier,
 ) -> Result<(), String> {
     let (_, source) = store.case_source_authorized(auth, case, name)?;
+    if carrier.case != case || carrier.source != source.declaration.source_id || carrier.attempt != attempt {
+        return Err("source_carrier_scope_mismatch".into());
+    }
     if !source.progress.as_ref().is_some_and(|p| {
         p.attempt == attempt && p.phase == SourcePhase::Acquiring
     }) {

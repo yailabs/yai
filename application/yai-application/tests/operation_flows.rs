@@ -34,6 +34,373 @@ impl Fixture {
 impl Drop for Fixture { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.home); } }
 
 #[test]
+fn provider_suitability_records_honest_attestation_and_refuses_invalid_input() {
+    use yai_core_engine::{security::AuthenticatedPrincipal, store::lmdb::LmdbRecordStore};
+    let f = Fixture::new("provider-suitability");
+    let target = f.success("provider.register", json!({"tenant_id":"tenant:audit",
+        "provider_key":"attestation", "adapter":"open_ai_compatible", "endpoint":"http://127.0.0.1:1/v1/chat/completions",
+        "model_id":"test-only", "credential_ref":"none", "locality":"loopback"}));
+    let input = json!({"target_ref":target["target_id"], "capability":"primary_conversation",
+        "suite_ref":"suite:operator", "run_ref":"run:attestation", "evidence_refs":["evidence:operator"]});
+    let mut missing = input.clone(); missing["target_ref"] = json!("provider-target:absent");
+    assert_ne!(f.call("provider.suitability.record", missing).result_state, ResultState::Success);
+    let mut forged = input.clone(); forged["principal_ref"] = json!("principal:forged");
+    assert_ne!(f.call("provider.suitability.record", forged).result_state, ResultState::Success);
+    let mut empty = input.clone(); empty["evidence_refs"] = json!([]);
+    assert_ne!(f.call("provider.suitability.record", empty).result_state, ResultState::Success);
+    let auth = AuthenticatedPrincipal::authenticate_local().unwrap();
+    let store = LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    let target_id = target["target_id"].as_str().unwrap();
+    assert!(store.list_semantic_suitability_evidence_authorized(&auth, target_id, None).unwrap().is_empty());
+    let generation = f.generation();
+    let evidence = f.success("provider.suitability.record", input);
+    assert_eq!(evidence["posture"], "operator_attested");
+    assert_eq!(evidence["recorded_by_principal_id"], auth.projected_principal_id());
+    drop(store);
+    let reopened = LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    let retained = reopened.list_semantic_suitability_evidence_authorized(&auth, target_id, None).unwrap();
+    assert_eq!(retained.len(), 1);
+    assert_eq!(serde_json::to_value(&retained[0]).unwrap(), evidence);
+    assert_eq!(f.generation(), generation, "attestation does not execute provider or mutate Case history");
+}
+
+#[test]
+fn cognitive_composition_admits_once_and_observes_existing_turn_after_reopen() {
+    use yai_core_engine::conversation::*;
+    use yai_core_engine::security::AuthenticatedPrincipal;
+    use yai_core_engine::store::lmdb::LmdbRecordStore;
+    let mut f = Fixture::new("composition-submit");
+    let auth = AuthenticatedPrincipal::authenticate_local().unwrap();
+    let store = LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    let content = ConversationContentStore::open(&f.home).unwrap();
+    let mut draft = ConversationDraft { schema: CONVERSATION_DRAFT_SCHEMA.into(),
+        draft_id: "composition-draft".into(), case_id: "case:audit".into(), tenant_id: "tenant:audit".into(),
+        thread_id: "thread:application".into(), participant_id: "participant:operator".into(),
+        principal_id: auth.projected_principal_id(), base_generation: f.generation(), parts: vec![] };
+    content.create_draft(&draft).unwrap();
+    content.stage_bytes(&mut draft, ContentModality::Text, "text/plain;charset=utf-8", b"exact existing Turn",
+        ContentPartProvenance::Original { imported_by_principal_id: auth.projected_principal_id() }).unwrap();
+    let committed = yai_application::cognitive_execution::commit_conversation_draft_with_intent(
+        &f.home, &auth, &store, &draft, None, None).unwrap();
+    let generation = f.generation();
+    let input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "source_turn_ref":committed.turn.turn_id, "source_part_refs":[committed.turn.ordered_parts[0].part_id],
+        "prerequisite":null, "expected_generation":generation});
+    let mut hidden = input.clone(); hidden["participant_ref"] = json!("participant:hidden");
+    assert_ne!(f.call("cognitive.compose", hidden).result_state, ResultState::Success);
+    let mut stale = input.clone(); stale["expected_generation"] = json!(generation - 1);
+    assert_eq!(f.call("cognitive.compose", stale).result_state, ResultState::Stale);
+    assert_eq!(f.generation(), generation);
+    let first = f.success("cognitive.compose", input.clone());
+    assert_eq!(first["created"], true);
+    let observe = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "execution":{"domain":"cognitive_composition", "request_ref":first["execution"]["request_ref"]}});
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        let result = f.success("execution.get", observe.clone());
+        if result["posture"] != "running" { assert_eq!(result["posture"], "unresolved"); break }
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    f.app = LocalApplication::from_yai_home(&f.home);
+    let retry = f.success("cognitive.compose", input);
+    assert_eq!(retry["created"], false);
+    assert_eq!(retry["execution"]["request_ref"], first["execution"]["request_ref"]);
+    let mut wrong_case = observe.clone(); wrong_case["case_ref"] = json!("case:absent");
+    assert_ne!(f.call("execution.get", wrong_case).result_state, ResultState::Success);
+    let mut hidden = observe; hidden["participant_ref"] = json!("participant:hidden");
+    assert_ne!(f.call("execution.get", hidden).result_state, ResultState::Success);
+    let history = store.list_case_transitions("case:audit").unwrap();
+    assert_eq!(history.iter().filter(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ConversationExecutionIntentRecorded { .. })).count(), 1);
+    assert!(!history.iter().any(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ProviderInvocationStarted { .. })));
+    assert_eq!(f.generation(), generation + 1);
+}
+
+#[test]
+fn conversation_submission_is_durable_idempotent_and_observable_without_provider() {
+    let mut f = Fixture::new("conversation-submission");
+    let generation = f.generation();
+    let input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "thread_ref":"thread:application", "submission_ref":"send:once", "expected_generation":generation,
+        "parts":[{"modality":"text", "media_type":"text/plain;charset=utf-8", "bytes":b"bounded conversation".to_vec()}]});
+    let mut hidden = input.clone(); hidden["participant_ref"] = json!("participant:hidden");
+    assert_ne!(f.call("conversation.send", hidden).result_state, ResultState::Success);
+    let mut stale = input.clone(); stale["expected_generation"] = json!(generation - 1);
+    assert_eq!(f.call("conversation.send", stale).result_state, ResultState::Stale);
+    assert_eq!(f.generation(), generation);
+    let acknowledged = f.success("conversation.send", input.clone());
+    assert_eq!(acknowledged["created"], true);
+    assert_eq!(acknowledged["execution"]["posture"], "admitted");
+    let observation = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "execution":{"domain":"conversation", "submission_ref":"send:once"}});
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        let observed = f.success("execution.get", observation.clone());
+        if observed["posture"] != "running" { assert_eq!(observed["posture"], "unresolved"); break }
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    f.app = LocalApplication::from_yai_home(&f.home);
+    let retry = f.success("conversation.send", input.clone());
+    assert_eq!(retry["created"], false);
+    assert_eq!(retry["execution"]["turn_ref"], acknowledged["execution"]["turn_ref"]);
+    assert_eq!(retry["execution"]["request_ref"], acknowledged["execution"]["request_ref"]);
+    let mut conflict = input; conflict["parts"][0]["bytes"] = json!(b"different".to_vec());
+    assert_eq!(f.call("conversation.send", conflict).error.unwrap().code, "conversation_submission_idempotency_conflict");
+    let mut hidden = observation; hidden["participant_ref"] = json!("participant:hidden");
+    assert_ne!(f.call("execution.get", hidden).result_state, ResultState::Success);
+    let store = yai_core_engine::store::lmdb::LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    let history = store.list_case_transitions("case:audit").unwrap();
+    assert_eq!(history.iter().filter(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ConversationTurnCommitted { .. })).count(), 1);
+    assert_eq!(history.iter().filter(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ConversationExecutionIntentRecorded { .. })).count(), 1);
+    assert!(!history.iter().any(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ProviderInvocationStarted { .. })));
+    assert_eq!(f.generation(), generation + 2);
+}
+
+#[test]
+fn canonical_filesystem_effect_application_retry_observes_receipt_without_second_write() {
+    canonical_effect_retry(false, false, false, false);
+}
+
+#[test]
+fn canonical_filesystem_prepare_without_receipt_is_observed_never_redispatched() {
+    canonical_effect_retry(true, false, false, false);
+}
+
+#[test]
+fn canonical_filesystem_policy_revoked_before_submission_cannot_dispatch() {
+    canonical_effect_retry(false, true, false, false);
+}
+
+#[test]
+fn canonical_process_effect_application_retry_observes_receipt_without_second_signal() {
+    canonical_effect_retry(false, false, true, false);
+}
+
+#[test]
+fn canonical_process_prepare_without_receipt_is_observed_never_redispatched() {
+    canonical_effect_retry(true, false, true, true);
+}
+
+#[test]
+fn canonical_filesystem_explicit_no_effect_reconciliation_retries_once() {
+    canonical_effect_retry(true, false, false, true);
+}
+
+fn canonical_effect_retry(prepared_only: bool, revoked: bool, process: bool, explicit_retry: bool) {
+    use yai_core_engine::effect::*;
+    use yai_core_engine::effect::access::*;
+    use yai_core_engine::store::lmdb::LmdbRecordStore;
+    use yai_core_engine::transition::*;
+    let mut f = Fixture::new("canonical-filesystem-effect");
+    let root = f.home.join("workspace");
+    fs::create_dir_all(root.join("allowed")).unwrap();
+    struct TestProcess(std::process::Child);
+    impl Drop for TestProcess {
+        fn drop(&mut self) { let _ = self.0.kill(); let _ = self.0.wait(); }
+    }
+    let child = process.then(|| TestProcess(std::process::Command::new("/usr/bin/sleep")
+        .arg("120").spawn().unwrap()));
+    let binding = LocalAccessBinding {
+        schema: LOCAL_ACCESS_BINDING_SCHEMA.into(), case_id: "case:audit".into(),
+        attachment_id: "workspace".into(), address: ResourceAddress::Filesystem {
+            root: LocalFilesystemBinding::new("case:audit", "workspace", &root).unwrap(),
+        },
+    };
+    let access = ResourceAccessContract {
+        schema: RESOURCE_ACCESS_SCHEMA.into(), configuration_digest: binding.digest(),
+        participant_ids: vec!["participant:operator".into()], operations: vec![AccessKind::FilesystemRead],
+        read_prefixes: vec!["allowed".into()], names: vec![], max_output_bytes: 4096, max_items: 16,
+    };
+    if let Some(child) = &child {
+        f.success("resource.attach_process", json!({"case_ref":"case:audit","attachment_ref":"workspace",
+            "pid":child.0.id(),"policy_owner_participant_ref":"participant:operator",
+            "actions":["suspend"],"review_requirement":"automatic"}));
+    } else {
+        f.success("resource.attach", json!({"binding":binding,"access":access,
+            "policy_owner_participant_ref":"participant:operator", "write_prefix":"allowed",
+            "max_write_bytes":4096,"review_requirement":"automatic"}));
+    }
+    f.success("participant.role.add", json!({"case_ref":"case:audit",
+        "participant_ref":"participant:operator","role":"operation-proposer"}));
+    let mut policy: Value = serde_json::from_slice(include_bytes!("../../../tests/fixtures/cli-product-policy.json")).unwrap();
+    if process {
+        for rule in policy["rules"].as_array_mut().unwrap() {
+            rule["operation_kind"] = json!("process.signal");
+            rule["resource_kind"] = json!("process");
+        }
+    }
+    let artifact = f.success("policy.ingest", json!({"tenant_id":"tenant:audit",
+        "source_bytes":serde_json::to_vec(&policy).unwrap()}));
+    let artifact = artifact["view"]["artifact"]["artifact_id"].as_str().unwrap();
+    for op in ["policy.validate", "policy.publish"] {
+        f.success(op, json!({"artifact_ref":artifact,"reason":"filesystem Application qualification"}));
+    }
+    f.success("policy.case.bind", json!({"case_ref":"case:audit","artifact_ref":artifact,
+        "expected_generation":f.generation(),"reason":"filesystem Application qualification"}));
+    let store = LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    // Seed exact canonical candidate provenance. No test provider performs the
+    // effect: the product Application dispatcher must perform its admission.
+    let auth = yai_core_engine::security::AuthenticatedPrincipal::authenticate_local().unwrap();
+    let commit = |label: &str, payload: TransitionPayload, refs: Vec<String>, scope| {
+        let generation = store.get_case_state("case:audit").unwrap().unwrap().generation;
+        let mut pending = PendingTransition::new(format!("transition:fixture:{label}"),
+            "case:audit", generation, TransitionSource { component:"application-effect-fixture".into(),
+                participant_id:Some("participant:operator".into()), principal_id:Some(auth.projected_principal_id()),
+                source_ref:Some(label.into()) }, payload);
+        pending.causal_refs = refs;
+        pending.scope = scope;
+        store.commit_secured_transition(&auth, "tenant:audit", pending, true).unwrap();
+    };
+    commit("provider", TransitionPayload::ProviderAttached {
+        participant_id:"participant:operator".into(), provider_id:"provider:fixture".into(),
+        provider_kind:"openai_compatible".into(), base_url:"http://127.0.0.1:1".into(),
+        model_id:"model:fixture".into(), credential_ref:"none".into(),
+    }, vec![], None);
+    let lineage = ProviderInvocationLineage {
+        projection_id:"projection:fixture".into(), context_frame_id:"context:fixture".into(),
+        case_generation:f.generation(), rendered_input_id:"input:fixture".into(),
+        rendered_input_digest:"digest:fixture".into(), output_contract_id:"output:fixture".into(),
+        continuation_disposition:"not_provided".into(),
+    };
+    commit("invocation", TransitionPayload::ProviderInvocationStarted {
+        invocation_id:"invocation:fixture".into(), participant_id:"participant:operator".into(),
+        provider_id:"provider:fixture".into(),provider_kind:"openai_compatible".into(),
+        model_id:"model:fixture".into(),semantic_lineage:Some(lineage.clone()),governance:None,
+    }, vec![], None);
+    let proposal = if process {
+        r#"{"schema":"yai.operation_proposal.process_signal.v1","operation":"process.signal","resource":"workspace","action":"suspend"}"#
+    } else {
+        r#"{"schema":"yai.operation_proposal.filesystem_write.v1","operation":"filesystem.write","resource":"workspace","path":"allowed/result.txt","content":"one governed write"}"#
+    };
+    commit("result", TransitionPayload::ProviderResultRecorded {
+        result_id:"result:fixture".into(),invocation_id:"invocation:fixture".into(),
+        provider_id:"provider:fixture".into(),provider_kind:"openai_compatible".into(),
+        model_id:"model:fixture".into(),semantic_lineage:Some(lineage.clone()),output:proposal.into(),
+    }, vec!["invocation:fixture".into()], None);
+    let state = store.get_case_state("case:audit").unwrap().unwrap();
+    let normalization = NormalizationContext {
+        case_id:"case:audit",participant_id:"participant:operator",provider_result_id:"result:fixture",
+        provider_invocation_id:"invocation:fixture",case_generation:state.generation,resource:&state.resources[0],
+    };
+    let operation = if process {
+        normalize_process_signal_candidate(proposal, &normalization,
+            &store.get_local_process_binding("case:audit", "workspace").unwrap().unwrap().process).unwrap()
+    } else { normalize_filesystem_write_candidate(proposal, &normalization).unwrap() };
+    let propose = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "resource_ref":"workspace", "candidate_ref":"result:fixture", "expected_generation":state.generation});
+    let mut wrong = propose.clone(); wrong["participant_ref"] = json!("participant:hidden");
+    assert_eq!(f.call("effect.propose", wrong).result_state, ResultState::Unauthorized);
+    let mut stale = propose.clone(); stale["expected_generation"] = json!(0);
+    assert_eq!(f.call("effect.propose", stale).result_state, ResultState::Stale);
+    assert_eq!(f.generation(), state.generation);
+    let recorded = f.success("effect.propose", propose.clone());
+    assert_eq!(recorded["posture"], "recorded");
+    assert_eq!(recorded["operation"], serde_json::to_value(&operation).unwrap());
+    let after_propose = f.generation();
+    assert_eq!(f.success("effect.propose", propose), recorded);
+    assert_eq!(f.generation(), after_propose);
+    assert!(store.get_case_state("case:audit").unwrap().unwrap().effects.is_empty());
+    let input = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+        "operation_ref":operation.operation_id,"expected_generation":f.generation()});
+    let mut wrong = input.clone();
+    wrong["participant_ref"] = json!("participant:hidden");
+    assert_eq!(f.call("effect.submit", wrong).result_state, ResultState::Unauthorized);
+    let mut stale = input.clone();
+    stale["expected_generation"] = json!(0);
+    assert_eq!(f.call("effect.submit", stale).result_state, ResultState::Stale);
+    assert!(!root.join("allowed/result.txt").exists());
+    if revoked {
+        f.success("policy.revoke", json!({"artifact_ref":artifact,"reason":"revoke before Application dispatch"}));
+        let result = f.call("effect.submit", input);
+        assert!(result.result_state != ResultState::Success
+            || result.data.as_ref().is_some_and(|data| data["progress"]["status"] == "denied"));
+        assert!(!root.join("allowed/result.txt").exists());
+        assert!(store.get_case_state("case:audit").unwrap().unwrap().effects.is_empty());
+        return;
+    }
+    if prepared_only {
+        struct BeforeEffect;
+        impl yai_application::resource_execution::ControlledEffectHooks for BeforeEffect {
+            fn failpoint(&self) -> Option<&str> { Some("after_prepare_before_effect") }
+        }
+        assert!(yai_application::resource_execution::advance_controlled_operation(
+            &auth, &mut BeforeEffect, &store, &operation).unwrap_err().contains("controlled_effect_interrupted"));
+        let generation = f.generation();
+        f.app = LocalApplication::from_yai_home(&f.home);
+        let result = f.success("effect.submit", input);
+        assert_eq!(result["progress"]["status"], "indeterminate");
+        assert!(result["progress"]["receipt_id"].is_null());
+        assert!(!root.join("allowed/result.txt").exists());
+        assert_eq!(f.generation(), generation, "PREPARE retry cannot append or dispatch");
+        let reconcile = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+            "operation_ref":operation.operation_id,"effect_ref":result["progress"]["effect_id"],
+            "expected_generation":generation,"retry_no_effect":explicit_retry});
+        let mut wrong = reconcile.clone();
+        wrong["effect_ref"] = json!("effect:hidden");
+        assert_eq!(f.call("effect.reconcile", wrong).result_state, ResultState::Unauthorized);
+        let mut stale = reconcile.clone();
+        stale["expected_generation"] = json!(0);
+        assert_eq!(f.call("effect.reconcile", stale).result_state, ResultState::Stale);
+        let reconciled = f.success("effect.reconcile", reconcile.clone());
+        if process {
+            assert_eq!(reconciled["progress"]["status"], "indeterminate");
+            let status = fs::read_to_string(format!("/proc/{}/status", child.as_ref().unwrap().0.id())).unwrap();
+            assert!(!status.lines().any(|line| line.starts_with("State:") && line.contains("T (")),
+                "process reconciliation must not send the missing suspend signal");
+        } else {
+            assert_eq!(reconciled["progress"]["status"], "finalized");
+            assert_eq!(reconciled["progress"]["outcome"], if explicit_retry { "applied" } else { "no_effect" });
+            assert_eq!(root.join("allowed/result.txt").exists(), explicit_retry);
+            let generation = f.generation();
+            assert_eq!(f.success("effect.reconcile", reconcile), reconciled);
+            assert_eq!(f.generation(), generation, "lost reconciliation response must not repeat recovery");
+        }
+        return;
+    }
+    let submitted = f.success("effect.submit", input.clone());
+    assert_eq!(submitted["progress"]["status"], "finalized");
+    assert_eq!(submitted["progress"]["outcome"], "applied");
+    if !process {
+        assert_eq!(fs::read_to_string(root.join("allowed/result.txt")).unwrap(), "one governed write");
+    }
+    let generation = f.generation();
+    f.app = LocalApplication::from_yai_home(&f.home);
+    assert_eq!(f.success("effect.submit", input.clone()), submitted);
+    let observe = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+        "execution":{"domain":"controlled_effect","operation_ref":operation.operation_id}});
+    assert_eq!(f.success("execution.get", observe.clone()), submitted);
+    assert_eq!(f.generation(), generation);
+    let history = store.list_case_transitions("case:audit").unwrap();
+    assert_eq!(history.iter().filter(|t| matches!(t.payload,
+        TransitionPayload::EffectPrepared {..} | TransitionPayload::ProcessEffectPrepared {..})).count(), 1);
+    assert_eq!(history.iter().filter(|t| matches!(t.payload,
+        TransitionPayload::EffectFinalized {..} | TransitionPayload::ProcessEffectFinalized {..})).count(), 1);
+    // A later canonical Operation cannot erase observation of this receipt.
+    // Golden's multi-step work exposed a resolver wrongly requiring last_operation.
+    let later_lineage = ProviderInvocationLineage { case_generation:f.generation(), ..lineage };
+    commit("later-invocation", TransitionPayload::ProviderInvocationStarted {
+        invocation_id:"invocation:later".into(), participant_id:"participant:operator".into(),
+        provider_id:"provider:fixture".into(), provider_kind:"openai_compatible".into(),
+        model_id:"model:fixture".into(), semantic_lineage:Some(later_lineage.clone()), governance:None,
+    }, vec![], None);
+    commit("later-result", TransitionPayload::ProviderResultRecorded {
+        result_id:"result:later".into(), invocation_id:"invocation:later".into(),
+        provider_id:"provider:fixture".into(), provider_kind:"openai_compatible".into(),
+        model_id:"model:fixture".into(), semantic_lineage:Some(later_lineage), output:proposal.into(),
+    }, vec!["invocation:later".into()], None);
+    let later = f.success("effect.propose", json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "resource_ref":"workspace", "candidate_ref":"result:later", "expected_generation":f.generation()}));
+    assert_ne!(later["operation"]["operation_id"], operation.operation_id);
+    let generation = f.generation();
+    let historical = f.success("execution.get", observe);
+    assert_eq!(historical["progress"], submitted["progress"]);
+    assert_eq!(f.success("effect.submit", input)["progress"], submitted["progress"]);
+    assert_eq!(f.generation(), generation, "historical receipt retry must neither append nor dispatch");
+    assert!(store.verify_case_state("case:audit").unwrap());
+}
+
+#[test]
 fn resource_effect_receipt_survives_lost_response_and_retry_without_redispatch() {
     resource_receipt_reconnect(16384, "applied", true, false, false);
 }
@@ -475,6 +842,46 @@ fn lost_runtime_acknowledgement_is_observable_after_stop_and_reopen_without_redi
     assert_eq!(f.success("case.stop", stop), stopped);
     assert_eq!(f.generation(), generation, "stop is not Case cancellation or a Transition");
     assert_eq!(store.list_runtime_work_authorized(&auth).unwrap()[0].attempt_count, 0);
+    // Explicit resume admits a new queue item linked to the exact stopped cut,
+    // without resetting the run's consumed counters or delivery lineage.
+    store.activate_runtime_instance(&auth, "test:runtime-observation", now + 2, 30000, 0).unwrap();
+    store.claim_runtime_work(&auth, "test:runtime-observation", &work[0].work_id, "test:worker", now + 3).unwrap();
+    store.update_runtime_work_state(&auth, "test:runtime-observation", &work[0].work_id,
+        Some("test:worker"), yai_core_engine::store::lmdb::RuntimeWorkState::Cancelled,
+        "operator_stopped", now + 4).unwrap();
+    let mut checkpoint = read_checkpoint_at(&path, "case:audit").unwrap();
+    checkpoint.status = yai_application::runtime_execution::CaseRuntimeStop::OperatorStopped;
+    checkpoint.journal_path = work[0].journal_path.clone();
+    checkpoint.task = work[0].task.clone();
+    checkpoint.invocations = 1;
+    checkpoint.last_provider_result_id = Some("result:retained".into());
+    write_checkpoint_at(&path, &checkpoint).unwrap();
+    let resume = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+        "previous_submission_ref":submission.submission_ref,"submission_ref":"request:resume",
+        "run_ref":checkpoint.run_id,"checkpoint_digest":yai_application::runtime_execution::checkpoint_digest(&checkpoint).unwrap(),
+        "budgets":submission.budgets});
+    let mut stale = resume.clone(); stale["checkpoint_digest"] = json!("wrong");
+    assert_eq!(f.call("case.resume", stale).result_state, ResultState::Stale);
+    let mut hidden = resume.clone(); hidden["participant_ref"] = json!("participant:hidden");
+    assert_eq!(f.call("case.resume", hidden).result_state, ResultState::Unauthorized);
+    let admitted = f.success("case.resume", resume.clone());
+    assert_eq!(admitted["created"], true);
+    let resumed = store.observe_runtime_submission_authorized(&auth, "case:audit", "participant:operator", "request:resume").unwrap();
+    let next = yai_application::runtime_execution::resumed_work_checkpoint(&checkpoint, &resumed).unwrap();
+    assert_eq!(next.run_id, checkpoint.run_id);
+    assert_eq!(next.invocations, 1);
+    assert_eq!(next.last_provider_result_id, checkpoint.last_provider_result_id);
+    assert!(!next.stop_requested);
+    assert_ne!(next.work_item_id, checkpoint.work_item_id);
+    let mut second = resume.clone(); second["submission_ref"] = json!("request:second-resume");
+    assert_ne!(f.call("case.resume", second).result_state, ResultState::Success);
+    write_checkpoint_at(&path, &next).unwrap();
+    f.app = LocalApplication::from_yai_home(&f.home);
+    let retry = f.success("case.resume", resume);
+    assert_eq!(retry["created"], false);
+    assert_eq!(retry["execution"], admitted["execution"]);
+    assert_eq!(store.list_runtime_work_authorized(&auth).unwrap().len(), 2);
+    assert_eq!(f.generation(), generation);
 }
 
 #[test]
@@ -550,6 +957,8 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
     // Use the same acquisition orchestration as the product CLI. Observation
     // must describe a real attempted acquisition, not authored progress.
     let submitted_generation = f.generation();
+    let carrier = yai_application::resource_execution::source::acquire_carrier(
+        &f.home, &store, &auth, "case:audit", &source_id, 1).unwrap();
     let barrier = std::sync::Barrier::new(2);
     let claims = std::thread::scope(|scope| {
         let submit = || {
@@ -566,6 +975,10 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
         "only one concurrent client may advance the newly admitted attempt");
     let admitted_generation = f.generation();
     assert_eq!(admitted_generation, submitted_generation + 1);
+    assert_eq!(f.success("execution.get", input.clone())["posture"], "running");
+    assert!(yai_application::resource_execution::source::acquire_carrier(
+        &f.home, &store, &auth, "case:audit", &source_id, 1).is_err(),
+        "an existing carrier cannot be replaced by another client");
     assert!(!store.begin_source_attempt_authorized(
         &auth, "case:audit", "participant:operator", &source_id, 1, submitted_generation,
     ).unwrap(), "lost acknowledgement cannot admit a second dispatcher");
@@ -579,8 +992,9 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
         "another CLI client cannot take over the admitted attempt");
     assert_eq!(f.generation(), admitted_generation);
     yai_application::resource_execution::source::advance_admitted(
-        &f.home, &store, &auth, "case:audit", &source_id, 1,
+        &f.home, &store, &auth, "case:audit", &source_id, 1, &carrier,
     ).unwrap();
+    drop(carrier);
     let (_, acquired) = store.case_source_authorized(&auth, "case:audit", &source_id).unwrap();
     let first = acquired.progress.unwrap();
     assert_eq!(first.attempt, 1);
@@ -630,6 +1044,10 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
         phase:SourcePhase::Acquiring, revision:None, decision_ref:None, detail:"second exact attempt".into()
     }.seal().unwrap();
     store.progress_case_source(&auth, "case:audit", &source_id, second.clone()).unwrap();
+    let mut legacy_observation = input.clone();
+    legacy_observation["execution"]["attempt"] = json!(2);
+    assert_eq!(f.success("execution.get", legacy_observation)["posture"], "unresolved",
+        "legacy admission without carrier evidence must not be reported dead or running");
     let older = f.success("execution.get", input.clone());
     assert_eq!(older["phase"], "denied");
     assert_eq!(older["current_source_phase"], "acquiring");

@@ -138,7 +138,8 @@ pub const CASE_RUNTIME_ADMISSION_SCHEMA: &str = "yai.case_runtime_admission.v1";
 pub const RUNTIME_INSTANCE_SCHEMA: &str = "yai.runtime_instance.v2";
 const RUNTIME_INSTANCE_SCHEMA_V1: &str = "yai.runtime_instance.v1";
 pub const RUNTIME_WORK_ITEM_SCHEMA_V1: &str = "yai.runtime_work_item.v1";
-pub const RUNTIME_WORK_ITEM_SCHEMA: &str = "yai.runtime_work_item.v2";
+pub const RUNTIME_WORK_ITEM_SCHEMA_V2: &str = "yai.runtime_work_item.v2";
+pub const RUNTIME_WORK_ITEM_SCHEMA: &str = "yai.runtime_work_item.v3";
 pub const RUNTIME_INSTANCE_ID: &str = "runtime-instance:local-default";
 pub const MAX_RUNTIME_WORK_TASK_BYTES: usize = 64 * 1024;
 pub const MAX_RUNTIME_WORK_REQUEST_ID_BYTES: usize = 256;
@@ -513,6 +514,8 @@ pub struct RuntimeWorkItem {
     pub failpoint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow: Option<RuntimeWorkflowContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resume_from: Option<RuntimeWorkResume>,
     pub enqueue_sequence: u64,
     pub state: RuntimeWorkState,
     pub attempt_count: u32,
@@ -528,7 +531,7 @@ impl RuntimeWorkItem {
     pub fn validate_integrity(&self) -> Result<(), String> {
         if !matches!(
             self.schema.as_str(),
-            RUNTIME_WORK_ITEM_SCHEMA | RUNTIME_WORK_ITEM_SCHEMA_V1
+            RUNTIME_WORK_ITEM_SCHEMA | RUNTIME_WORK_ITEM_SCHEMA_V1 | RUNTIME_WORK_ITEM_SCHEMA_V2
         ) || self.work_id.is_empty()
             || self.request_id.is_empty()
             || self.request_id.len() > MAX_RUNTIME_WORK_REQUEST_ID_BYTES
@@ -556,6 +559,13 @@ impl RuntimeWorkItem {
         if let Some(workflow) = &self.workflow {
             workflow.validate()?;
         }
+        if let Some(resume) = &self.resume_from {
+            resume.validate()?;
+            if self.schema != RUNTIME_WORK_ITEM_SCHEMA || self.workflow.is_some()
+                || resume.work_id == self.work_id {
+                return Err("runtime_resume_work_lineage_invalid".into());
+            }
+        }
         self.budgets.validate()?;
         if self.integrity_digest != runtime_work_integrity_digest(self)? {
             return Err("runtime_work_item_integrity_mismatch".to_string());
@@ -575,7 +585,27 @@ pub struct RuntimeWorkSubmission {
     pub task: String,
     pub budgets: RuntimeCaseBudgets,
     pub failpoint: Option<String>,
+    pub resume_from: Option<RuntimeWorkResume>,
     pub now_unix_ms: u64,
+}
+
+/// Operational lineage for an explicitly admitted continuation. It does not
+/// revive a terminal WorkItem or grant permission to replay provider/effect work.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeWorkResume {
+    pub work_id: String,
+    pub run_id: String,
+    pub checkpoint_digest: String,
+}
+
+impl RuntimeWorkResume {
+    fn validate(&self) -> Result<(), String> {
+        if [&self.work_id, &self.run_id, &self.checkpoint_digest].iter()
+            .any(|value| value.is_empty() || value.len() > 256) {
+            return Err("runtime_resume_identity_invalid".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2182,6 +2212,23 @@ impl LmdbRecordStore {
         if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
             return Err("runtime_work_case_not_dispatchable".to_string());
         }
+        if let Some(resume) = &submission.resume_from {
+            resume.validate()?;
+            let previous: RuntimeWorkItem = get_json_txn(&txn, self.runtime_work_items,
+                &resume.work_id, "runtime_work_item")?.ok_or("runtime_resume_work_not_visible")?;
+            previous.validate_integrity()?;
+            if previous.principal_id != principal.principal_id || previous.case_id != submission.case_id
+                || previous.tenant_id != submission.tenant_id || previous.participant_id != submission.participant_id
+                || previous.attachment_id != submission.attachment_id || previous.task != submission.task
+                || previous.journal_path != submission.journal_path || previous.workflow.is_some()
+                || !matches!(previous.state, RuntimeWorkState::Cancelled | RuntimeWorkState::Failed) {
+                return Err("runtime_resume_work_not_resumable".into());
+            }
+            if list_runtime_work_items_txn(&txn, self.runtime_work_items)?.iter().any(|item|
+                item.resume_from.as_ref().is_some_and(|prior| prior.work_id == resume.work_id)) {
+                return Err("runtime_resume_already_admitted_requires_observation".into());
+            }
+        }
         let instance = get_json_txn::<RuntimeInstance, _>(
             &txn,
             self.runtime_instances,
@@ -2239,6 +2286,7 @@ impl LmdbRecordStore {
             budgets: submission.budgets.clone(),
             failpoint: submission.failpoint.clone(),
             workflow: None,
+            resume_from: submission.resume_from.clone(),
             enqueue_sequence: sequence,
             state: RuntimeWorkState::Queued,
             attempt_count: 0,
@@ -6870,6 +6918,124 @@ impl LmdbRecordStore {
         Ok(crate::effect::observe_process(&binding, observation_id))
     }
 
+    /// Resolve exact existing effect work for a current local client. This is
+    /// disclosure, not permission to execute: admission and the final carrier
+    /// fence remain mandatory. Unknown and inaccessible refs share a refusal.
+    /// Normalize an exact retained provider candidate, or recover an already
+    /// canonical Workflow/provider Operation. This never executes an effect.
+    pub fn propose_controlled_candidate_authorized(
+        &self, authenticated: &AuthenticatedPrincipal, case_id: &str,
+        participant_id: &str, attachment_id: &str, candidate_id: &str,
+        expected_generation: Option<u64>,
+    ) -> Result<Result<Operation, crate::effect::NormalizationFailure>, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let state = self.get_case_state_txn(&txn, case_id)?.ok_or("execution_not_visible")?;
+        let context = self.resolve_security_context_txn(&txn, authenticated,
+            state.tenant_id.as_deref().ok_or("execution_not_visible")?)?;
+        context.require_owner()?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let resource = state.resources.iter().find(|r| r.attachment_id == attachment_id)
+            .ok_or("execution_not_visible")?;
+        for transition in &history {
+            if let TransitionPayload::OperationRecorded { operation } = &transition.payload {
+                let matches = match &operation.origin {
+                    OperationOrigin::ProviderResult { provider_result_id, .. } => provider_result_id == candidate_id,
+                    OperationOrigin::WorkflowDeterministicProposal { proposal_id, .. } => proposal_id == candidate_id,
+                    _ => false,
+                };
+                if matches {
+                    if operation.participant_id != participant_id || operation.resource_attachment_id != attachment_id {
+                        return Err("execution_not_visible".into());
+                    }
+                    Self::authorize_carrier_observer(&state, &context, &history, operation)?;
+                    return Ok(Ok(operation.clone()));
+                }
+            }
+        }
+        let (invocation_id, output) = history.iter().find_map(|t| match &t.payload {
+            TransitionPayload::ProviderResultRecorded { result_id, invocation_id, output, .. }
+                if result_id == candidate_id => Some((invocation_id, output)),
+            _ => None,
+        }).ok_or("execution_not_visible")?;
+        if !history.iter().any(|t| matches!(&t.payload,
+            TransitionPayload::ProviderInvocationStarted { invocation_id: exact, participant_id: actor, .. }
+                if exact == invocation_id && actor == participant_id)) {
+            return Err("execution_not_visible".into());
+        }
+        for transition in &history {
+            if let TransitionPayload::OperationNormalizationFailed { provider_result_id, failure } = &transition.payload {
+                if provider_result_id == candidate_id { return Ok(Err(failure.clone())); }
+            }
+        }
+        if state.lifecycle == crate::transition::CaseLifecycle::Closed { return Err("case_closed_new_effect_forbidden".into()); }
+        if state.cancellation.is_some() { return Err("case_cancelled_new_effect_forbidden".into()); }
+        if expected_generation.is_some_and(|generation| generation != state.generation) {
+            return Err("effect_proposal_generation_stale".into());
+        }
+        self.current_ready_effective_policy_txn(&txn, case_id)?;
+        let normalization = crate::effect::NormalizationContext { case_id, participant_id,
+            provider_result_id: candidate_id, provider_invocation_id: invocation_id,
+            case_generation: state.generation, resource };
+        let operation = match resource.kind {
+            crate::transition::ResourceKind::Filesystem => crate::effect::normalize_filesystem_write_candidate(output, &normalization),
+            crate::transition::ResourceKind::Process => {
+                let binding = self.get_local_process_binding(case_id, attachment_id)?.ok_or("execution_not_visible")?;
+                crate::effect::normalize_process_signal_candidate(output, &normalization, &binding.process)
+            }
+            _ => return Err("resource_access_requires_typed_capability_request".into()),
+        };
+        let (payload, scope, causal_refs) = match &operation {
+            Ok(operation) => (TransitionPayload::OperationRecorded { operation: operation.clone() },
+                Some(operation.scope.clone()), operation.origin.causal_refs()),
+            Err(failure) => (TransitionPayload::OperationNormalizationFailed {
+                provider_result_id: candidate_id.into(), failure: failure.clone() }, None, vec![candidate_id.into()]),
+        };
+        let mut pending = PendingTransition::new(
+            format!("transition:controlled-candidate:{}", crate::effect::digest_bytes(
+                &serde_json::to_vec(&(case_id, participant_id, candidate_id)).map_err(|e| e.to_string())?)),
+            case_id, state.generation,
+            TransitionSource { component: "yai.controlled_candidate".into(), participant_id: Some(participant_id.into()),
+                principal_id: Some(context.principal_id().into()), source_ref: Some(candidate_id.into()) }, payload);
+        pending.scope = scope;
+        pending.causal_refs = causal_refs;
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok(operation)
+    }
+
+    pub fn controlled_operation_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        operation_id: &str,
+    ) -> Result<Operation, String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let state = self.get_case_state_txn(&txn, case_id)?
+            .ok_or("execution_not_visible")?;
+        let context = self.resolve_security_context_txn(&txn, authenticated,
+            state.tenant_id.as_deref().ok_or("execution_not_visible")?)?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        // Observation must retain exact completed work after later Operations.
+        // `canonical_operation` is the stricter current-admission resolver; using
+        // it here made reconnect/review of older work depend on last_operation.
+        // New dispatch still crosses that current admission/PREPARE fence.
+        let operations = history.iter().filter_map(|transition| match &transition.payload {
+            TransitionPayload::OperationRecorded { operation } if operation.operation_id == operation_id => Some(operation),
+            _ => None,
+        }).collect::<Vec<_>>();
+        let [operation] = operations.as_slice() else { return Err("execution_not_visible".into()); };
+        let operation = (*operation).clone();
+        operation.validate().map_err(|_| "execution_not_visible")?;
+        if operation.participant_id != participant_id || !state.resources.iter().any(
+            |resource| resource.attachment_id == operation.resource_attachment_id) {
+            return Err("execution_not_visible".into());
+        }
+        Self::authorize_carrier_observer(&state, &context, &history, &operation)
+            .map_err(|_| "execution_not_visible")?;
+        Ok(operation)
+    }
+
     fn authorize_carrier_observer(
         state: &CaseState,
         context: &SecurityContext,
@@ -7523,6 +7689,18 @@ impl LmdbRecordStore {
         authenticated: &AuthenticatedPrincipal,
         request: crate::conversation::CognitiveCompositionRequest,
     ) -> Result<crate::conversation::CognitiveCompositionRequest, String> {
+        self.submit_conversation_execution_intent_authorized(authenticated, request, None)
+            .map(|(request, _)| request)
+    }
+
+    /// Atomically identify the first submitter. Existing intent is observation,
+    /// never permission to start another carrier, even after process loss.
+    pub fn submit_conversation_execution_intent_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: crate::conversation::CognitiveCompositionRequest,
+        expected_generation: Option<u64>,
+    ) -> Result<(crate::conversation::CognitiveCompositionRequest, bool), String> {
         let mut txn = self.env.begin_rw_txn().map_err(|error| error.to_string())?;
         let context = self.resolve_security_context_txn(&txn, authenticated, &request.tenant_id)?;
         context.require_owner()?;
@@ -7534,6 +7712,11 @@ impl LmdbRecordStore {
         if turn.submitted_by_principal_id != context.principal_id() {
             return Err("conversation_intent_principal_mismatch".to_string());
         }
+        let state = self
+            .get_case_state_txn(&txn, &request.case_id)?
+            .ok_or_else(|| "conversation_intent_case_missing".to_string())?;
+        crate::conversation::authorize_turn_execution(&state, &history, turn,
+            &request.participant_id, context.principal_id())?;
         for transition in &history {
             if let TransitionPayload::ConversationExecutionIntentRecorded { request: existing } =
                 &transition.payload
@@ -7542,13 +7725,13 @@ impl LmdbRecordStore {
                     if existing != &request {
                         return Err("conversation_intent_immutable".to_string());
                     }
-                    return Ok(existing.clone());
+                    return Ok((existing.clone(), false));
                 }
             }
         }
-        let state = self
-            .get_case_state_txn(&txn, &request.case_id)?
-            .ok_or_else(|| "conversation_intent_case_missing".to_string())?;
+        if expected_generation.is_some_and(|generation| generation != state.generation) {
+            return Err("conversation_draft_case_generation_stale".into());
+        }
         let pending = conversation_intent_pending(
             &request,
             state.generation,
@@ -7557,7 +7740,7 @@ impl LmdbRecordStore {
         );
         self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
         txn.commit().map_err(|error| error.to_string())?;
-        Ok(request)
+        Ok((request, true))
     }
 
     pub fn create_tenant_case(
@@ -9847,6 +10030,7 @@ impl LmdbRecordStore {
             budgets,
             failpoint: work_failpoint.map(str::to_string),
             workflow: Some(workflow),
+            resume_from: None,
             enqueue_sequence: sequence,
             state: RuntimeWorkState::Queued,
             attempt_count: 0,
@@ -14408,7 +14592,7 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:runtime_work_item_schema",
             RUNTIME_WORK_ITEM_SCHEMA,
-            &[RUNTIME_WORK_ITEM_SCHEMA_V1],
+            &[RUNTIME_WORK_ITEM_SCHEMA_V1, RUNTIME_WORK_ITEM_SCHEMA_V2],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -19844,6 +20028,7 @@ fn runtime_instance_owner_txn<T: Transaction>(
 
 fn validate_runtime_work_submission(submission: &RuntimeWorkSubmission) -> Result<(), String> {
     submission.budgets.validate()?;
+    if let Some(resume) = &submission.resume_from { resume.validate()?; }
     if submission.request_id.is_empty()
         || submission.request_id.len() > MAX_RUNTIME_WORK_REQUEST_ID_BYTES
         || submission.request_id.len() > 256
@@ -19869,8 +20054,10 @@ fn runtime_submission_digest(
     principal_id: &str,
     submission: &RuntimeWorkSubmission,
 ) -> Result<String, String> {
-    let material = serde_json::to_string(&serde_json::json!({
-        "schema": RUNTIME_WORK_ITEM_SCHEMA,
+    // Preserve pre-v3 submission identity for ordinary work, including lost
+    // acknowledgement retries after upgrade. Only explicit resume adds input.
+    let mut value = serde_json::json!({
+        "schema": RUNTIME_WORK_ITEM_SCHEMA_V2,
         "request_id": submission.request_id,
         "principal_id": principal_id,
         "tenant_id": submission.tenant_id,
@@ -19881,7 +20068,12 @@ fn runtime_submission_digest(
         "task": submission.task,
         "budgets": submission.budgets,
         "failpoint": submission.failpoint,
-    }))
+    });
+    if let Some(resume) = &submission.resume_from {
+        value["schema"] = serde_json::json!(RUNTIME_WORK_ITEM_SCHEMA);
+        value["resume_from"] = serde_json::to_value(resume).map_err(|e| e.to_string())?;
+    }
+    let material = serde_json::to_string(&value)
     .map_err(|error| format!("runtime_work_submission_encode_failed: {error}"))?;
     Ok(crate::context::stable_digest(&material))
 }
@@ -19914,6 +20106,10 @@ fn runtime_work_integrity_digest(item: &RuntimeWorkItem) -> Result<String, Strin
     if item.schema != RUNTIME_WORK_ITEM_SCHEMA_V1 {
         material_value["workflow"] = serde_json::to_value(&item.workflow)
             .map_err(|error| format!("runtime_workflow_context_encode_failed: {error}"))?;
+    }
+    if item.schema == RUNTIME_WORK_ITEM_SCHEMA {
+        material_value["resume_from"] = serde_json::to_value(&item.resume_from)
+            .map_err(|e| format!("runtime_resume_encode:{e}"))?;
     }
     let material = serde_json::to_string(&material_value)
         .map_err(|error| format!("runtime_work_item_encode_failed: {error}"))?;
@@ -26120,6 +26316,7 @@ mod tests {
             attachment_id: "resource:workspace".to_string(),
             journal_path: "/tmp/runtime-journal.jsonl".to_string(),
             task: "write first".to_string(),
+            resume_from: None,
             budgets: runtime_budgets(),
             failpoint: None,
             now_unix_ms: 21,
@@ -26128,6 +26325,18 @@ mod tests {
             .submit_runtime_work(&owner, &submission)
             .expect("submit first");
         assert!(first.created);
+        for schema in [RUNTIME_WORK_ITEM_SCHEMA_V1, RUNTIME_WORK_ITEM_SCHEMA_V2] {
+            let mut legacy = first.item.clone();
+            legacy.schema = schema.into();
+            legacy.integrity_digest = runtime_work_integrity_digest(&legacy).unwrap();
+            let bytes = serde_json::to_vec(&legacy).unwrap();
+            let mut reopened: RuntimeWorkItem = serde_json::from_slice(&bytes).unwrap();
+            reopened.validate_integrity().expect("historical work schema remains readable");
+            assert!(reopened.resume_from.is_none());
+            reopened.resume_from = Some(RuntimeWorkResume { work_id: "work:previous".into(),
+                run_id: "run:previous".into(), checkpoint_digest: "digest:previous".into() });
+            assert_eq!(reopened.validate_integrity().unwrap_err(), "runtime_resume_work_lineage_invalid");
+        }
         let repeated = store
             .submit_runtime_work(&owner, &submission)
             .expect("repeat idempotently");
@@ -26489,6 +26698,7 @@ mod tests {
                     attachment_id: "resource:workspace".to_string(),
                     journal_path: "/tmp/scale-journal.jsonl".to_string(),
                     task: "terminal historical work".to_string(),
+                    resume_from: None,
                     budgets: runtime_budgets(),
                     failpoint: None,
                     workflow: None,
@@ -28455,6 +28665,7 @@ mod tests {
                     attachment_id: "resource:workspace".to_string(),
                     journal_path: "/tmp/h15-capacity.jsonl".to_string(),
                     task: "capacity holder".to_string(),
+                    resume_from: None,
                     budgets: runtime_budgets(),
                     failpoint: None,
                     now_unix_ms: 1_515_210,
@@ -28922,6 +29133,10 @@ mod tests {
             .unwrap();
         LmdbRecordStore::authorize_carrier_observer(&state, &context, &history, &first_operation)
             .unwrap();
+        assert_eq!(store.controlled_operation_authorized(&owner, &state.case_id,
+            &first_operation.participant_id, &first_operation.operation_id).unwrap(), first_operation);
+        assert_eq!(store.controlled_operation_authorized(&owner, &state.case_id,
+            "participant:absent", &first_operation.operation_id).unwrap_err(), "execution_not_visible");
         let stranger = AuthenticatedPrincipal::for_test(15199);
         let enrolled = store
             .bootstrap_local_security(&stranger, "tenant:h15-other", "organization:h15-other", 2)
@@ -28944,6 +29159,10 @@ mod tests {
             &first_operation
         )
         .is_err());
+        assert_eq!(store.controlled_operation_authorized(&stranger, &state.case_id,
+            &first_operation.participant_id, &first_operation.operation_id).unwrap_err(),
+            store.controlled_operation_authorized(&stranger, &state.case_id,
+                &first_operation.participant_id, "operation:absent").unwrap_err());
         crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.set(0));
         let hidden = store
             .observe_filesystem_authorized(

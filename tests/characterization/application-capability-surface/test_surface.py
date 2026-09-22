@@ -47,8 +47,8 @@ def main() -> int:
     operations = catalog["operations"]
     blockers = catalog["blockers"]
     assert len(capabilities) == 42
-    assert len(operations) == 72
-    assert len(blockers) == 5
+    assert len(operations) == 81
+    assert len(blockers) == 0
     assert [item["capability_id"] for item in capabilities] == sorted(
         item["capability_id"] for item in capabilities
     )
@@ -66,13 +66,10 @@ def main() -> int:
     operation_ids = {item["operation_id"] for item in operations}
     capability_ids = {item["capability_id"] for item in capabilities}
     blocker_ids = {item["capability_id"] for item in blockers}
-    assert blocker_ids == {
-        "case.lifecycle",
-        "cognitive.bindings_and_realization",
-        "conversation.execution",
-        "effect.controlled_execution",
-        "source.lifecycle",
-    }
+    assert blocker_ids == set()
+    assert {"case.run", "case.resume", "case.stop", "execution.get", "source.acquire", "source.resume",
+            "cognitive.realization.prepare", "cognitive.realize", "cognitive.compose", "conversation.send",
+            "effect.propose", "effect.submit", "effect.reconcile", "resource.request"} <= operation_ids
     assert all(item["missing_contract"] for item in blockers)
     for item in capabilities:
         assert set(item["application_operation_ids"]) <= operation_ids
@@ -99,8 +96,8 @@ def main() -> int:
         "catalog_schema=yai.application_capability_catalog.v1 "
         "capabilities=42 executable_or_internal=38 target_only=4 "
         "product_read=18 product_action=14 operator_diagnostic=3 "
-        "internal_mechanic=3 application_operations=72 application_ready=26 "
-        "application_blockers=5 cli_exposed=35 studio_consumable=27 "
+        "internal_mechanic=3 application_operations=81 application_ready=31 "
+        "application_blockers=0 cli_exposed=35 studio_consumable=32 "
         "case_identity_leaks=0 direct_cli_invocation=0"
     )
     return 0

@@ -15,7 +15,7 @@ use yai_core_engine::transition::{Transition, TransitionPayload};
 /// Reconstruct the public assistant/function-result exchange from canonical
 /// request and outcome lineage. These messages are disposable wire lowering;
 /// no provider conversation/session becomes a Case owner.
-pub(super) fn feedback(
+pub fn feedback(
     view: &CaseCapabilityView,
     result_ids: &[String],
     history: &[Transition],
@@ -150,7 +150,7 @@ pub(super) fn feedback(
     Ok(messages)
 }
 
-pub(super) struct OfferedCapability {
+pub struct OfferedCapability {
     pub definition: NativeFunctionDefinition,
     resource_id: String,
     configuration_digest: String,
@@ -171,7 +171,7 @@ fn object(properties: Value) -> Value {
 /// No network or filesystem access. MCP schemas originate only from exact
 /// canonical observations supplied by the application and are checked again
 /// against the live catalog by the resource carrier before tools/call.
-pub(super) fn offer(
+pub fn offer(
     view: &CaseCapabilityView,
     catalogs: &[ResourceObservation],
 ) -> Result<Vec<OfferedCapability>, String> {
@@ -272,7 +272,7 @@ pub(super) fn offer(
     Ok(offered)
 }
 
-pub(super) fn decode(
+pub fn decode(
     body: &str,
     exact_model: &str,
     view: &CaseCapabilityView,

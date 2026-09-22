@@ -792,6 +792,16 @@ test-golden-local: $(VALIDATION_GOLDEN_LOCAL)
 smoke-application-active-runtime: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --resume-budget
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --conversation
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --conversation --crash-in-flight
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --composition
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --composition --crash-in-flight
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --realization
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --realization --crash-in-flight
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --realization --invalid-response
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --realization --derived
+	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --composition --derived
 	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --crash-in-flight
 	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --source-crash-in-flight
 	@python3 tests/characterization/application-execution-lifecycle/test_active_runtime_host.py --source-crash-in-flight --source-review

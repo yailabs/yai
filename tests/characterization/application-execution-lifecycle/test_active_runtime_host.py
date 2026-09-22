@@ -21,6 +21,12 @@ def main():
     parser.add_argument("--crash-in-flight", action="store_true")
     parser.add_argument("--source-crash-in-flight", action="store_true")
     parser.add_argument("--source-review", action="store_true")
+    parser.add_argument("--resume-budget", action="store_true")
+    parser.add_argument("--conversation", action="store_true")
+    parser.add_argument("--composition", action="store_true")
+    parser.add_argument("--realization", action="store_true")
+    parser.add_argument("--invalid-response", action="store_true")
+    parser.add_argument("--derived", action="store_true")
     options = parser.parse_args()
     crash_in_flight = options.crash_in_flight or options.source_crash_in_flight
     root = Path(tempfile.mkdtemp(prefix="yai-active-host-"))
@@ -29,6 +35,7 @@ def main():
     binary = Path("./yai").resolve()
     entered, release = threading.Event(), threading.Event()
     dispatches = []
+    timings = []
     order = 0
 
     class Provider(BaseHTTPRequestHandler):
@@ -58,9 +65,16 @@ def main():
                 assert release.wait(15), "test did not release the real provider request"
             content = json.dumps({"schema":"yai.case_runtime_turn.v1", "outcome":"complete",
                                   "summary":"bounded deterministic completion"}) if active else '{"probe":true}'
+            if active and options.resume_budget:
+                content = '{"unrecognized_candidate":true}'
+            if payload["model"] == "local-audio-fixture":
+                assert any(isinstance(m.get("content"), list) and any(p.get("type") == "input_audio" for p in m["content"]) for m in messages)
+                content = "Exact bounded audio transcript."
             data = json.dumps({"id":"fixture", "object":"chat.completion", "model":payload["model"],
                 "choices":[{"index":0,"message":{"role":"assistant","content":content},"finish_reason":"stop"}],
                 "usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}).encode()
+            if active and options.invalid_response:
+                data = b'{"not_a_provider_result":true}'
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
@@ -82,6 +96,7 @@ def main():
 
     def app(operation, data, *, expected="success", lose_response=False):
         nonlocal order
+        started = time.perf_counter_ns()
         discovery = json.loads((home / "run/host/discovery.json").read_text())
         with socket.socket(socket.AF_UNIX) as connection:
             connection.settimeout(20)
@@ -100,6 +115,8 @@ def main():
                 order += 1
                 return None
             response = json.loads(reader.readline())
+            elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
+            timings.append({"operation":operation,"elapsed_ms":elapsed_ms,"result_state":response.get("result", {}).get("result_state")})
             order += 1
             print(json.dumps({"run_id":root.name,"order":order,"request":request,"response":response}), flush=True)
             assert response["kind"] == "application_response", response
@@ -178,7 +195,7 @@ def main():
             assert entered.wait(10), app("execution.get", observe, expected=None)
             active = app("execution.get", observe)
             assert active["phase"] == "acquiring"
-            assert active["posture"] == "unresolved", "durable admission is not proof of a live carrier"
+            assert active["posture"] == "running", "new acquisition must hold its scoped carrier lock"
             discovery = json.loads((home / "run/host/discovery.json").read_text())
             assert Path(discovery["yai_home"]).resolve() == home.resolve()
             print(json.dumps({"run_id":root.name,"action":"kill_source_host_in_flight",
@@ -188,12 +205,13 @@ def main():
             release.set()
             cli("host", "start", "--json")
             recovered = app("execution.get", observe)
-            assert recovered == active, "restart invented terminal source evidence"
+            expected = dict(active, posture="delivery_indeterminate")
+            assert recovered == expected, "carrier loss must preserve identity without inventing terminal evidence"
             retry = app("source.acquire", submit)
-            assert retry["created"] is False and retry["execution"] == active
+            assert retry["created"] is False and retry["execution"] == expected
             if options.source_review:
                 retry = app("source.resume", resume_submission)
-                assert retry["created"] is False and retry["execution"] == active
+                assert retry["created"] is False and retry["execution"] == expected
             resume = app("source.resume", dict(submit, expected_generation=active["observed_generation"],
                 previous_progress_ref=active["progress_ref"]), expected=None)
             assert resume["result_state"] != "success", resume
@@ -201,7 +219,7 @@ def main():
                 expected_generation=active["observed_generation"]), expected=None)
             assert replacement["result_state"] != "success", replacement
             assert len(dispatches) == 1, "source restart/retry duplicated remote acquisition"
-            assert app("execution.get", observe) == active
+            assert app("execution.get", observe) == expected
             hidden = app("execution.get", dict(observe, participant_ref="participant:hidden"), expected=None)
             assert hidden["result_state"] == "unauthorized" and hidden.get("data") is None
             success = True
@@ -234,9 +252,131 @@ def main():
                 "completed_at_unix_ms":int(time.time()*1000),"transport_connected":True,
                 "exact_model_addressed":proof["model"] == "local-fixture","chat_text_envelope_valid":True,
                 "structured_json_object_valid":True,"usage_accounting_observed":True,
-                "health_endpoint_observed":False,"extension_telemetry_observed":False,"failure_codes":[]}})
+                "health_endpoint_observed":False,"extension_telemetry_observed":False,"failure_codes":[],
+                "realization_shapes":["text_to_text"] if options.conversation or options.composition or options.realization else []}})
         app("provider.trust.set", {"target_ref":target,"posture":"approved"})
         app("provider.case.bind", dict(base, ordered_target_refs=[target], failover_policy="none", max_attempts_per_turn=1))
+        if options.conversation or options.composition or options.realization:
+            evidence = app("provider.suitability.record", {"target_ref":target,"capability":"primary_conversation",
+                "suite_ref":"test:application-send", "run_ref":root.name,"evidence_refs":["evidence:bounded-loopback-fixture"]})
+            app("cognitive.binding.set", dict(base, role="primary", capability="primary_conversation",
+                candidates=[{"target_ref":target,"semantic_evidence_ref":evidence["evidence_id"]}]))
+            if options.derived:
+                import base64
+                audio = base64.b64decode(Path("tests/fixtures/conversation/i03-audio.wav.base64").read_text())
+                audio_path = root / "input.wav"
+                audio_path.write_bytes(audio)
+                auxiliary = app("provider.register", {"tenant_id":"tenant:active", "provider_key":"audio-fixture",
+                    "adapter":"open_ai_compatible", "endpoint":endpoint,"model_id":"local-audio-fixture",
+                    "credential_ref":"none","locality":"loopback"})["target_id"]
+                started = int(time.time()*1000)
+                probe = urllib.request.Request(endpoint, data=json.dumps({"model":"local-audio-fixture", "messages":[{"role":"user",
+                    "content":[{"type":"input_audio","input_audio":{"data":base64.b64encode(audio).decode(),"format":"wav"}}]}]}).encode(), headers={"Content-Type":"application/json"})
+                with urllib.request.urlopen(probe, timeout=5) as response:
+                    proof = json.load(response)
+                assert proof["choices"][0]["message"]["content"] == "Exact bounded audio transcript."
+                app("provider.qualify", {"target_ref":auxiliary,"suite_ref":"test:host-audio", "evidence":{
+                    "run_id":root.name+":audio","target_id":auxiliary,"started_at_unix_ms":started,
+                    "completed_at_unix_ms":int(time.time()*1000),"transport_connected":True,
+                    "exact_model_addressed":proof["model"] == "local-audio-fixture","chat_text_envelope_valid":True,
+                    "structured_json_object_valid":False,"usage_accounting_observed":True,
+                    "health_endpoint_observed":False,"extension_telemetry_observed":False,"failure_codes":[],
+                    "realization_shapes":["audio_wav_to_text"]}})
+                app("provider.trust.set", {"target_ref":auxiliary,"posture":"approved"})
+                app("provider.case.bind", dict(base, ordered_target_refs=[target, auxiliary], failover_policy="none", max_attempts_per_turn=1))
+                app("cognitive.binding.set", dict(base, role="primary", capability="primary_conversation", replace=True,
+                    candidates=[{"target_ref":target,"semantic_evidence_ref":evidence["evidence_id"]}]))
+                evidence = app("provider.suitability.record", {"target_ref":auxiliary,"capability":"speech_to_text",
+                    "suite_ref":"test:application-audio", "run_ref":root.name,"evidence_refs":["evidence:bounded-audio-fixture"]})
+                app("cognitive.binding.set", dict(base, role="auxiliary", capability="speech_to_text",
+                    candidates=[{"target_ref":auxiliary,"semantic_evidence_ref":evidence["evidence_id"]}]))
+            generation = app("case.summary", {"case_ref":"case:active"})["case"]["generation"]
+            send = dict(base, thread_ref="thread:application", submission_ref="send:exact", expected_generation=generation,
+                parts=[{"modality":"text","media_type":"text/plain;charset=utf-8","bytes":list(b"bounded application send")}])
+            submit_operation = "conversation.send"
+            if options.composition or options.realization:
+                cli("case", "conversation", "draft", "create", "case:active", "composition", "--participant", base["participant_ref"])
+                cli("case", "conversation", "draft", "add-text", "case:active", "composition", "--text", "bounded application composition")
+                if options.derived:
+                    cli("case", "conversation", "draft", "import", "case:active", "composition", str(audio_path), "--type", "audio", "--mime", "audio/wav")
+                committed = cli("case", "conversation", "draft", "send", "case:active", "composition")
+                turn_ref = next(line.removeprefix("turn_id: ") for line in committed.splitlines() if line.startswith("turn_id: "))
+                shown = json.loads(cli("case", "conversation", "turn", "show", "case:active", turn_ref, "--participant", base["participant_ref"], "--json"))
+                turn = shown.get("data", {}).get("value", shown)["turn"]
+                generation = app("case.summary", {"case_ref":"case:active"})["case"]["generation"]
+                send = dict(base, source_turn_ref=turn_ref, source_part_refs=[p["part_id"] for p in turn["ordered_parts"]],
+                    prerequisite=None, expected_generation=generation)
+                submit_operation = "cognitive.compose"
+                if options.derived:
+                    audio_parts = [p["part_id"] for p in turn["ordered_parts"] if p["object"]["modality"] == "audio"]
+                    send["prerequisite"] = {"capability":"speech_to_text","source_part_ids":audio_parts}
+                if options.realization:
+                    prepare = dict(base, source_turn_ref=turn_ref, source_part_refs=send["source_part_refs"], capability="primary_conversation")
+                    if options.derived:
+                        prepare.update(source_part_refs=audio_parts, capability="speech_to_text")
+                    plan = app("cognitive.realization.prepare", prepare)
+                    assert plan["route"] == ("derived" if options.derived else "native"), plan
+                    send = dict(prepare, plan_ref=plan["plan_id"])
+                    submit_operation = "cognitive.realize"
+                    stale = app(submit_operation, dict(send, plan_ref="cognitive-plan:stale"), expected=None)
+                    assert stale["result_state"] == "stale", stale
+                    hidden = app(submit_operation, dict(send, participant_ref="participant:hidden"), expected=None)
+                    assert hidden["result_state"] == "unauthorized", hidden
+                    assert not dispatches
+            app(submit_operation, send, lose_response=True)
+            assert entered.wait(10), "SEND did not reach the real provider fixture"
+            observe = dict(base, execution={"domain":"conversation","submission_ref":"send:exact"})
+            if options.composition:
+                recovered = app(submit_operation, send)
+                assert recovered["created"] is False
+                observe = dict(base, execution={"domain":"cognitive_composition","request_ref":recovered["execution"]["request_ref"]})
+            elif options.realization:
+                observe = dict(base, execution={"domain":"cognitive_realization","plan_ref":send["plan_ref"]})
+            active = app("execution.get", observe)
+            assert active["posture"] == "running" and len(active["invocation_refs"]) == 1, active
+            retry = app(submit_operation, send)
+            assert retry["selection_ref"] == active["selection_ref"] if options.realization else retry["created"] is False
+            if options.crash_in_flight:
+                host = json.loads(cli("host", "status", "--json"))["data"]["value"]
+                os.kill(host["pid"], signal.SIGKILL)
+                cli("host", "start", "--json")
+            release.set()
+            deadline = time.monotonic()+10
+            while True:
+                observed = app("execution.get", observe, expected=None)
+                if observed["result_state"] == "stale":
+                    assert time.monotonic() < deadline
+                    continue
+                assert observed["result_state"] == "success", observed
+                final = observed["data"]
+                if final["posture"] != "running":
+                    break
+                assert time.monotonic() < deadline, final
+                time.sleep(.05)
+            expected = "delivery_indeterminate" if options.crash_in_flight else "provider_result_recorded" if options.realization else "completed"
+            if options.invalid_response:
+                expected = "failed"
+            assert final["posture"] == expected, final
+            if options.invalid_response:
+                assert any(outcome["delivery"] == "response_invalid" for outcome in final["attempt_outcomes"]), final
+            if options.realization:
+                assert final["selection_ref"] == active["selection_ref"] and final["plan_ref"] == active["plan_ref"]
+            else:
+                assert final["turn_ref"] == active["turn_ref"] and final["request_ref"] == active["request_ref"]
+            dispatch_count = 2 if options.derived and options.composition and not options.crash_in_flight else 1
+            assert len(dispatches) == dispatch_count, dispatches
+            if options.derived and options.realization and not options.crash_in_flight:
+                assert len(final["derived_content_refs"]) == 1, final
+            cli("host", "restart", "--json")
+            assert app("execution.get", observe) == final
+            retry = app(submit_operation, send)
+            assert retry["selection_ref"] == final["selection_ref"] if options.realization else retry["created"] is False
+            assert len(dispatches) == dispatch_count
+            hidden = app("execution.get", dict(observe, participant_ref="participant:hidden"), expected=None)
+            assert hidden["result_state"] == "unauthorized" and hidden.get("data") is None
+            success = True
+            print(f"PASS: Application {submit_operation} lost response/retry/restart preserves one Turn and {dispatch_count} exact provider dispatch(es); posture={expected}")
+            return
         submission = dict(base, resource_ref="workspace", submission_ref="request:active",
             task="complete one bounded task", budgets={"max_invocations":2,"max_operations":1,
             "max_semantic_units":65536,"max_resident_items":64,"max_estimated_input_units":131072,
@@ -277,11 +417,37 @@ def main():
         deadline = time.monotonic()+10
         while True:
             final = app("execution.get", observe)
-            if final["state"] in {"completed", "cancelled"}:
+            if final["state"] in {"completed", "cancelled", "failed"}:
                 break
             assert time.monotonic() < deadline, final
             time.sleep(.05)
         assert len(dispatches) == 1
+        if options.resume_budget:
+            assert final["runner"]["posture"] in {"operator_stopped", "malformed_provider_result"}, final
+            resume = dict(base, previous_submission_ref="request:active", submission_ref="request:resumed",
+                run_ref=final["runner"]["run_ref"], checkpoint_digest=final["runner"]["checkpoint_digest"],
+                budgets=dict(submission["budgets"], max_invocations=1))
+            app("case.resume", resume, lose_response=True)
+            resumed_observe = dict(base, execution={"domain":"runtime_work","submission_ref":"request:resumed"})
+            deadline = time.monotonic()+10
+            while True:
+                resumed = app("execution.get", resumed_observe)
+                if resumed["state"] == "failed":
+                    break
+                assert time.monotonic() < deadline, resumed
+                time.sleep(.05)
+            assert resumed["runner"]["run_ref"] == final["runner"]["run_ref"]
+            assert resumed["runner"]["posture"] == "invocation_budget_exhausted", resumed
+            assert resumed["execution_ref"] != final["execution_ref"]
+            assert len(dispatches) == 1, "resume must preserve consumed invocation count"
+            assert app("case.resume", resume)["created"] is False
+            cli("host", "restart", "--json")
+            assert app("execution.get", resumed_observe) == resumed
+            assert app("case.resume", resume)["created"] is False
+            assert len(dispatches) == 1
+            success = True
+            print("PASS: explicit checkpoint-bound resume survives lost acknowledgement and restart without resetting budgets or redispatch")
+            return
         cli("host", "restart", "--json")
         recovered = app("execution.get", observe)
         assert recovered["execution_ref"] == final["execution_ref"]
@@ -291,6 +457,8 @@ def main():
         success = True
         print("PASS: real supervised provider work, exact cooperative stop, Host restart, no duplicate dispatch")
     finally:
+        print(json.dumps({"run_id":root.name,"application_round_trip_timings":timings,
+            "measurement":"Local IPC handshake plus typed operation and response; lost responses excluded; no SLA or provider speed claim"}), flush=True)
         release.set()
         subprocess.run([str(binary), "host", "stop", "--json"], env=env, capture_output=True, timeout=30)
         server.shutdown()

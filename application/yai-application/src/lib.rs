@@ -8,6 +8,8 @@ pub mod capabilities;
 // Shared bounded carriers, not product operations or authority. Existing CLI
 // and Application orchestration use this one implementation.
 pub mod provider_transport;
+pub mod provider_execution;
+pub mod cognitive_execution;
 pub mod resource_transport;
 pub mod resource_execution;
 pub mod runtime_execution;
@@ -239,9 +241,13 @@ pub struct KnowledgeNavigationResult {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "domain", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ExecutionReference {
+    CognitiveRealization { plan_ref: String },
+    CognitiveComposition { request_ref: String },
+    Conversation { submission_ref: String },
     RuntimeWork { submission_ref: String },
     SourceAcquisition { source_ref: String, attempt: u64 },
     ResourceRequest { submission_ref: String },
+    ControlledEffect { operation_ref: String },
 }
 
 /// Exact domain attempt, not a new Application job. Progress detail and backing
@@ -260,12 +266,15 @@ pub struct SourceExecutionObservation {
     pub observed_generation: u64,
 }
 
-/// Derived from durable progress only. Unresolved deliberately does not claim
-/// that an in-process carrier is alive, or that an external read can be replayed.
+/// Durable progress plus an exact operational carrier observation. Unresolved
+/// is retained for older attempts without carrier evidence. Neither Running
+/// nor DeliveryIndeterminate permits replay or supplies effect authority.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceExecutionPosture {
     Unresolved,
+    Running,
+    DeliveryIndeterminate,
     Completed,
     WaitingForReview,
     Refused,
@@ -299,9 +308,55 @@ pub struct ExecutionGetInput {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ExecutionObservation {
+    CognitiveRealization(cognitive_execution::CognitiveRealizationObservation),
+    Conversation(cognitive_execution::ConversationExecutionObservation),
     RuntimeWork(RuntimeExecutionObservation),
     SourceAcquisition(SourceExecutionObservation),
     ResourceRequest(resource_execution::ResourceExecutionObservation),
+    ControlledEffect(resource_execution::ControlledEffectObservation),
+}
+
+/// Advance an already durable canonical Operation, not arbitrary candidate
+/// JSON. Its exact identity is the reconnect/observation reference before any
+/// external dispatch. Current admission is still required by the effect owner.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EffectProposeInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub resource_ref: String,
+    pub candidate_ref: String,
+    pub expected_generation: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "posture", rename_all = "snake_case")]
+pub enum EffectProposalResult {
+    Recorded { operation: yai_core_engine::effect::Operation },
+    NormalizationRefused { failure: yai_core_engine::effect::NormalizationFailure },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EffectSubmitInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub operation_ref: String,
+    pub expected_generation: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EffectReconcileInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub operation_ref: String,
+    pub effect_ref: String,
+    pub expected_generation: u64,
+    /// Only the existing filesystem no-effect recovery contract can retry.
+    /// Process signals remain observation-only even when this is requested.
+    #[serde(default)]
+    pub retry_no_effect: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -340,6 +395,7 @@ pub struct RuntimeExecutionObservation {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuntimeRunnerObservation {
     pub run_ref: String,
+    pub checkpoint_digest: String,
     pub posture: runtime_execution::CaseRuntimeStop,
     pub stop_requested: bool,
 }
@@ -377,6 +433,18 @@ pub struct CaseRunInput {
     pub resource_ref: String,
     pub submission_ref: String,
     pub task: String,
+    pub budgets: yai_core_engine::store::lmdb::RuntimeCaseBudgets,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseResumeInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub previous_submission_ref: String,
+    pub submission_ref: String,
+    pub run_ref: String,
+    pub checkpoint_digest: String,
     pub budgets: yai_core_engine::store::lmdb::RuntimeCaseBudgets,
 }
 
@@ -592,6 +660,16 @@ pub struct ProviderQualifyInput {
 pub struct ProviderTrustInput {
     pub target_ref: String,
     pub posture: ProviderTrustPosture,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderSuitabilityRecordInput {
+    pub target_ref: String,
+    pub capability: CognitiveCapability,
+    pub suite_ref: String,
+    pub run_ref: String,
+    pub evidence_refs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -980,9 +1058,65 @@ impl LocalApplication {
                 let unit = result.view.resolve(&input.unit_ref)?.clone();
                 encode_result("knowledge_resolve", KnowledgeResolveResult { view: result.view, unit })
             }
+            "effect.reconcile" => {
+                let input: EffectReconcileInput = decode_input(request)?;
+                let existing = resource_execution::observe_controlled_effect(&store, &auth,
+                    &input.case_ref, &input.participant_ref, &input.operation_ref)?;
+                let progress = existing.progress.as_ref().ok_or("execution_not_visible")?;
+                if progress.effect_id.as_deref() != Some(input.effect_ref.as_str()) {
+                    return Err("execution_not_visible".into());
+                }
+                if progress.status == resource_execution::ControlledEffectTurnStatus::Finalized {
+                    return encode_result("effect_reconcile", existing);
+                }
+                if existing.observed_generation != input.expected_generation {
+                    return Err("controlled_effect_reconciliation_stale".into());
+                }
+                struct ApplicationEffectHooks;
+                impl resource_execution::ControlledEffectHooks for ApplicationEffectHooks {}
+                resource_execution::reconcile_controlled_effect(&store, &auth, &input.case_ref,
+                    Some(&input.effect_ref), input.retry_no_effect, &mut ApplicationEffectHooks)?;
+                encode_result("effect_reconcile", resource_execution::observe_controlled_effect(
+                    &store, &auth, &input.case_ref, &input.participant_ref, &input.operation_ref)?)
+            }
+            "effect.propose" => {
+                let input: EffectProposeInput = decode_input(request)?;
+                let result = store.propose_controlled_candidate_authorized(&auth, &input.case_ref,
+                    &input.participant_ref, &input.resource_ref, &input.candidate_ref, Some(input.expected_generation))?;
+                encode_result("effect_propose", match result {
+                    Ok(operation) => EffectProposalResult::Recorded { operation },
+                    Err(failure) => EffectProposalResult::NormalizationRefused { failure },
+                })
+            }
+            "effect.submit" => {
+                let input: EffectSubmitInput = decode_input(request)?;
+                let operation = store.controlled_operation_authorized(&auth, &input.case_ref,
+                    &input.participant_ref, &input.operation_ref)?;
+                let existing = resource_execution::observe_controlled_effect(&store, &auth,
+                    &input.case_ref, &input.participant_ref, &input.operation_ref)?;
+                // PREPARE is the irreversible dispatch boundary. Retry only
+                // observes it, including when the old acknowledgement was lost.
+                if existing.progress.as_ref().is_some_and(|p| p.effect_id.is_some()) {
+                    return encode_result("effect_submit", existing);
+                }
+                if existing.observed_generation != input.expected_generation {
+                    return Err("controlled_effect_submission_stale".into());
+                }
+                struct ApplicationEffectHooks;
+                impl resource_execution::ControlledEffectHooks for ApplicationEffectHooks {}
+                resource_execution::advance_controlled_operation(&auth, &mut ApplicationEffectHooks,
+                    &store, &operation)?;
+                encode_result("effect_submit", resource_execution::observe_controlled_effect(
+                    &store, &auth, &input.case_ref, &input.participant_ref, &input.operation_ref)?)
+            }
             "execution.get" => {
                 let input: ExecutionGetInput = decode_input(request)?;
                 match input.execution {
+                    ExecutionReference::ControlledEffect { operation_ref } => {
+                        encode_result("execution_get", ExecutionObservation::ControlledEffect(
+                            resource_execution::observe_controlled_effect(&store, &auth,
+                                &input.case_ref, &input.participant_ref, &operation_ref)?))
+                    }
                     ExecutionReference::ResourceRequest { submission_ref } => {
                         let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
                         let principal = auth.projected_principal_id();
@@ -999,6 +1133,21 @@ impl LocalApplication {
                             resource_execution::observe(&store, &auth, &input.case_ref,
                                 &input.participant_ref, &operation.operation_id)?))
                     }
+                    ExecutionReference::CognitiveRealization { plan_ref } => {
+                        encode_result("execution_get", ExecutionObservation::CognitiveRealization(
+                            cognitive_execution::observe_realization(&self.home_path, &auth, &store,
+                                &input.case_ref, &input.participant_ref, &plan_ref)?))
+                    }
+                    ExecutionReference::CognitiveComposition { request_ref } => {
+                        encode_result("execution_get", ExecutionObservation::Conversation(
+                            cognitive_execution::observe_cognitive_request(&self.home_path, &auth, &store,
+                                &input.case_ref, &input.participant_ref, &request_ref)?))
+                    }
+                    ExecutionReference::Conversation { submission_ref } => {
+                        encode_result("execution_get", ExecutionObservation::Conversation(
+                            cognitive_execution::observe_submission(&self.home_path, &auth, &store,
+                                &input.case_ref, &input.participant_ref, &submission_ref)?))
+                    }
                     ExecutionReference::RuntimeWork { submission_ref } => {
                         let item = store.observe_runtime_submission_authorized(
                             &auth, &input.case_ref, &input.participant_ref, &submission_ref,
@@ -1007,19 +1156,32 @@ impl LocalApplication {
                             runtime_execution_observation(&self.home_path, item)?))
                     }
                     ExecutionReference::SourceAcquisition { source_ref, attempt } => {
-                        let (generation, progress, current_source_phase) = store.observe_source_attempt_authorized(
-                            &auth, &input.case_ref, &input.participant_ref, &source_ref, attempt,
-                        )?;
-                        encode_result("execution_get", ExecutionObservation::SourceAcquisition(SourceExecutionObservation {
-                            schema: "yai.source_execution_observation.v1".into(),
-                            case_ref: input.case_ref, participant_ref: input.participant_ref,
-                            source_ref, attempt, progress_ref: progress.progress_id,
-                            posture: (&progress.phase).into(),
-                            phase: progress.phase, current_source_phase,
-                            observed_generation: generation,
-                        }))
+                        encode_result("execution_get", ExecutionObservation::SourceAcquisition(
+                            resource_execution::source::observe_execution(
+                                &self.home_path, &store, &auth, &input.case_ref,
+                                &input.participant_ref, &source_ref, attempt)?))
                     }
                 }
+            }
+            "cognitive.realization.prepare" => {
+                let input: cognitive_execution::CognitiveRealizationPrepareInput = decode_input(request)?;
+                encode_result("cognitive_realization_prepare", cognitive_execution::prepare_realization(
+                    &self.home_path, &auth, &store, input)?)
+            }
+            "cognitive.realize" => {
+                let input: cognitive_execution::CognitiveRealizeInput = decode_input(request)?;
+                encode_result("cognitive_realize", cognitive_execution::submit_realization(
+                    &self.home_path, &auth, &store, input)?)
+            }
+            "cognitive.compose" => {
+                let input: cognitive_execution::CognitiveComposeInput = decode_input(request)?;
+                encode_result("cognitive_compose", cognitive_execution::submit_composition(
+                    &self.home_path, &auth, &store, input)?)
+            }
+            "conversation.send" => {
+                let input: cognitive_execution::ConversationSendInput = decode_input(request)?;
+                encode_result("conversation_send", cognitive_execution::submit_conversation(
+                    &self.home_path, &auth, &store, input)?)
             }
             "case.stop" => {
                 let input: CaseStopInput = decode_input(request)?;
@@ -1062,6 +1224,40 @@ impl LocalApplication {
                     &input.participant_ref, &operation.operation_id)?;
                 encode_result("resource_request", ResourceSubmissionResult { execution, outcome })
             }
+            "case.resume" => {
+                let input: CaseResumeInput = decode_input(request)?;
+                let previous = store.observe_runtime_submission_authorized(&auth, &input.case_ref,
+                    &input.participant_ref, &input.previous_submission_ref)?;
+                let resume = yai_core_engine::store::lmdb::RuntimeWorkResume {
+                    work_id: previous.work_id.clone(), run_id: input.run_ref,
+                    checkpoint_digest: input.checkpoint_digest,
+                };
+                // A retry observes the already admitted continuation even after
+                // its checkpoint has advanced. The queue checks exact identity.
+                match store.observe_runtime_submission_authorized(&auth, &input.case_ref,
+                    &input.participant_ref, &input.submission_ref) {
+                    Ok(_) => {},
+                    Err(error) if error == "execution_not_visible" => {
+                        let checkpoint = runtime_execution::read_checkpoint_at(
+                            &runtime_execution::checkpoint_path_for(&self.home_path, &input.case_ref), &input.case_ref)?;
+                        let mut candidate = previous.clone();
+                        candidate.resume_from = Some(resume.clone());
+                        candidate.budgets = input.budgets.clone();
+                        runtime_execution::resumed_work_checkpoint(&checkpoint, &candidate)?;
+                    },
+                    Err(error) => return Err(error),
+                }
+                let submitted = store.submit_runtime_work(&auth, &yai_core_engine::store::lmdb::RuntimeWorkSubmission {
+                    request_id: input.submission_ref, tenant_id: previous.tenant_id,
+                    case_id: input.case_ref, participant_id: input.participant_ref,
+                    attachment_id: previous.attachment_id, journal_path: previous.journal_path,
+                    task: previous.task, budgets: input.budgets, resume_from: Some(resume),
+                    failpoint: None, now_unix_ms: now_unix_ms()?,
+                })?;
+                encode_result("case_resume", ExecutionSubmissionResult {
+                    created: submitted.created, execution: submitted.item.into(),
+                })
+            }
             "case.run" => {
                 let input: CaseRunInput = decode_input(request)?;
                 let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
@@ -1080,7 +1276,7 @@ impl LocalApplication {
                     tenant_id: tenant.into(), case_id: input.case_ref,
                     participant_id: input.participant_ref, attachment_id: input.resource_ref,
                     journal_path: journal.display().to_string(), task: input.task, budgets: input.budgets,
-                    failpoint: None, now_unix_ms: now_unix_ms()?,
+                    resume_from: None, failpoint: None, now_unix_ms: now_unix_ms()?,
                 })?;
                 encode_result("case_run", ExecutionSubmissionResult {
                     created: submitted.created,
@@ -1658,6 +1854,14 @@ impl LocalApplication {
                     )?,
                 )
             }
+            "provider.suitability.record" => {
+                let input: ProviderSuitabilityRecordInput = decode_input(request)?;
+                encode_result("provider_suitability", store.record_semantic_suitability_evidence_authorized(
+                    &auth, &input.target_ref, input.capability,
+                    yai_core_engine::cognitive::SemanticEvidencePosture::OperatorAttested,
+                    &input.suite_ref, &input.run_ref, input.evidence_refs,
+                    "authenticated_operator_attestation")?)
+            }
             "provider.trust.set" => {
                 let input: ProviderTrustInput = decode_input(request)?;
                 encode_result(
@@ -1761,7 +1965,26 @@ impl LocalApplication {
                 } else {
                     (decode_input::<SourceAcquireInput>(request)?, None)
                 };
-                let created = if let Some(prior) = resume {
+                let (_, source) = store.case_source_authorized(&auth, &input.case_ref, &input.source_ref)?;
+                if source.declaration.source_id != input.source_ref
+                    || source.declaration.participant_id != input.participant_ref || input.attempt == 0 {
+                    return Err("source_not_visible".into());
+                }
+                let repeated = if resume.is_none() {
+                    match store.observe_source_attempt_authorized(&auth, &input.case_ref,
+                        &input.participant_ref, &input.source_ref, input.attempt) {
+                        Ok(_) => true,
+                        Err(error) if error == "execution_not_visible" => false,
+                        Err(error) => return Err(error),
+                    }
+                } else {
+                    source.progress.as_ref().is_some_and(|p| p.attempt == input.attempt
+                        && p.phase == SourcePhase::Acquiring
+                        && p.previous_progress_id.as_ref() == resume.as_ref())
+                };
+                let carrier = if repeated { None } else { Some(resource_execution::source::acquire_carrier(
+                    &self.home_path, &store, &auth, &input.case_ref, &input.source_ref, input.attempt)?) };
+                let created = if repeated { false } else if let Some(prior) = resume {
                     store.resume_source_attempt_authorized(&auth, &input.case_ref, &input.participant_ref,
                         &input.source_ref, input.attempt, input.expected_generation, &prior)?
                 } else {
@@ -1774,25 +1997,21 @@ impl LocalApplication {
                     SourceAdvancementPosture::ExistingAttempt
                 } else if resource_execution::source::advance_admitted(
                     &self.home_path, &store, &auth, &input.case_ref, &input.source_ref, input.attempt,
+                    carrier.as_ref().ok_or("source_carrier_missing")?,
                 ).is_ok() {
                     SourceAdvancementPosture::Returned
                 } else {
                     SourceAdvancementPosture::ObservationRequired
                 };
+                drop(carrier);
                 // Requalify observation even after dispatch: the authenticated
                 // caller cannot retain disclosure merely by having submitted.
-                let (generation, progress, current_source_phase) = store.observe_source_attempt_authorized(
-                    &auth, &input.case_ref, &input.participant_ref, &input.source_ref, input.attempt,
-                )?;
+                let execution = resource_execution::source::observe_execution(
+                    &self.home_path, &store, &auth, &input.case_ref,
+                    &input.participant_ref, &input.source_ref, input.attempt)?;
                 encode_result("source_acquire", SourceAcquisitionSubmissionResult {
                     schema: "yai.source_acquisition_submission_result.v1".into(), created, advancement,
-                    execution: SourceExecutionObservation {
-                        schema: "yai.source_execution_observation.v1".into(),
-                        case_ref: input.case_ref, participant_ref: input.participant_ref,
-                        source_ref: input.source_ref, attempt: input.attempt,
-                        progress_ref: progress.progress_id, posture: (&progress.phase).into(), phase: progress.phase,
-                        current_source_phase, observed_generation: generation,
-                    },
+                    execution,
                 })
             }
             "source.declare" => {
@@ -2015,7 +2234,7 @@ fn runtime_execution_observation(home: &std::path::Path, item: yai_core_engine::
         let checkpoint = runtime_execution::read_checkpoint_at(&path, &item.case_id)?;
         if checkpoint.work_item_id.as_deref() == Some(item.work_id.as_str()) {
             runtime_execution::validate_checkpoint_work_identity(&checkpoint, &item)?;
-            observed.runner = Some(RuntimeRunnerObservation { run_ref:checkpoint.run_id,
+            observed.runner = Some(RuntimeRunnerObservation { checkpoint_digest: runtime_execution::checkpoint_digest(&checkpoint)?, run_ref:checkpoint.run_id,
                 posture:checkpoint.status, stop_requested:checkpoint.stop_requested });
         }
     }
@@ -2894,6 +3113,10 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
             ResultState::NotImplemented,
             "This operation is not implemented by the local YAI host.",
         )
+    } else if error == "cognitive_realization_acknowledgement_pending_observe_exact_plan" {
+        (ResultState::CorePending, "Submission acknowledgement is pending. Observe the exact plan reference; do not create a replacement submission.")
+    } else if matches!(error, "application_execution_capacity_pending" | "execution_carrier_active_requires_observation") {
+        (ResultState::CorePending, "Execution capacity is occupied. Observe an existing submission before retrying.")
     } else if matches!(error, "runtime_instance_not_running" | "runtime_instance_not_accepting_work") {
         (ResultState::CorePending, "The runtime is not accepting work. No new execution was submitted.")
     } else if error.contains("not_visible")
@@ -2954,6 +3177,16 @@ fn failure(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pending_execution_acknowledgement_is_not_completion_or_safe_redispatch() {
+        let request = OperationRequest { protocol:APPLICATION_PROTOCOL.into(),
+            operation_ref:"cognitive.realize".into(), correlation_ref:"test:pending".into(), input:Value::Null };
+        let result = map_error(&request, "cognitive_realization_acknowledgement_pending_observe_exact_plan");
+        assert_eq!(result.result_state, ResultState::CorePending);
+        assert!(result.data.is_none());
+        assert!(result.error.unwrap().safe_message.contains("Observe the exact plan"));
+    }
 
     #[test]
     fn unsupported_operation_is_honest() {
@@ -3085,8 +3318,8 @@ mod tests {
             .filter(|capability| capability.application_posture == ApplicationPosture::Deferred)
             .count();
         assert_eq!(product.len(), 32);
-        assert_eq!(ready, 26);
-        assert_eq!(deferred, 5);
+        assert_eq!(ready, 31);
+        assert_eq!(deferred, 0);
         assert_eq!(capabilities::APPLICATION_BLOCKERS.len(), deferred);
         assert!(capabilities::APPLICATION_BLOCKERS.iter().all(|blocker| {
             !blocker.missing_contract.contains("wrapper")
@@ -3099,7 +3332,14 @@ mod tests {
     fn public_application_inputs_are_bidirectionally_typed() {
         fn typed<T: Serialize + for<'de> Deserialize<'de>>() {}
 
+        typed::<cognitive_execution::CognitiveComposeInput>();
+        typed::<cognitive_execution::CognitiveRealizationPrepareInput>();
+        typed::<cognitive_execution::CognitiveRealizeInput>();
+        typed::<cognitive_execution::CognitiveRealizationObservation>();
+
         typed::<CaseCapabilitiesInput>();
+        typed::<EffectProposeInput>();
+        typed::<EffectProposalResult>();
         typed::<DecisionFrontierPrepareInput>();
         typed::<DecisionRequestPrepareInput>();
         typed::<RecallExecuteInput>();
@@ -3125,6 +3365,9 @@ mod tests {
         typed::<ExecutionObservation>();
         typed::<SourceExecutionObservation>();
         typed::<CaseRunInput>();
+        typed::<CaseResumeInput>();
+        typed::<cognitive_execution::ConversationSendInput>();
+        typed::<cognitive_execution::ConversationSubmissionResult>();
         typed::<ExecutionSubmissionResult>();
         typed::<RuntimeExecutionObservation>();
         typed::<WorkflowDefineInput>();
@@ -3149,6 +3392,7 @@ mod tests {
         typed::<ProviderRegisterInput>();
         typed::<ProviderQualifyInput>();
         typed::<ProviderTrustInput>();
+        typed::<ProviderSuitabilityRecordInput>();
         typed::<ProviderCaseBindInput>();
         typed::<CognitiveBindInput>();
         typed::<CognitiveTargetReference>();

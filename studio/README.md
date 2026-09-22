@@ -16,8 +16,9 @@ The visible perspectives are Overview, Environment, Knowledge, Memory,
 Authority, Work and Compute. The Context Panel separates Conversation,
 Inspector and Activity. In the desktop build, Terminal is a real transient local
 PTY. The browser surface explicitly reports that the desktop host is required
-and never fakes a shell. Conversation is read-only because SEND is outside this
-vertical.
+and never fakes a shell. Conversation is still read-only in this vertical.
+The backend now provides reconnect-safe ordinary SEND; connecting and qualifying
+the composer remains explicit Studio interaction debt, not a missing API.
 
 Live and fixture data use the same `StudioApplication`, Workbench Kernel,
 registered built-in contributions and Surface/Panel/navigation owners. Selecting

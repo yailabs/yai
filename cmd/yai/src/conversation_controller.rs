@@ -19,12 +19,12 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::cognitive::CognitiveCapability;
 use yai_core_engine::conversation::{
-    find_turn, turns_from_history, CognitiveCompositionPrerequisite, CognitiveCompositionRequest,
+    find_turn, turns_from_history, CognitiveCompositionRequest,
     ContentModality, ContentPartProvenance, ConversationContentStore, ConversationDraft,
     ConversationTurn, CONVERSATION_DRAFT_SCHEMA,
 };
 use yai_core_engine::security::AuthenticatedPrincipal;
-use yai_core_engine::transition::{CaseState, TransitionScope};
+use yai_core_engine::transition::CaseState;
 
 #[path = "conversation_controller/setup.rs"]
 mod setup;
@@ -90,57 +90,7 @@ pub(super) enum ConversationInputPart {
 
 /// Pre-SEND semantic choice. Ordinals address ordered application parts, never
 /// filenames or terminal syntax. No prerequisite is inferred when omitted.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(super) struct ConversationExecutionInput {
-    pub prerequisite: Option<(CognitiveCapability, Vec<u16>)>,
-    pub executor_participant_id: Option<String>,
-    pub work_limits: Option<yai_core_engine::conversation::CaseWorkLimits>,
-    pub workflow_execution_id: Option<String>,
-}
-
-impl ConversationExecutionInput {
-    fn bind(&self, turn: &ConversationTurn) -> Result<CognitiveCompositionRequest, String> {
-        let prerequisite = self
-            .prerequisite
-            .as_ref()
-            .map(|(capability, ordinals)| {
-                let source_part_ids = ordinals
-                    .iter()
-                    .map(|ordinal| {
-                        turn.ordered_parts
-                            .get(usize::from(*ordinal))
-                            .map(|part| part.part_id.clone())
-                            .ok_or_else(|| "conversation_intent_ordinal_not_found".to_string())
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok::<_, String>(CognitiveCompositionPrerequisite {
-                    capability: capability.clone(),
-                    source_part_ids,
-                })
-            })
-            .transpose()?;
-        let request = CognitiveCompositionRequest::for_executor(
-            turn,
-            self.executor_participant_id
-                .as_deref()
-                .unwrap_or(&turn.participant_id),
-            CognitiveCapability::PrimaryConversation,
-            turn.ordered_parts
-                .iter()
-                .map(|part| part.part_id.clone())
-                .collect(),
-            prerequisite,
-        )?;
-        let request = match &self.work_limits {
-            Some(limits) => request.with_work_limits(limits.clone()),
-            None => Ok(request),
-        }?;
-        match &self.workflow_execution_id {
-            Some(id) => request.with_workflow_execution(id),
-            None => Ok(request),
-        }
-    }
-}
+pub(super) use yai_application::cognitive_execution::ConversationExecutionInput;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum ConversationAction {
@@ -287,13 +237,7 @@ pub(super) struct AuthorizedConversationCase {
     pub(super) tenant_id: String,
 }
 
-#[derive(Clone, Debug)]
-pub(super) struct ConversationCommitResult {
-    pub(super) turn: ConversationTurn,
-    pub(super) transition_id: String,
-    pub(super) generation: u64,
-    pub(super) draft_discarded: bool,
-}
+pub(super) use yai_application::cognitive_execution::ConversationCommitResult;
 
 pub(super) struct ConversationController {
     case_id: String,
@@ -1264,91 +1208,9 @@ fn commit_conversation_draft_with_intent(
     draft: &ConversationDraft,
     intent: Option<&ConversationExecutionInput>,
 ) -> Result<ConversationCommitResult, String> {
-    if draft.parts.is_empty() {
-        return Err("conversation_turn_requires_content".to_string());
-    }
-    let authorized = authorized_conversation_case(&draft.case_id, &draft.participant_id)?;
-    if authorized.state.generation != draft.base_generation {
-        return Err("conversation_draft_case_generation_stale".to_string());
-    }
-    if authorized.tenant_id != draft.tenant_id || authorized.principal_id != draft.principal_id {
-        return Err("conversation_draft_security_scope_changed".to_string());
-    }
-    authorized
-        .store
-        .resolve_security_context(&authorized.authenticated, &authorized.tenant_id)?
-        .require_owner()?;
-    let content_store = conversation_content_store()?;
-    let objects = content_store.publish_draft(draft)?;
-    let turn = ConversationTurn::build(
-        &draft.case_id,
-        &draft.tenant_id,
-        &draft.thread_id,
-        &draft.participant_id,
-        &draft.principal_id,
-        draft.base_generation,
-        objects,
-    )?;
-    verify_conversation_turn(&turn)?;
-    let mut causal_refs = vec![turn.participant_id.clone()];
-    causal_refs.extend(
-        turn.ordered_parts
-            .iter()
-            .map(|part| part.object.object_id.clone()),
-    );
-    causal_refs.sort();
-    causal_refs.dedup();
-    let pending = PendingTransition {
-        transition_id: format!("transition:{}", turn.turn_id),
-        case_id: turn.case_id.clone(),
-        expected_generation: turn.base_generation,
-        source: TransitionSource {
-            component: "yai.case_conversation".to_string(),
-            participant_id: Some(turn.participant_id.clone()),
-            principal_id: Some(turn.submitted_by_principal_id.clone()),
-            source_ref: Some(turn.turn_id.clone()),
-        },
-        scope: Some(TransitionScope {
-            case_id: turn.case_id.clone(),
-            participant_refs: vec![turn.participant_id.clone()],
-            resource_refs: Vec::new(),
-            policy_refs: Vec::new(),
-        }),
-        causal_refs,
-        payload: TransitionPayload::ConversationTurnCommitted { turn: turn.clone() },
-        provenance: Vec::new(),
-        summary: Some(format!(
-            "multipart conversation turn with {} ordered content parts",
-            turn.ordered_parts.len()
-        )),
-    };
-    let (transition_id, generation) = if let Some(intent) = intent {
-        let request = intent.bind(&turn)?;
-        let (first, second) = authorized.store.commit_conversation_submission_authorized(
-            &authorized.authenticated,
-            &authorized.tenant_id,
-            pending,
-            request,
-        )?;
-        (first.transition.transition_id, second.state.generation)
-    } else {
-        let commit = authorized.store.commit_secured_transition(
-            &authorized.authenticated,
-            &authorized.tenant_id,
-            pending,
-            false,
-        )?;
-        (commit.transition.transition_id, commit.state.generation)
-    };
-    let draft_discarded = content_store
-        .discard_draft(&draft.case_id, &draft.draft_id)
-        .is_ok();
-    Ok(ConversationCommitResult {
-        turn,
-        transition_id,
-        generation,
-        draft_discarded,
-    })
+    yai_application::cognitive_execution::commit_conversation_draft_with_intent(
+        &yai_home(), &security::authenticate_local()?, &LmdbRecordStore::open(record_store_path())?, draft, intent, None,
+    )
 }
 
 #[cfg(test)]

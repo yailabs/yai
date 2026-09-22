@@ -30,11 +30,25 @@ not create another scheduler.
 **THEN:** deepen S4 typed Memory/navigation, S5 governed authoring/intake, S6
 Authority/Work and S7 generic Compute against the named Application boundaries.
 **BLOCKED:** governed Save, folder intake with qualified routing, policy catalog
-and combined-policy explanation, Conversation SEND and ambiguous-delivery recovery.
+and combined-policy explanation, and recovery unsupported by the actual carrier.
+Conversation SEND and exact execution observation are now backend-ready interaction
+debt, not missing Application contracts; no automatic redispatch is implied.
 **HORIZON:** native YVEX management, external/mobile clients, Computer Use,
 shared declarative Case Views and public extensions.
 
 ### Backend and Capability Delta Check
+
+Backend execution-lifecycle reconciliation preserves Studio commits `8ccb712`
+and `6bf088d`. The Application catalog now contains 81 operations and 31/31
+eligible PRODUCT families are Ready. Nine added operation IDs are explicitly
+classified as interaction debt in the existing consumer evidence map: Case
+resume, realization preparation/realize/compose, ordinary SEND, effect
+propose/submit/reconcile and provider suitability attestation. This records
+63 connected interactions, four alternate paths and fourteen interaction debts;
+it does not qualify new UI or promote this board. `test:capabilities` must
+continue to reject any future published operation without an explicit posture.
+Host supervision uses the existing scheduler; runtime/UI program acceptance
+remains separate from this backend lifecycle evidence.
 
 Last Studio review: `d049888b4f273748657a24e02245b979ccb73e02`.
 This implementation started on published
@@ -47,15 +61,15 @@ was rebased onto it. Independently owned work remains untouched.
 The new published delta adds eleven operations: `case.run`, `case.stop`,
 `execution.get`, `source.acquire`, `source.resume`, `resource.attach_process`,
 `resource.request`, `knowledge.inspect`, `knowledge.search`, `knowledge.resolve`
-and `knowledge.navigation`. The catalog now exposes 72 operations; partial family
+and `knowledge.navigation`. At that publication the catalog exposed 72 operations; partial family
 blockers remain exact. The Host supervises the existing RuntimeInstance. This is
 not Conversation SEND, complete interrupted-delivery recovery or native YVEX control.
 
 The code-owned [Application catalog](../application/yai-application/src/capabilities.rs)
 remains the operation identity owner. Studio's
 [consumer evidence map](src/contrib/settings/capabilityPosture.ts) classifies
-63 connected interactions, four deliberately alternate paths and five named
-interaction debts. `tests/studio/capability-parity.mjs` compares every ID against
+63 connected interactions, four deliberately alternate paths and fourteen named
+interaction debts after the execution-lifecycle delta. `tests/studio/capability-parity.mjs` compares every ID against
 the executable catalog. This inventory does not replace per-action positive,
 refusal/stale and lost-acknowledgement tests. A newly advertised Host operation
 stays unqualified until reconciled; a running Host may predate the checkout.
@@ -132,9 +146,9 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | Knowledge | M07 source-grounded derivation | Authorized summary/inspect/search/resolve/navigation; CLI inspect/build/graph | Owner-backed lexical queries, collections and associative graph; no frontend canonical index |
 | Memory | Transition, Recall, Semantic Working State | Recall/compile/page/refresh/frontier/request typed; CLI owner surfaces | Authored forms and results; ambient consumer lineage missing in inspection |
 | Authority | Policy compiler/IR, lifecycle, EffectivePolicy, Review/Grant | Typed lifecycle/binding/reviews; CLI catalogs/routes | Typed candidate rules and active bindings; catalog read and combined-policy explanation need projection |
-| Work | Workflow, Handoff, execution owners | Typed workflow/handoff/run/stop/execution observation; CLI shares owners | Authored forms and exact window-retained receipt references; Handoff inbox and complete execution discovery missing |
-| Compute | Provider governance and cognitive binding owners | Register/qualify/trust/bind typed; CLI probe/semantic qualification | Explicit target setup; probe, semantic evidence and catalog composition remain partial |
-| Conversation | Committed Turns and execution controller | Read summary; reconnect-safe SEND not in baseline catalog | Read-only committed history; local draft never becomes a fake Turn |
+| Work | Workflow, Handoff, execution owners | Typed workflow/handoff/run/resume/stop/effect/execution observation; CLI shares owners | Existing authored forms and window-retained receipt references; new resume/effect interactions, Handoff inbox and complete discovery remain open |
+| Compute | Provider governance and cognitive binding owners | Register/qualify/trust/bind, attestation and exact realization/composition typed; CLI shares owners | Explicit target setup; new attestation/realization/composition interactions remain unconnected |
+| Conversation | Committed Turns and execution controller | Read summary plus durable ordinary SEND/observation | Read-only UI; composer interaction and lost-response qualification remain open; no fake Turn |
 | Journal / Activity | Committed Transition history | Authorized latest-160 timeline | Journal filter/follow, latest-20 Activity; missing typed pagination |
 | Host / Settings | Rust Host / Studio-local preference owner | Real Host IPC telemetry/control; CLI lifecycle | Local preferences separate from Case; actual scheduler supervision reported by Host |
 

@@ -186,6 +186,13 @@ set -e
 [[ "$unprepared_status" -eq 2 ]]
 require_text "$unprepared_reconcile" "no matching prepared or finalized effect"
 
+# The exact canonical Operation already exists. Application transport must
+# advance it without owning normalization or invoking a second provider.
+admitted_operation=$(sed -n 's/^operation_id: //p' "$CASE_DIR/crash.out" | head -1)
+python3 "$ROOT/tests/characterization/application-execution-lifecycle/effect_host_retry.py" \
+  --home "$CASE_HOME" --case case:new12-filesystem --participant subject:llm-provider \
+  --operation "$admitted_operation" --file "$RESOURCE_ROOT/allowed/hello.txt"
+
 setup_case crash_before allow_once
 set +e
 run_effect --failpoint after_prepare_before_effect >"$CASE_DIR/crash.out" 2>&1
