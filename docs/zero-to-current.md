@@ -151,6 +151,13 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    database/HTTP Source forms must offer only names exposed by their Resource.
    `npm run test:environment` qualifies this through the real local Host.
 
+   In a disposable Case, bind a published policy from Authority. Select its
+   binding in Inspector to replace it with the next published version or unbind
+   it. For each action, advance the Case from another client before submission:
+   expect stale refusal with no policy change, then Close and refresh Case.
+   `npm run test:authority` automates the positive/stale paths and replay through
+   the real Host. It does not imply a policy artifact browser or import workflow.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

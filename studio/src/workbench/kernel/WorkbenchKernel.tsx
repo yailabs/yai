@@ -27,7 +27,7 @@ export interface WorkbenchKernelProps {
   registry: WorkbenchRegistry;
   readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }): Promise<OperationResult<MaterialReadProjection>>;
   searchCase?: (caseRef: string, query: string) => Promise<OperationResult<readonly CaseSearchResult[]>>;
-  refresh(): void;
+  refresh(): void | Promise<void>;
   openCaseSwitcher(): void;
 }
 

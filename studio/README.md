@@ -150,6 +150,12 @@ and qualified named SQLite/HTTP requests; it does not fetch or acquire content.
 these authored interactions against a real Host in a disposable profile, with
 path/name refusals, duplicate reuse, identity collision and canonical replay.
 
+Authority > Bind Policy accepts an exact published artifact reference. Selecting
+a bound policy in Inspector offers Replace/Unbind; each action requires a reason
+and the captured Case generation. `YAI_STUDIO_TEST_BINARY=/path/to/published/yai
+npm run test:authority` qualifies all three positive/stale paths on a real Host.
+A stale refusal offers Close and refresh Case, and never retries the mutation.
+
 Window-local sessions retain each Case's tabs,
 selection, navigation and dirty buffers across attachment switches and Host resync.
 A dirty preview pins itself; reopening its file selects the existing tab. Undo and

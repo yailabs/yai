@@ -59,7 +59,7 @@ Activity discloses its latest-20 limit and links to the full Timeline.
 This is a bounded read/product-quality foothold, not S4 completion.
 
 **CURRENT — Capability Surface convergence and broader product quality.** The
-last reconciled publication is `589b570e4f312aa0418971c881d2d81ea87e6129` while the
+last reconciled publication is `db2a0457fdcab78bd41a85229ee44b60d1d4921a` while the
 execution-lifecycle worktree changes are independently owned. The running Host
 can predate the checkout: discover its actual catalog before offering new
 operations. The first authored action slice consumes Case create/cancel/close,
@@ -79,6 +79,12 @@ attachment still requires the qualified native binding/secure carrier: the
 current raw `resource.attach` input is not a human-readable root-path setup API,
 and Studio does not fabricate its digest/carrier in React. These are named
 Application/Studio setup gaps, not missing Resource ownership.
+
+Authority now authors `policy.case.bind`, `policy.case.replace` and
+`policy.case.unbind`, with exact artifact/binding references, explicit reasons
+and a captured generation. Real Host tests qualify each success and stale
+refusal, unchanged policy on refusal, projection refresh and canonical replay.
+Artifact import/lifecycle and Tenant-wide policy browsing remain named UI work.
 
 **ESTABLISHED — Material presentation and local Workbench quality.** Exact retained
 bytes now feed image/PDF/audio/video renderers; Markdown is rendered with a lazy

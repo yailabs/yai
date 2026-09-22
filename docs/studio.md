@@ -1092,3 +1092,13 @@ and retains canonical history. The current published application boundary has
 no Source acquisition operation; attachment also requires a qualified native
 binding/carrier that Studio does not reconstruct from a path. These remaining
 setup interactions stay separate from the working declaration/revocation path.
+
+### Case policy binding interactions
+
+Authority offers binding, same-lineage replacement and unbinding of an exact
+published policy artifact. These actions capture the Case generation when the
+operator opens the form; resync never silently rebases an open decision. YAI
+checks publication, Tenant authority and generation. Stale refusal exposes an
+explicit close-and-refresh path without resubmission. Artifact import, lifecycle
+management and Tenant-wide policy browsing remain separate interactions; a bound
+policy projection is not an artifact catalog.

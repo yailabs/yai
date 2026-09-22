@@ -49,7 +49,7 @@ export function ParticipantAccessDialog({ application, caseRef, close, attached 
   </ApplicationActionDialog>;
 }
 
-export function ReviewActions({ application, workspace, reviewRef, refresh }: { application?: ApplicationAccess; workspace: CasePresentation; reviewRef: string; refresh(): void }) {
+export function ReviewActions({ application, workspace, reviewRef, refresh }: { application?: ApplicationAccess; workspace: CasePresentation; reviewRef: string; refresh(): void | Promise<void> }) {
   useApplicationAvailability(application);
   const [action, setAction] = useState<"approve" | "deny" | "defer">();
   const review = workspace.authority.reviews.find(item => item.id === reviewRef);
@@ -58,7 +58,7 @@ export function ReviewActions({ application, workspace, reviewRef, refresh }: { 
   return <><div className="object-action-row">{(["approve", "deny", "defer"] as const).map(name => <Button key={name} disabled={!pending || !application.supports(`review.${name}`)} title={!pending ? "This Review is not pending in an open Case." : application.supports(`review.${name}`) ? undefined : application.reason(`review.${name}`)} onClick={() => setAction(name)}>{name[0].toUpperCase() + name.slice(1)} review</Button>)}</div>{action && <ApplicationActionDialog title={`${action[0].toUpperCase() + action.slice(1)} review`} description="YAI checks your current participant authority and the exact review. Resolving a review does not itself execute an external effect." submitLabel="Submit decision" close={() => setAction(undefined)} enabled={pending && application.supports(`review.${action}`)} submit={form => application.resolveReview(action, { case_ref: workspace.case.case_ref, review_ref: reviewRef, participant_ref: workspace.case.participant_ref, reason: String(form.get("reason")).trim() })} committed={refresh}><label>Reason<textarea autoFocus required name="reason" rows={3} /></label></ApplicationActionDialog>}</>;
 }
 
-export function WorkflowInputAction({ application, workspace, nodeRef, refresh }: { application?: ApplicationAccess; workspace: CasePresentation; nodeRef: string; refresh(): void }) {
+export function WorkflowInputAction({ application, workspace, nodeRef, refresh }: { application?: ApplicationAccess; workspace: CasePresentation; nodeRef: string; refresh(): void | Promise<void> }) {
   useApplicationAvailability(application);
   const [open, setOpen] = useState(false);
   const definition = workspace.work.definition?.nodes?.find((node): node is { node_id: string; kind: string; prompt?: string; max_bytes?: number } => Boolean(node && typeof node === "object" && "node_id" in node && node.node_id === nodeRef && "kind" in node && node.kind === "human_input"));

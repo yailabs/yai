@@ -22,7 +22,8 @@
     "test:knowledge": "node ../tests/studio/knowledge-navigation.mjs",
     "test:application": "node ../tests/studio/application-actions.mjs",
     "test:media": "node ../tests/studio/media-surfaces.mjs",
-    "test:environment": "node ../tests/studio/environment-actions.mjs"
+    "test:environment": "node ../tests/studio/environment-actions.mjs",
+    "test:authority": "node ../tests/studio/policy-actions.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.0",

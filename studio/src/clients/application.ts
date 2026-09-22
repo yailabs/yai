@@ -23,6 +23,9 @@ export interface SourceDeclarationInput {
   action: { action: "discover"; path: string } | { action: "database_query" | "http_fetch"; name: string };
   bootstrap_policy: boolean; media_type: string;
 }
+export interface CasePolicyBindingInput { case_ref: string; artifact_ref: string; expected_generation: number; reason: string }
+export interface CasePolicyReplacementInput extends CasePolicyBindingInput { prior_binding_ref: string }
+export interface CasePolicyUnbindingInput { case_ref: string; binding_ref: string; expected_generation: number; reason: string }
 export interface ApplicationAvailability {
   state: "checking" | "available" | "unavailable";
   catalog?: ApplicationCatalog; reason?: string;
@@ -85,5 +88,8 @@ export class ApplicationAccess implements Disposable {
   recordWorkflowInput(input: { case_ref: string; node_ref: string; value: string }) { return this.invoke("workflow.input.record", () => this.client.recordWorkflowInput(input)); }
   declareSource(input: SourceDeclarationInput) { return this.invoke("source.declare", () => this.client.declareSource(input)); }
   revokeSource(input: { case_ref: string; source_ref: string; reason: string }) { return this.invoke("source.revoke", () => this.client.revokeSource(input)); }
+  bindPolicy(input: CasePolicyBindingInput) { return this.invoke("policy.case.bind", () => this.client.bindPolicy(input)); }
+  replacePolicy(input: CasePolicyReplacementInput) { return this.invoke("policy.case.replace", () => this.client.replacePolicy(input)); }
+  unbindPolicy(input: CasePolicyUnbindingInput) { return this.invoke("policy.case.unbind", () => this.client.unbindPolicy(input)); }
   dispose() { this.epoch++; this.stop.dispose(); this.listeners.clear(); }
 }

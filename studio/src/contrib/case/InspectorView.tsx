@@ -1,3 +1,4 @@
+import { PolicyActions } from "./PolicyActions";
 import { ReviewActions } from "./applicationActions";
 import type { AuxiliaryViewProps } from "../../workbench/kernel/types";
 import { Icon } from "../../components/Icon";
@@ -26,7 +27,8 @@ export function InspectorView({ workspace, selection, actions, platform }: Auxil
       {kind === "source" && <Button onClick={() => actions.openSurface(sourceInput(workspace, selection, true))}>Open Source</Button>}
       {kind === "resource" && <Button onClick={() => actions.openSurface(resourceInput(workspace, selection, true))}>Open Resource</Button>}
     </section>
-    {kind === "review" && <ReviewActions key={selection} application={platform.application} workspace={workspace} reviewRef={selection} refresh={() => { void platform.commands.executeCommand("studio.case.refresh"); }} />}
+    {kind === "policy" && <PolicyActions key={selection} application={platform.application} workspace={workspace} bindingRef={selection} refresh={() => platform.commands.executeCommand("studio.case.refresh").then(() => undefined)} />}
+    {kind === "review" && <ReviewActions key={selection} application={platform.application} workspace={workspace} reviewRef={selection} refresh={() => platform.commands.executeCommand("studio.case.refresh").then(() => undefined)} />}
     {!!references.length && <section className="inspector-group"><h3>Referenced objects <span>{references.length}</span></h3>{references.map(id => {
       const related = findFact(workspace, id); const relatedKind = factKind(workspace, id);
       return relatedKind === "case fact" ? <p key={id} title={id}>{id}<small> · Detail not projected</small></p> : <button key={id} onClick={() => actions.inspect(id)}><Icon name={factIcon(relatedKind)} /><strong>{related.title}</strong><small>{relatedKind}</small></button>;
