@@ -24,7 +24,8 @@
     "test:media": "node ../tests/studio/media-surfaces.mjs",
     "test:environment": "node ../tests/studio/environment-actions.mjs",
     "test:authority": "node ../tests/studio/policy-actions.mjs",
-    "test:editing": "node ../tests/studio/editing.mjs"
+    "test:editing": "node ../tests/studio/editing.mjs",
+    "test:focus": "node ../tests/studio/focus-layout.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.0",

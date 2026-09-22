@@ -59,7 +59,7 @@ Activity discloses its latest-20 limit and links to the full Timeline.
 This is a bounded read/product-quality foothold, not S4 completion.
 
 **CURRENT — Capability Surface convergence and broader product quality.** The
-last reconciled publication is `430b5cb8a32b7da77b461824454d2793ea8343cb` while the
+last reconciled publication is `09fe6fc77e0dd3664850fadb3d452e8b3b76f669` while the
 execution-lifecycle worktree changes are independently owned. The running Host
 can predate the checkout: discover its actual catalog before offering new
 operations. The first authored action slice consumes Case create/cancel/close,
@@ -91,7 +91,10 @@ operations share the Workbench editing boundary. Menus retain focus/selection;
 Undo/Redo follow actual history, read-only/terminal actions are gated, and delayed
 clipboard results cannot enter a different file or terminal. Permission refusal
 is visible. Browser regression and native Tauri editor/PTY acceptance qualify the
-path; no Case or filesystem save is implied.
+path; no Case or filesystem save is implied. Focus Work Surface temporarily hides
+neighboring regions, keeps their mounted state and restores exact prior layout.
+It applies to any registered Surface, including images, tables and Settings, with
+keyboard access through the Command Palette.
 
 **ESTABLISHED — Material presentation and local Workbench quality.** Exact retained
 bytes now feed image/PDF/audio/video renderers; Markdown is rendered with a lazy
@@ -134,11 +137,11 @@ Studio sequence is:
 |---|---|---|---|---|---|
 | Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system; exact material identity fencing and the syntax-aware editor foundation are established | Capability Surface convergence, then feature-local Product Quality Passes | Typed presentation facts | 🟡 **PARTIAL** |
 | Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | 🟢 **ESTABLISHED** |
-| Application / X03 | `yai-application` plus existing owners | Published 61-operation catalog; Studio reads plus authored Case/Participant/Review/HumanInput actions | Continue action-level `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0` | Published typed owners; running Host version can lag checkout | 🟡 **PARTIAL** |
+| Application / X03 | `yai-application` plus existing owners | Published 61-operation catalog; Studio reads plus authored Case/Participant/Review/HumanInput/Source/Policy-binding actions | Continue action-level `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0` | Published typed owners; running Host version can lag checkout | 🟡 **PARTIAL** |
 | Host / S1 | `application/yai-host` plus `yai-application` | Resident same-user Unix Host, singleton discovery, typed IPC, events, lifecycle CLI and Studio client | `S1.RUNTIME.SUPERVISION.1` after bounded capability convergence | Integrate the existing scheduler without duplicating its lease/execution owners | 🟡 **PARTIAL** |
 | Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | 🔴 **OPEN** |
-| Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, governed exact reads, renderer selection, exact material identity and syntax-aware local dirty/revert | Governed save after capability convergence | Participant-origin admitted file mutation and revision-conflict contract | 🟡 **PARTIAL** |
-| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy/grant/decision reads; Review decisions and HumanInput forms with backend refusals | Policy management, workflow configuration and broader progression UX | Published typed operations; execution lifecycle remains separately owned | 🟡 **PARTIAL** |
+| Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, exact reads, local editing, Source declaration/revocation | Governed save after capability convergence | Participant-origin admitted file mutation and revision-conflict contract | 🟡 **PARTIAL** |
+| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Policy binding/replacement/unbinding, Review decisions and HumanInput forms with backend refusals | Policy management, workflow configuration and broader progression UX | Published typed operations; execution lifecycle remains separately owned | 🟡 **PARTIAL** |
 | Compute / S7 | Provider governance plus Studio | Case-bound targets only; model/runtime/deployment facts remain distinct | Generic models/providers/targets experience | Provider discovery/configuration contracts | 🔴 **OPEN** |
 | YVEX / S8 | YVEX public management plane | Generic inference posture only | Native management plane | Versioned public YVEX capabilities | ⚪ **LATER** |
 | External / S10–S12 | Selected future owners | No public external/mobile contract | Later selection | S1 and explicit interface programs | ⚪ **LATER** |
@@ -162,7 +165,7 @@ worktree contracts are not imported before independent publication and sync.
 | Environment | Sources / Resources | Typed Sources/Resources and hierarchical files; exact retained reads through the authorized Source resolver | Participant-origin filesystem mutation, save receipt and stale-revision refusal are not qualified |
 | Knowledge | M07 derived source knowledge | Bounded authorized derivation with retained backing | Rich navigation remains Studio/S4; absent derivation stays empty |
 | Memory | Transition ledger, graph and Recall | Timeline bounded; Experience relations may be empty | Typed relation traversal remains S4 |
-| Authority | Policy / Review / Grant | Bound facts plus Review approve/deny/defer | Policy management and complete chains remain S6; backend checks each decision |
+| Authority | Policy / Review / Grant | Bound facts, policy bind/replace/unbind and Review approve/deny/defer | Policy management and complete chains remain S6; backend checks each decision |
 | Work | Workflow / Execution | Definition/resolution plus participant HumanInput | Definition/binding/patch forms and execution management remain Studio/S6 debt |
 | Compute | Provider governance | Case-bound targets partial | Model catalog, runtime/provider discovery and deployment management remain S7 |
 | YVEX | External runtime | Generic inference target only | Native management is absent until S8 |

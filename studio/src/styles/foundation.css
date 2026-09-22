@@ -621,3 +621,5 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 
 /* Action forms keep their identity and submission controls visible while fields scroll. */
 .application-action-dialog { display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }.application-action-dialog > header { flex: 0 0 auto; }.application-action-dialog > form { display: flex; flex-direction: column; min-height: 0; }.application-action-fields { overflow: auto; min-height: 0; padding: 2px 4px; }.application-action-dialog > form > footer { flex: 0 0 auto; }.application-action-dialog .action-result { flex: 0 0 auto; max-height: 30vh; overflow: auto; }
+
+.live-sidebar[hidden], .live-context[hidden] { display: none; }

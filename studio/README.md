@@ -158,6 +158,9 @@ A stale refusal offers Close and refresh Case, and never retries the mutation.
 
 `npm run test:editing` exercises the OS clipboard, focused Edit menu commands,
 command-palette selection, permission refusal and late-paste identity fencing.
+`npm run test:focus` checks Focus Work Surface/Restore Workbench at all four
+qualified sizes, retaining local buffers and prior region geometry. The control
+is available in View, the Command Palette and the top chrome.
 Terminal clipboard commands use the same focus boundary; Ctrl-C remains a PTY
 control. Clipboard refusal is visible and never changes Case state.
 

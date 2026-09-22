@@ -164,6 +164,11 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    desktop terminal, Ctrl-Shift-V pastes and Ctrl-C still interrupts the shell.
    `npm run test:editing` covers the clipboard/refusal/focus paths in the browser.
 
+   Use View > Focus Work Surface (also in the top bar/Command Palette), then
+   Restore Workbench. The same dirty editor and running terminal must remain;
+   previously closed regions stay closed and region sizes return unchanged.
+   Repeat at 1000×650. `npm run test:focus` checks the layout/state boundary.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

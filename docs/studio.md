@@ -1114,3 +1114,9 @@ paste is discarded if focus, document identity, selection or local text changes,
 or its terminal is hidden/closed. Refused clipboard access produces a visible
 notice instead of a silent failure. Native editor and terminal key ownership is
 preserved.
+
+The Workbench can focus any registered Surface by temporarily hiding neighboring
+regions. This is a local layout choice: groups, local buffers, terminal processes
+and hidden region state remain alive. Restore returns the prior visibility and
+geometry. A direct region command exits focus mode and reveals that region; it
+does not create another window or alter Case state.
