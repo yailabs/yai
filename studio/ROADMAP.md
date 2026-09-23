@@ -46,7 +46,9 @@ history retained; `case:studio-live-qualification` is the persistent
 technical oracle; deterministic Cases use bounded reconstructible inputs.
 Neither operator Case is disposable test setup. Behavioral evidence separates
 KNOWS, SEES, RECALLS, REMEMBERS, REASONS, CAN_DO, REFUSES, RECOVERS and ISOLATES;
-PERFORMS records measurements separately. Natural-language quality never
+The reusable retained-action corpus additionally checks exact Resource receipts,
+repeat observation and unauthorized disclosure through Host; it does not claim
+model-driven work. PERFORMS records measurements separately. Natural-language quality never
 substitutes for deterministic authority, identity and effect assertions.
 
 Providers is Tenant inventory/governance carried by the Host; Compute projects

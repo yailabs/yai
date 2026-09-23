@@ -122,6 +122,19 @@ def main():
             assert inv["coverage"]["declared"] == 6
             before = inv["generation"]
             assert sources("declare", "--file", manifest)["generation"] == before
+            # A recoverable compiler refusal must be resumable through the CLI,
+            # retaining the same attempt rather than silently skipping it.
+            (files / "policy.json").write_text(json.dumps(dict(policy, schema="yai.policy_source_input.unsupported")))
+            interrupted = sources("acquire", "--source", "security")
+            failed = by_name(interrupted)["security"]
+            assert failed["phase"] == "needs_processing", failed
+            (files / "policy.json").write_text(json.dumps(policy))
+            assert sources("acquire", "--source", "security")["generation"] == interrupted["generation"]
+            inv = sources("resume", "--source", "security")
+            resumed = by_name(inv)["security"]
+            assert resumed["phase"] == "acquired", resumed
+            assert resumed["progress"]["attempt"] == failed["progress"]["attempt"]
+            assert sources("resume", "--source", "security")["generation"] == inv["generation"]
             inv = sources("acquire")
             items = by_name(inv)
             assert items["security"]["phase"] == "acquired"

@@ -1,4 +1,5 @@
 import copy
+import json
 import importlib.util
 from pathlib import Path
 import unittest
@@ -19,6 +20,50 @@ class Client:
 
 
 class CorpusTest(unittest.TestCase):
+    def retained_action(self):
+        suite = json.loads((Path(__file__).parent / "retained-action.json").read_text())
+        profile = dict(case_ref="case:A", participant_ref="participant:A", submission_ref="request:A",
+            operation_ref="operation:A", receipt_ref="receipt:A", effect_ref="effect:A", result_ref="result:A",
+            outcome="applied", external_execution_started=True)
+        class RetainedClient:
+            def call(self, operation, inputs, correlation):
+                if operation == "case.summary":
+                    return dict(result_state="success", data=dict(case=dict(case_ref="case:A", generation=7)))
+                if inputs['participant_ref'] != 'participant:A':
+                    return dict(result_state="unauthorized")
+                return dict(result_state="success", data=dict(case_ref="case:A", participant_ref="participant:A",
+                    operation_ref="operation:A", posture=dict(state="effect_recorded", receipt_ref="receipt:A",
+                    effect_ref="effect:A", result_ref="result:A", outcome="applied", external_execution_started=True)))
+        return suite, profile, RetainedClient()
+
+    def test_retained_action_suite_exact_receipt_and_hidden_participant(self):
+        suite, profile, host = self.retained_action()
+        for test, variant, _ in corpus.variants(suite, 3):
+            self.assertEqual(corpus.evaluate(test, variant, profile, host,
+                {'case.summary':'read', 'execution.get':'read'}, False, lambda _:None), 'PASS')
+
+    def test_retained_action_suite_rejects_identity_and_outcome_substitution(self):
+        suite, profile, host = self.retained_action()
+        for field in ['case_ref', 'participant_ref', 'operation_ref', 'receipt_ref', 'effect_ref', 'result_ref',
+                      'outcome', 'external_execution_started']:
+            wrong = dict(profile, **{field:False if field == 'external_execution_started' else 'wrong'})
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                corpus.evaluate(suite['evaluations'][0], {}, wrong, host,
+                    {'case.summary':'read', 'execution.get':'read'}, False, lambda _:None)
+
+    def test_retained_action_suite_rejects_disclosure_in_refusal(self):
+        suite, profile, host = self.retained_action()
+        original = host.call
+        def leaking(*args):
+            result = original(*args)
+            if result['result_state'] == 'unauthorized':
+                result['data'] = {'receipt_ref':'receipt:A'}
+            return result
+        host.call = leaking
+        with self.assertRaises(AssertionError):
+            corpus.evaluate(suite['evaluations'][2], {}, profile, host,
+                {'case.summary':'read', 'execution.get':'read'}, False, lambda _:None)
+
     def observation_test(self):
         test = copy.deepcopy(self.test)
         test['steps'][0]['observe'] = dict(path='/data/posture', **{'while':['running']}, max_observations=3, interval_ms=0)

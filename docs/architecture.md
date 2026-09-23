@@ -1844,3 +1844,10 @@ and authenticated Review validation; no historical C lifecycle is restored.
 The existing `authority.review_and_grant` and `effect.controlled_execution`
 Application catalog entries remain exact: this corrects their existing
 `review.approve`, `resource.request` and Grant behavior, not a new capability.
+
+Source recovery keeps the existing `source.lifecycle` capability and typed
+`source.resume` owner. The CLI's explicit resume reaches the same carrier/admission
+path for settled `needs_processing` attempts; ordinary acquire still skips them.
+Acquiring, denied and revoked postures are not silently converted into retries.
+Studio already exposes exact-attempt resume through the typed Application client;
+this fixes CLI presentation parity without a new semantic operation.

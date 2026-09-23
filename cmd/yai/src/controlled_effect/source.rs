@@ -145,13 +145,13 @@ pub(crate) fn command(id: &str, args: &[String]) -> Result<Value, String> {
                     continue;
                 }
                 if source.progress.as_ref().is_some_and(|p| {
+                    // Ordinary acquire stays idempotent; only explicit resume
+                    // may advance a settled needs-processing attempt.
                     p.phase == SourcePhase::Revoked
-                        || (matches!(
-                            p.phase,
-                            SourcePhase::Acquired
-                                | SourcePhase::Denied
-                                | SourcePhase::NeedsProcessing
-                        ) && !refresh)
+                        || (!refresh
+                            && (matches!(p.phase, SourcePhase::Acquired | SourcePhase::Denied)
+                                || (p.phase == SourcePhase::NeedsProcessing
+                                    && id != "yai.case.sources.resume")))
                 }) {
                     continue;
                 }

@@ -100,3 +100,21 @@ The infrastructure profile uses separate `operations_*` references from acquisit
 inventory and `infra.overlay.json`; release expectations cannot resolve against
 that profile. Their assertions do not describe the infrastructure Case. Workflow definition/binding
 remains an ordinary separate YAI operation; acquiring the recipe does not bind it.
+
+## Retained governed actions
+
+`retained-action.json` is a reusable, read-only structural suite over
+`execution.get` for an already executed Resource request. It checks exact Case,
+Participant, Operation, effect, result and receipt identities; repeated reads;
+and refusal without disclosed data for an unlinked Participant. It neither
+submits the action nor claims that a model chose it correctly.
+
+Supply an independent profile from the original successful product result:
+`case_ref`, `participant_ref`, `submission_ref`, `operation_ref`, `effect_ref`,
+`result_ref`, `receipt_ref`, `outcome`, and `external_execution_started`. For a
+Resource effect receipt, `result_ref` is its `post_observation_id`. Never obtain
+expected identities from the observation being tested. Use this corpus directly
+with the ordinary runner, explicit `--profile`, `--home` and fresh `--output`.
+No `--allow-mutations` is needed. A successful retained receipt is distinct from
+current authority to perform the action again. Wrong expected receipt identity
+must fail; language/model competence remains `NOT_ASSESSED`.

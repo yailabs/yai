@@ -1520,3 +1520,20 @@ Revoking a contributing policy must still refuse current admission/observation.
 The retained engine regression and Application resource-reconnect variants
 exercise these properties with deliberately non-sorted binding IDs. This is
 local deterministic evidence, not real-model or human acceptance.
+
+### Source recovery and retained action evidence
+
+After correcting a recoverable Source problem, use **Resume acquisition** in
+Studio, or `yai case sources resume CASE --source NAME`. Inspect the resulting
+phase: `needs_processing` is not acquisition success, even when a command returns
+an operational result. Explicit resume retains the exact attempt; repeating a
+completed resume must not append another acquisition. Ordinary acquire does not
+automatically retry settled processing failures. Current policy and Resource
+admission still govern both clients. The operational-world helper refuses its
+own PASS if any requested Source remains unacquired.
+
+Use `tests/qualification/behavioral-corpus/retained-action.json` to compare a
+CLI-origin Resource action's exact receipt through the Host Application boundary.
+Expected refs must come from the original product result. The suite also checks
+repeat observation and unauthorized disclosure refusal. Its structural CAN_DO
+coverage is not model-driven task execution or natural-language evaluation.

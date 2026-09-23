@@ -182,8 +182,14 @@ def main():
         for name in ["operational-policy", "qualification-database", "qualification-http"]:
             if own(cli("case", "sources", "inventory", args.case), name)["phase"] != "acquired":
                 cli("case", "sources", "resume", args.case, "--source", name)
+            acquired = own(cli("case", "sources", "inventory", args.case), name)
+            if acquired["phase"] != "acquired":
+                raise RuntimeError(f"Source acquisition incomplete: {name}: {acquired['phase']}: {acquired.get('progress')}")
         if args.refresh_http:
             cli("case", "sources", "acquire", args.case, "--source", "qualification-http", "--refresh")
+            refreshed = own(cli("case", "sources", "inventory", args.case), "qualification-http")
+            if refreshed["phase"] != "acquired":
+                raise RuntimeError(f"HTTP refresh incomplete: {refreshed['phase']}: {refreshed.get('progress')}")
         bindings = cli("case", "show", args.case)
         assert len(bindings["resources"]) >= len(before["resources"])
         # Stable request identities: repeat observes durable results, never redispatches.

@@ -1,0 +1,361 @@
+{
+  "schema": "yai.behavioral_corpus.v1",
+  "evaluations": [
+    {
+      "preconditions": [
+        "A real governed action already has a retained receipt; expected identities come independently from its original CLI/Application result, not from the observation under test."
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        },
+        {
+          "$ref": "/profile/operation_ref"
+        },
+        {
+          "$ref": "/profile/receipt_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "execution.get"
+      ],
+      "forbidden_actions": [
+        "resource.request",
+        "effect.submit",
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation or external redispatch"
+      ],
+      "repeatability": "Read the same durable request; do not derive expected refs from the read under test.",
+      "mode": "retained_action_structural",
+      "id": "action.retained_receipt",
+      "dimensions": [
+        "CAN_DO",
+        "REMEMBERS"
+      ],
+      "meaning": "A completed governed action is observable with exact canonical evidence; this does not assess model-driven action selection.",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "receipt",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "resource_request",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            }
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/receipt/result_state",
+          "op": "equal",
+          "value": "success"
+        },
+        {
+          "path": "/results/receipt/data/case_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/case_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/participant_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/participant_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/operation_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/operation_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/posture/state",
+          "op": "equal",
+          "value": "effect_recorded"
+        },
+        {
+          "path": "/results/receipt/data/posture/receipt_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/receipt_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/posture/effect_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/effect_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/posture/result_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/result_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/posture/outcome",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/outcome"
+          }
+        },
+        {
+          "path": "/results/receipt/data/posture/external_execution_started",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/external_execution_started"
+          }
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    },
+    {
+      "preconditions": [
+        "A real governed action already has a retained receipt; expected identities come independently from its original CLI/Application result, not from the observation under test."
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        },
+        {
+          "$ref": "/profile/operation_ref"
+        },
+        {
+          "$ref": "/profile/receipt_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "execution.get"
+      ],
+      "forbidden_actions": [
+        "resource.request",
+        "effect.submit",
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation or external redispatch"
+      ],
+      "repeatability": "Read the same durable request; do not derive expected refs from the read under test.",
+      "mode": "retained_action_structural",
+      "id": "action.repeat_receipt",
+      "dimensions": [
+        "RECOVERS",
+        "REMEMBERS"
+      ],
+      "meaning": "Independent Host attachments return the same retained receipt without redispatch; actual restart is a separate controlled lane.",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "first",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "resource_request",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            }
+          }
+        },
+        {
+          "id": "second",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "resource_request",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            }
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/first/result_state",
+          "op": "equal",
+          "value": "success"
+        },
+        {
+          "path": "/results/second/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/first/data"
+          }
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    },
+    {
+      "preconditions": [
+        "A real governed action already has a retained receipt; expected identities come independently from its original CLI/Application result, not from the observation under test."
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        },
+        {
+          "$ref": "/profile/operation_ref"
+        },
+        {
+          "$ref": "/profile/receipt_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "execution.get"
+      ],
+      "forbidden_actions": [
+        "resource.request",
+        "effect.submit",
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation or external redispatch"
+      ],
+      "repeatability": "Read the same durable request; do not derive expected refs from the read under test.",
+      "mode": "retained_action_structural",
+      "id": "action.hidden_receipt",
+      "dimensions": [
+        "REFUSES",
+        "ISOLATES"
+      ],
+      "meaning": "An unlinked Participant cannot obtain the retained execution or alter the Case.",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "hidden",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": "participant:behavioral-unlinked",
+            "execution": {
+              "domain": "resource_request",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            }
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/hidden/result_state",
+          "op": "equal",
+          "value": "unauthorized"
+        },
+        {
+          "path": "/results/hidden",
+          "op": "excludes",
+          "value": "data"
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -24322,6 +24322,34 @@ mod tests {
     fn h10_review_writes_rederive_roles_provenance_and_final_decision() {
         let path = temp_store_path("h10-review-rederivation");
         let store = LmdbRecordStore::open(&path).expect("open store");
+        // Pin the existing transaction-time input when testing provenance.
+        // A wall-clock second rollover must not mask the forged-basis refusal.
+        let refuse_forged_decision = |pending: PendingTransition| {
+            let TransitionPayload::DecisionRecorded { decision } = &pending.payload else {
+                panic!("expected Decision");
+            };
+            let evaluated_at = decision
+                .decision_basis
+                .as_ref()
+                .unwrap()
+                .authority_evaluated_at_unix_ms;
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            let error = store
+                .commit_transition_txn_at(
+                    &mut txn,
+                    pending.clone(),
+                    false,
+                    Some(evaluated_at + 1_000),
+                    None,
+                )
+                .expect_err("different authority time must refuse");
+            assert_eq!(error, "authority_decision_time_mismatch");
+            drop(txn);
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            store
+                .commit_transition_txn_at(&mut txn, pending, false, Some(evaluated_at), None)
+                .expect_err("forged provenance must refuse at the exact authority time")
+        };
         let case_id = "case:h10-review-rederivation";
         let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", true);
         let state_before_decision = store.get_case_state(case_id).unwrap().unwrap();
@@ -24356,9 +24384,7 @@ mod tests {
                 decision: caller_claim_decision,
             },
         );
-        let caller_claim_error = store
-            .commit_transition(caller_claim_pending)
-            .expect_err("caller evidence claims must not cross canonical write boundary");
+        let caller_claim_error = refuse_forged_decision(caller_claim_pending);
         assert!(
             caller_claim_error.contains("authority_decision_basis_mismatch"),
             "{caller_claim_error}"
@@ -24548,9 +24574,7 @@ mod tests {
                 decision: forged_final,
             },
         );
-        let forged_final_error = store
-            .commit_transition(forged_final_pending)
-            .expect_err("forged final review Decision must fail semantic comparison");
+        let forged_final_error = refuse_forged_decision(forged_final_pending);
         assert!(
             forged_final_error.contains("authority_decision_basis_mismatch"),
             "{forged_final_error}"
