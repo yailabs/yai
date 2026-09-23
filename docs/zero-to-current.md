@@ -13,7 +13,7 @@ A previous PASS is not silently inherited by a changed product HEAD.
 
 ## Studio resident-Host live local acceptance
 
-The enterprise-release Case is a second persistent asset, not a replacement for
+The infrastructure Case is a second persistent asset, not a replacement for
 the technical oracle. Inspect/advance it with
 `tests/qualification/behavioral-corpus/enterprise.py`, an explicit existing
 `YAI_HOME`, built `--yai`, selected `--tenant`, fresh `--evidence` and generated
@@ -1507,3 +1507,16 @@ local provider and a disposable profile. The optional `--studio-url` argument to
 `tests/qualification/behavioral-corpus/context_capacity.py` also qualifies the
 explicit Studio inspection at four viewport sizes. This lane is not external
 DeepSeek/YVEX inference or human acceptance.
+
+### Infrastructure Case: composed authority check
+
+Keep multiple real policies bound when qualifying Resource requests. A policy's
+lineage order must not produce `policy_decision_case_basis_mismatch`,
+`policy_grant_case_basis_mismatch` or a false `policy_authority_basis_stale`.
+Inspect the resulting Decision, Review when required, Grant and receipt through
+Application/Studio. Repeating an acknowledged or lost-response submission must
+observe the same durable operation and must not dispatch another effect.
+Revoking a contributing policy must still refuse current admission/observation.
+The retained engine regression and Application resource-reconnect variants
+exercise these properties with deliberately non-sorted binding IDs. This is
+local deterministic evidence, not real-model or human acceptance.

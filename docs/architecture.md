@@ -1826,3 +1826,21 @@ from one checkout.
 
 These are current bounded contract limits, not a second live maturity registry.
 The [Roadmap](../ROADMAP.md) alone owns generic maturity, programs and selection.
+
+### Composed policy reference ordering
+
+DecisionBasis seals policy binding references in canonical sorted order. Case
+bindings and effective-policy inputs use lineage order. Decision,
+Grant and Review validation compare the complete sorted current binding list;
+no reference is dropped, deduplicated or accepted by subset. Effective-policy
+identities, digests and persisted history remain unchanged. Current-generation,
+current-policy and effect-time admission checks still apply.
+
+Archaeology: `yai-dev` commit `8716e685fd1550d4f29bcee3b1a048595ec0059f`,
+`src/case/policy/case_policy_decision_basis.c`, retains the requirement for a real
+Case and authority/policy basis but has no executable multi-binding ordering
+comparator to recover. The exact comparison belongs to current Rust Transition
+and authenticated Review validation; no historical C lifecycle is restored.
+The existing `authority.review_and_grant` and `effect.controlled_execution`
+Application catalog entries remain exact: this corrects their existing
+`review.approve`, `resource.request` and Grant behavior, not a new capability.

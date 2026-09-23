@@ -1843,18 +1843,22 @@ impl CaseState {
                             .decision_basis
                             .as_ref()
                             .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+                        // DecisionBasis uses canonical ref order; Case bindings retain
+                        // lineage order. Compare all refs without changing
+                        // membership or accepting duplicates/missing bindings.
+                        let mut current_binding_refs = next
+                            .policy_bindings
+                            .iter()
+                            .map(|binding| binding.binding_id.clone())
+                            .collect::<Vec<_>>();
+                        current_binding_refs.sort();
                         if basis.case_id != next.case_id
                             || basis.tenant_id != next.tenant_id
                             || basis.operation_id != operation.operation_id
                             || basis.operation_digest != operation.operation_digest
                             || basis.resource_attachment_id != resource.attachment_id
                             || basis.proposer_participant_id != operation.participant_id
-                            || basis.policy_binding_refs
-                                != next
-                                    .policy_bindings
-                                    .iter()
-                                    .map(|binding| binding.binding_id.clone())
-                                    .collect::<Vec<_>>()
+                            || basis.policy_binding_refs != current_binding_refs
                         {
                             return Err("policy_decision_case_basis_mismatch".to_string());
                         }
@@ -1928,16 +1932,17 @@ impl CaseState {
                 {
                     return Err("grant_chain_or_generation_mismatch".to_string());
                 }
+                let mut current_binding_refs = next
+                    .policy_bindings
+                    .iter()
+                    .map(|binding| binding.binding_id.clone())
+                    .collect::<Vec<_>>();
+                current_binding_refs.sort();
                 if grant.has_current_policy_basis()
                     && (grant.decision_basis_id.as_deref() != decision.decision_basis_id.as_deref()
                         || grant.effective_policy_id.as_deref()
                             != decision.effective_policy_id.as_deref()
-                        || grant.policy_binding_refs
-                            != next
-                                .policy_bindings
-                                .iter()
-                                .map(|binding| binding.binding_id.clone())
-                                .collect::<Vec<_>>())
+                        || grant.policy_binding_refs != current_binding_refs)
                 {
                     return Err("policy_grant_case_basis_mismatch".to_string());
                 }

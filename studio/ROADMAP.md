@@ -22,7 +22,7 @@ Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 
 **ACTIVE: `YAI.REAL.CASE.PRODUCT.CONVERGENCE.0`.** YAI, Studio, public
 provider contracts and the Case portfolio evolve together. The current boundary
-is a persistent enterprise-release Case operated through Studio with governed
+is a persistent infrastructure-service Case operated through Studio with governed
 inference, exact context evidence and reproducible behavioral qualification.
 Implementation and acceptance remain in progress; no maturity promotion follows
 from selecting this boundary.
@@ -121,7 +121,7 @@ selection and evidence, not an alternative capability catalog.
 
 | Case / topology | Responsibility and retention | Current evidence / remaining boundary |
 |---|---|---|
-| `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Four acquired Sources, one documentary Resource, bound read-only policy, seven human checkpoints and 275 Knowledge units observed through Host at state version 37. Repeated acquisition preserves state. Overview renders exact checkpoint prompts and Source links at four viewport sizes. Remote management and real governed inference remain open. |
+| `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Seven acquired Sources, seven Resources (discovery, filesystem, database, HTTP, process and MCP), two policy bindings, seven human checkpoints and 296 Knowledge units observed through Host at state version 85. One bounded process receipt is retained; repeating its request reuses the exact receipt without another effect. Host restart preserves the Case and exact documentary Recall. Controlled HTTP/MCP peers are stopped; retained observations are not service health. Overview renders exact checkpoint prompts and Source links at four viewport sizes. Remote management and real governed inference remain open. |
 | `case:yai-enterprise-launch` / retired | Operator-requested cancellation and closure; history retained | Closed at state version 57. Earlier release-assessment evidence does not qualify the replacement infrastructure Case. Do not recreate or resume it automatically. |
 | `case:studio-live-qualification` / single | Persistent technical oracle; preserve operator additions | Existing heterogeneous qualification world retained; no cleanup or recreation by portfolio runner. |
 | `behavioral-alpha` + `behavioral-beta` / parallel | Fresh isolated profile reconstructed from manifest; remove only after Host stop, or explicitly retain | Concurrent independent clients, role isolation, repeated mutation, stale snapshot refusal and restart equivalence qualified by `make test-behavioral-portfolio`. This is product behavior, not model competence. |

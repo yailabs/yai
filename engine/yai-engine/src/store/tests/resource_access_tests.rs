@@ -1639,3 +1639,66 @@ fn resource_observation_commit_failure_is_atomic_and_cannot_be_replayed_twice() 
     assert!(world.store.verify_case_state(CASE).unwrap());
     world.finish();
 }
+
+
+#[test]
+fn policy_decision_accepts_exact_bindings_independent_of_insertion_order() {
+    let world = World::new();
+    // Binding IDs are content-derived. Add ordinary distinct policies until the
+    // lineage-ordered list is demonstrably not the sorted binding-ID list.
+    let mut unsorted = false;
+    for index in 0..32 {
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": format!("resources.additional-{index}"), "source_version":"1",
+            "owner_ref":"organization:resource-contract",
+            "source_origin":{"source_system":"resource-contract-test","source_uri":format!("test://binding-order/{index}")},
+            "validity":{"mode":"unbounded"},
+            "rules":[{"kind":"operation_restriction","rule_id":"read",
+                "operation_kind":"filesystem.read","resource_kind":"filesystem",
+                "effect":"allow","reason":"same bounded read; no additional operation"}]
+        })).unwrap();
+        let compilation = scope_policy_compilation(&compile_policy_source(&bytes).unwrap(),
+            TENANT, "organization:resource-contract").unwrap();
+        let artifact = &compilation.artifact.artifact_id;
+        world.store.ingest_tenant_policy_compilation(&world.owner,TENANT,&compilation).unwrap();
+        world.store.validate_tenant_policy_artifact(&world.owner,artifact,"validate order regression").unwrap();
+        world.store.publish_tenant_policy_artifact(&world.owner,artifact,"publish order regression").unwrap();
+        let before = world.store.get_case_state(CASE).unwrap().unwrap();
+        world.store.bind_tenant_case_policy(&world.owner,CASE,artifact,before.generation,"add exact policy").unwrap();
+        let state = world.store.get_case_state(CASE).unwrap().unwrap();
+        let actual = state.policy_bindings.iter().map(|b|b.binding_id.clone()).collect::<Vec<_>>();
+        let mut canonical = actual.clone(); canonical.sort();
+        if actual != canonical { unsorted = true; break; }
+    }
+    assert!(unsorted,"Regression must actually exercise distinct lineage and binding-ID order");
+    let operation = world.operation("request:binding-order", "src/retry.txt");
+    let before_decision = world.store.get_case_state(CASE).unwrap().unwrap();
+    let (decision, _) = world.store.derive_and_commit_policy_decision(CASE,&operation.operation_id).unwrap();
+    assert_eq!(decision.outcome,DecisionOutcome::Allow);
+    let history = world.store.list_case_transitions(CASE).unwrap();
+    let committed = history.last().unwrap();
+    assert!(matches!(committed.payload, TransitionPayload::DecisionRecorded { .. }));
+    for variation in ["missing", "extra", "replaced"] {
+        let mut invalid = before_decision.clone();
+        match variation {
+            "missing" => { invalid.policy_bindings.pop(); }
+            "extra" => invalid.policy_bindings.push(invalid.policy_bindings[0].clone()),
+            _ => invalid.policy_bindings[0].binding_id = "case-policy-binding:wrong".into(),
+        }
+        assert_eq!(invalid.reduce(committed).unwrap_err(), "policy_decision_case_basis_mismatch",
+            "{variation} binding must fail closed");
+    }
+
+    let state = world.store.get_case_state(CASE).unwrap().unwrap();
+    let mut exact = state.policy_bindings.iter().map(|b|b.binding_id.clone()).collect::<Vec<_>>();
+    exact.sort();
+    assert_eq!(decision.decision_basis.as_ref().unwrap().policy_binding_refs,exact);
+    let admission = world.store.admit_resource_read_authorized(&world.owner,CASE,&operation.operation_id).unwrap();
+    let observation = world.store.record_resource_observation_authorized(&world.owner,&admission,world.result(&admission)).unwrap();
+    assert_eq!(observation.decision_id,decision.decision_id);
+    assert!(world.store.verify_case_state(CASE).unwrap());
+    assert_eq!(world.store.rebuild_case_state(CASE).unwrap(),world.store.get_case_state(CASE).unwrap().unwrap());
+    drop(world.store);
+    fs::remove_dir_all(world.path).unwrap();
+}

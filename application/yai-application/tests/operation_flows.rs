@@ -560,6 +560,28 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
     }
     f.success("policy.case.bind", json!({"case_ref":"case:audit","artifact_ref":artifact,
         "expected_generation":f.generation(),"reason":"bounded effect qualification"}));
+    // Exercise composed policies whose canonical ref order differs from bind
+    // lineage order through the actual Application dispatcher, including the
+    // review, revocation and lost-acknowledgement variants of this test.
+    let store = yai_core_engine::store::lmdb::LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    let mut exercised = false;
+    for index in 0..32 {
+        policy["policy_key"] = json!(format!("application-process-extra-{index}"));
+        let ingested = f.success("policy.ingest", json!({"tenant_id":"tenant:audit",
+            "source_bytes":serde_json::to_vec(&policy).unwrap()}));
+        let artifact = &ingested["view"]["artifact"]["artifact_id"];
+        for op in ["policy.validate", "policy.publish"] {
+            f.success(op, json!({"artifact_ref":artifact,"reason":"exact multi-policy ordering"}));
+        }
+        f.success("policy.case.bind", json!({"case_ref":"case:audit","artifact_ref":artifact,
+            "expected_generation":f.generation(),"reason":"exact multi-policy ordering"}));
+        let state = store.get_case_state("case:audit").unwrap().unwrap();
+        let refs = state.policy_bindings.iter().map(|b| b.binding_id.clone()).collect::<Vec<_>>();
+        let mut sorted = refs.clone(); sorted.sort();
+        if refs != sorted { exercised = true; break; }
+    }
+    assert!(exercised, "must exercise binding order rather than accidentally sorted refs");
+    drop(store);
     let request = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
         "resource_ref":"runner","submission_ref":"request:lost-effect-response","expected_generation":f.generation(),
         "request":ResourceRequest {schema:RESOURCE_REQUEST_SCHEMA.into(), configuration_digest:binding.digest(),

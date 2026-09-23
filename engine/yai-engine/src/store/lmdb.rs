@@ -12257,9 +12257,11 @@ impl LmdbRecordStore {
                     return Err("review_action_binding_or_generation_mismatch".to_string());
                 }
                 let effective = self.current_ready_effective_policy_txn(txn, case_id)?;
+                let mut current_binding_refs = effective.binding_ids.clone();
+                current_binding_refs.sort();
                 if review.effective_policy_id != effective.effective_policy_id
                     || review.effective_policy_digest != effective.semantic_digest
-                    || review.policy_binding_refs != effective.binding_ids
+                    || review.policy_binding_refs != current_binding_refs
                 {
                     return Err("policy_authority_basis_stale".to_string());
                 }
