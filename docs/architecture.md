@@ -1496,6 +1496,45 @@ See the [historical qualification report](https://github.com/yailabs/yai/blob/c1
 That historical boundary left Transition v18 / CaseState v15, S/W/compiler and
 context contracts, canonical owners and LMDB **37/40** unchanged.
 
+## Historical Decision trajectories
+
+The derived `CognitiveDecisionTrajectory v1` composes one currently disclosed
+historical pre-Decision cut with the exact canonical Decision and the existing
+qualified experience graph. It has no persistence or authority of its own.
+The pre side contains only replayed state, evidence, historical bound-policy
+meaning and backing available before the Decision's Transition. The
+`DecisionBasis` records the exact evaluated authority; historical policy is
+not today's permission. A current Principal/Participant link and current
+resource/source disclosure still gate inspection.
+
+Only directed typed graph edges may connect the Decision to later Review,
+Grant, PREPARE, receipt, Observation or explicit review re-evaluation. Recording
+order, shared Resource, text similarity and caller causal refs do not create
+such a link. A later Policy replacement is not back-projected and is not
+automatically a correction of an earlier Decision. Missing backing is explicit;
+qualified relation closure can disappear without erasing the recorded Decision.
+The bounded reader refuses above historical/graph budgets rather than returning
+an allegedly complete truncated trajectory.
+
+Current canonical Decisions generally did **not** record a CognitiveDecisionFrontier,
+task-conditioned W, CognitiveDecisionRequest or producer Distribution.
+The trajectory therefore reports only the selected canonical Operation as a
+partial alternative fact (or unavailable); it does not rerun today's Frontier
+at an old cut or manufacture counterfactuals, probabilities, reward or optimal
+labels. A Workflow execution ref is task context only when the selected
+Operation's typed origin recorded it. Future exact producer evidence can be
+joined by recorded Case/Decision/Request identity; no private YVEX format is
+assumed.
+
+The bounded structured corpus and separate structural metrics are evaluation
+artifacts, never Case truth. Its identity may change when current disclosure or
+exact backing changes; export metadata must retain the qualified Case/Participant
+and cut rather than assuming an immutable dataset snapshot. Imitation may use a
+historical selected action;
+outcome modeling additionally needs a qualified observed consequence; policy
+learning additionally needs independently specified utility and a real
+candidate set. None is a training pipeline or a correctness label.
+
 ## Qualified experience relations
 
 `yai case experience CASE current|GENERATION|TRANSITION` derives

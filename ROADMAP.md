@@ -11,8 +11,8 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **APPLICATION.EXECUTION.LIFECYCLE.0 — COMPLETE** at bounded typed submission/observation and no-redispatch scope. Next implementation boundary UNSELECTED. |
-| Latest major completed product boundary | Thirty-one eligible PRODUCT families have typed Application operations. Existing RuntimeInstance supervision, exact Case run/resume/stop, ordinary SEND, realization/composition, controlled effects/reconciliation and Source attempts remain observable across client loss without blind replay. |
+| Selected engineering boundary | **COGNITIVE.DECISION.TRAJECTORY.EVALUATION.0 — COMPLETE** at bounded currently disclosed historical Decision/corpus reconstruction and structural evaluation scope. Next implementation boundary UNSELECTED. |
+| Latest major completed product boundary | Thirty-two eligible PRODUCT families have typed Application operations. Existing RuntimeInstance supervision, exact Case run/resume/stop, ordinary SEND, realization/composition, controlled effects/reconciliation and Source attempts remain observable across client loss without blind replay. |
 | Most important structural gap | Application availability is not complete Studio interaction coverage or universal recovery. Carrier loss can remain indeterminate; arbitrary legacy checkpoints are not automatically resumable. Stable exported SDK/general events, remote transport, a production decision producer, adaptive routing and public W → E remain open. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
 | Primary research boundary | Minimum Sufficient Cognition targets the least expensive qualified mechanism—deterministic logic, non-generative decision inference, generative reasoning, then human/review escalation—for each bounded step. A future YVEX Decision Readout/Core must provide real scoring/calibration evidence; adaptive routing, broader Recall/W sufficiency, Experiential State Read/Update and persistent deliberation remain open. |
@@ -553,7 +553,7 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 | E04 | Explicit finite composition and host intent | 🟢 ESTABLISHED | [I04][i04], [I06][i06]; direct bypass or one explicit speech/image prerequisite; no modality inference. |
 | E05 | Real-provider context fit and setup performance | 🟡 PARTIAL | [Current capacity/prefill checkpoint][external-closure]: first real request fits generation 2 but does not complete within the test wait; no automatic product preflight integration or qualified latency. Small probes prove neither. |
 | E06 | Authorized persistent deliberation and resumable computation | 🔴 OPEN | Finite composition/task/Workflow are footholds, not internal overnight thinking. Need assignment scope/budget/deadline/cancel/result contracts and independently qualified L resume/amnesia; no Agent owner. |
-| E07 | Typed non-generative cognitive decision inference | 🟡 PARTIAL | [Decision Plane v1](tests/characterization/cognitive-decision-plane/test_decision_plane.py) binds current qualified W/task/Participant to 2–32 exact disclosed candidates and qualifies fixed-point raw, normalized or evidence-bound calibrated score semantics without creating a canonical Decision, Transition or effect. [Frontier v1](tests/characterization/cognitive-decision-frontier/test_frontier.py) constructs that set deterministically from exact ready/resolvable Workflow, task-Resource and deferred W4 origins, with required-first bounds and explicit optional omission. The [qualified hot path](tests/characterization/cognitive-decision-hot-path/test_hot_path.py) composes W requalification, Frontier and Request inside one current read basis, reducing a complete model-free step from 12 to 2 read transactions and from six to two Recall/W/source qualifications while preserving the independent post-producer fence. The deterministic score producer remains test-only; no general candidate planner, production scorer, calibration corpus, adaptive router, YVEX Decision Core or W → E path is qualified. |
+| E07 | Typed non-generative cognitive decision inference | 🟡 PARTIAL | [Decision Plane v1](tests/characterization/cognitive-decision-plane/test_decision_plane.py) binds current qualified W/task/Participant to 2–32 exact disclosed candidates and qualifies fixed-point raw, normalized or evidence-bound calibrated score semantics without creating a canonical Decision, Transition or effect. [Frontier v1](tests/characterization/cognitive-decision-frontier/test_frontier.py) constructs that set deterministically from exact ready/resolvable Workflow, task-Resource and deferred W4 origins, with required-first bounds and explicit optional omission. The [qualified hot path](tests/characterization/cognitive-decision-hot-path/test_hot_path.py) composes W requalification, Frontier and Request inside one current read basis, reducing a complete model-free step from 12 to 2 read transactions and from six to two Recall/W/source qualifications while preserving the independent post-producer fence. Historical Decision trajectories now expose exact pre-cut and qualified consequence evidence, but old cognitive candidate sets/Distribution were not recorded. The deterministic score producer remains test-only; no general candidate planner, production scorer, calibration corpus, adaptive router, YVEX Decision Core or W → E path is qualified. |
 
 ### Operational resources and external effects
 
@@ -594,7 +594,7 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 |---|---|---|---|
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
-| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | The code-owned [`yai-application` catalog](docs/reference/application-capabilities.md) classifies 42 families and 81 operation descriptors; all 31 Application-eligible PRODUCT families are Ready. The resident Rust Host supervises or attaches to the existing scheduler and forwards typed operations over private Linux Unix IPC. Exact domain execution references support current-authority observation and no blind redispatch after client loss, with explicit unresolved/indeterminate outcomes. Application invokes no CLI; shared execution orchestration serves both consumers. Stable exported package/SDK, general events, remote authentication, ordinary CLI-through-Host convergence and complete Studio interactions remain open. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | The code-owned [`yai-application` catalog](docs/reference/application-capabilities.md) classifies current product families and typed operation descriptors; all Application-eligible PRODUCT families are Ready. The resident Rust Host supervises or attaches to the existing scheduler and forwards typed operations over private Linux Unix IPC. Exact domain execution references support current-authority observation and no blind redispatch after client loss, with explicit unresolved/indeterminate outcomes. Application invokes no CLI; shared execution orchestration serves both consumers. Stable exported package/SDK, general events, remote authentication, ordinary CLI-through-Host convergence and complete Studio interactions remain open. |
 | X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. Native Studio discovers or starts one resident application Host per `YAI_HOME`, attaches through Tauri, renders authorized real-Case projections and receives Host-owned generation invalidations; two Studio processes can share the same Host while fixtures remain opt-in. `case:studio-live-qualification` remains the persistent product oracle and the desktop shell owns a separate real PTY. Backend Runtime supervision is qualified separately; complete Studio lifecycle interactions, general product readiness, mutation parity, multi-client mutation qualification, remote transport, Case-attached Open in Terminal and YVEX management remain open. |
 
 ### Qualification
@@ -606,7 +606,7 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 | Q03 | External YVEX product qualification | 🟡 PARTIAL | [Current external checkpoint][external-closure]: generation 2 capacity compatible; first-work wait FAIL, Workflow NOT_REACHED. No full external Golden PASS or model-quality claim. |
 | Q04 | Human Golden acceptance | 🔴 OPEN | [Runbook](docs/zero-to-current.md) prepared; PENDING_OPERATOR, not automated human PASS. |
 | Q05 | Long-lived continuity canary | 🔴 OPEN | Operator procedure recorded; retained cross-upgrade Case not exercised by this closure. |
-| Q06 | Cognitive-state, Recall and deliberation evaluation | 🟡 PARTIAL | [Bounded semantic oracle and report](tests/characterization/semantic-working-state-sufficiency/REPORT.md) establish a YAI-owned 15-class, model-independent D/H/S → Recall → W evaluation surface with exact fixture identities, required/control/distractor/forbidden vectors, budgets, W4 paging, ambient refresh and 10/73-source plus 83/338-Transition characterization. Fourteen classes are sufficient, one missing-backing case refuses correctly, and the retained prior temporal finding is transparently corrected as an oracle-contract defect. One documentary distractor remains measured; temporal false-causality and forbidden disclosure counts are zero. No persistent State Read ablation, E comparison, general dataset, learned navigation or equal-compute deliberation baseline. |
+| Q06 | Cognitive-state, Recall and deliberation evaluation | 🟡 PARTIAL | [Bounded semantic oracle and report](tests/characterization/semantic-working-state-sufficiency/REPORT.md) establish a YAI-owned 15-class, model-independent D/H/S → Recall → W evaluation surface with exact fixture identities, required/control/distractor/forbidden vectors, budgets, W4 paging, ambient refresh and 10/73-source plus 83/338-Transition characterization. Fourteen classes are sufficient, one missing-backing case refuses correctly, and the retained prior temporal finding is transparently corrected as an oracle-contract defect. One documentary distractor remains measured; temporal false-causality and forbidden disclosure counts are zero. Derived historical Decision corpus adds structural coverage/missingness metrics, not model quality or optimal labels. No persistent State Read ablation, E comparison, learned navigation or equal-compute deliberation baseline. |
 
 ### Federation / scale
 
@@ -891,7 +891,14 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Last implementation boundary: **APPLICATION.EXECUTION.LIFECYCLE.0 — COMPLETE**.
+Last implementation boundary: **COGNITIVE.DECISION.TRAJECTORY.EVALUATION.0 — COMPLETE**.
+Its derived reader binds the exact currently disclosed pre-Decision cut to the
+canonical Decision/DecisionBasis, qualified directed consequences and explicit
+review correction. The bounded corpus/evaluator reports structural readiness,
+missingness and exact refusal without inventing historical W, Frontier,
+Distribution, causal edges or optimal labels. No canonical owner or LMDB
+database was added; E07/Q06 remain PARTIAL.
+APPLICATION.EXECUTION.LIFECYCLE.0 remains COMPLETE at its prior scope.
 The bounded execution contract reuses durable Turn/intent, ProviderSelection/
 Invocation, Operation/PREPARE/receipt, Source attempt and RuntimeWork identities.
 Lost-response retry, current-authority refusal, real Host loss/restart and exact
@@ -934,14 +941,14 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| APPLICATION.EXECUTION.LIFECYCLE.0 | COMPLETE | X03 X04 | 31/31 eligible PRODUCT families Application-ready through existing domain execution identity, supervised RuntimeInstance, exact no-redispatch observation and explicit uncertainty; real IPC lost-response/restart and Golden local evidence. Studio interaction completeness and universal recovery are not claimed. |
+| COGNITIVE.DECISION.TRAJECTORY.EVALUATION.0 | COMPLETE | E07 Q06 X03 | Currently disclosed exact pre-Decision cut, canonical Decision/DecisionBasis, typed qualified consequence/correction lineage and bounded structured corpus/evaluation; historical W/Frontier/Distribution and optimal labels remain unavailable. |
 <!-- execution:end -->
 
-The retroactive bounded inventory contains 38 current executable/internal
-capabilities plus four target-only entries: 18 PRODUCT_READ, 14 PRODUCT_ACTION,
+The retroactive bounded inventory contains 39 current executable/internal
+capabilities plus four target-only entries: 19 PRODUCT_READ, 14 PRODUCT_ACTION,
 three OPERATOR_DIAGNOSTIC, three INTERNAL_MECHANIC and four TARGET_ONLY.
-Application-ready families are 31 of the 31 Application-eligible PRODUCT
-families, CLI-exposed families are 35 and Studio-consumable families are 32
+Application-ready families are 32 of the 32 Application-eligible PRODUCT
+families, CLI-exposed families are 36 and Studio-consumable families are 33
 including the Host carrier. Consumable does not mean authored UI: the concurrent
 Studio consumer map explicitly retains unintegrated actions. No eligible PRODUCT
 Application blocker remains; future debt still requires a test-enforced semantic

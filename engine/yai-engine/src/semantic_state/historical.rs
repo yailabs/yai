@@ -9,6 +9,8 @@ use crate::transition::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod trajectory;
+
 pub const HISTORICAL_VIEW_SCHEMA: &str = "yai.historical_semantic_view.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

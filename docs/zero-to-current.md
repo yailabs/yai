@@ -1336,6 +1336,23 @@ deferred non-residency and same-generation revoke behavior. These timings are
 local deterministic characterization, not a latency SLA, production scorer result,
 adaptive-routing claim or YVEX qualification.
 
+To inspect one derived historical Decision trajectory and its bounded corpus
+without mutating the Case:
+
+```sh
+./yai case trajectory CASE DECISION --participant PARTICIPANT --json
+./yai case trajectory corpus CASE --participant PARTICIPANT --limit 32 --json
+./yai case trajectory evaluate CASE --participant PARTICIPANT --limit 32 --json
+```
+
+The corpus is structured evidence, not an answer-string or reward-label dataset.
+The pre-Decision cut excludes later sources, Policy replacements and
+Observations; current disclosure still applies. Only exact qualified relations
+link consequences. `partial` candidate posture means the selected Operation is
+known, not that alternatives are reconstructed. Historical task-conditioned
+Recall/W, DecisionRequest and Distribution are unavailable without recorded
+evidence. These commands do not reset the continuity canary or create authority.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

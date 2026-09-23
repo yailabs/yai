@@ -40,6 +40,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.context.refresh" => working_state_refresh(invocation),
         "yai.case.context.ambient" => ambient_consumer_refresh(invocation),
         "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
+        "yai.case.trajectory" | "yai.case.trajectory.corpus" | "yai.case.trajectory.evaluate" => decision_trajectory(invocation),
         operation if operation.starts_with("yai.case.knowledge.") => knowledge_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
             if invocation.json {
@@ -175,6 +176,35 @@ fn application_operation(operation_ref: &str, input: serde_json::Value) -> Resul
         .map(|error| format!("{}: {}", error.code, error.safe_message))
         .unwrap_or_else(|| format!("application operation returned {:?}", result.result_state));
     Err(domain_error("application_operation_failed", detail))
+}
+
+fn decision_trajectory(invocation: &Invocation) -> Result<CliData, CliError> {
+    let case_ref = invocation.positional("case")
+        .ok_or_else(|| CliError::usage("Case is required"))?;
+    let participant_ref = invocation.flag("--participant")
+        .ok_or_else(|| CliError::usage("--participant is required"))?;
+    let (operation, input) = match invocation.descriptor.operation_id {
+        "yai.case.trajectory" => ("decision.trajectory.inspect", serde_json::json!({
+            "case_ref": case_ref, "participant_ref": participant_ref,
+            "decision_ref": invocation.positional("decision")
+                .ok_or_else(|| CliError::usage("Decision is required"))?,
+        })),
+        "yai.case.trajectory.corpus" | "yai.case.trajectory.evaluate" => {
+            let max_decisions = invocation.flag("--limit")
+                .map(str::parse::<usize>).transpose()
+                .map_err(|_| CliError::usage("--limit must be an integer"))?
+                .unwrap_or(32);
+            let operation = if invocation.descriptor.operation_id.ends_with("evaluate") {
+                "decision.trajectory.evaluate"
+            } else { "decision.trajectory.corpus" };
+            (operation, serde_json::json!({
+                "case_ref": case_ref, "participant_ref": participant_ref,
+                "max_decisions": max_decisions,
+            }))
+        }
+        _ => return Err(CliError::internal("unknown Decision trajectory operation")),
+    };
+    application_operation(operation, input)
 }
 
 fn decision_frontier(invocation: &Invocation) -> Result<CliData, CliError> {

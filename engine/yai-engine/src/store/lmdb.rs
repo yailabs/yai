@@ -4038,6 +4038,111 @@ impl LmdbRecordStore {
             .map(|(view, _, _)| view)
     }
 
+    /// Exact, bounded Decision trajectories from one read snapshot. Current
+    /// Principal/Participant disclosure is applied before Decision discovery;
+    /// only the existing qualified experience relation producer may link later
+    /// evidence. No current W, model score or canonical mutation is involved.
+    pub fn decision_trajectory_corpus_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        max_decisions: usize,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::historical::trajectory::CognitiveDecisionCorpus, String> {
+        use crate::semantic_state::historical::{
+            trajectory::{self, CognitiveDecisionCorpus, CORPUS_SCHEMA},
+            HistoricalCoordinate, HistoricalRequest,
+        };
+        if max_decisions == 0 || max_decisions > 128 {
+            return Err("trajectory_decision_bounds_invalid".into());
+        }
+        let txn = self.env.begin_ro_txn().map_err(|error| error.to_string())?;
+        let current = self.get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let mut request = HistoricalRequest::inspection(
+            HistoricalCoordinate::Generation(current.generation), participant_id);
+        request.max_items = 4096;
+        request.max_bytes = 16_777_216;
+        let (latest, scope, _, _) = self.qualified_historical_view_txn(
+            &txn, authenticated, case_id, request, content)?;
+        let mut query = crate::graph::experience::ExperienceQuery::default();
+        query.max_events = 4096;
+        query.max_relations = 32768;
+        query.max_bytes = 16_777_216;
+        let graph = crate::graph::experience::derive(&latest, query, &scope)?;
+        let visible_decisions: Vec<_> = latest.known_by_then.iter().filter_map(|event| {
+            if let TransitionPayload::DecisionRecorded { decision } = &event.payload {
+                Some((decision.decision_id.clone(), event.recorded_generation))
+            } else { None }
+        }).collect();
+        let omitted_visible_decisions = visible_decisions.len().saturating_sub(max_decisions);
+        let mut trajectories = Vec::new();
+        for (decision_id, generation) in visible_decisions.into_iter().take(max_decisions) {
+            let cut = generation.checked_sub(1).filter(|cut| *cut > 0)
+                .ok_or("trajectory_pre_decision_cut_unavailable")?;
+            let mut pre_request = HistoricalRequest::inspection(
+                HistoricalCoordinate::Generation(cut), participant_id);
+            pre_request.max_items = 4096;
+            pre_request.max_bytes = 16_777_216;
+            let (pre, _, _, _) = self.qualified_historical_view_txn(
+                &txn, authenticated, case_id, pre_request, content)?;
+            trajectories.push(trajectory::derive(pre, &latest, &graph, &decision_id)?);
+        }
+        let corpus = CognitiveDecisionCorpus {
+            schema: CORPUS_SCHEMA.into(), case_id: case_id.into(),
+            participant_id: participant_id.into(), trajectories, omitted_visible_decisions,
+        };
+        if serde_json::to_vec(&corpus).map_err(|error| error.to_string())?.len() > 16_777_216 {
+            return Err("trajectory_corpus_output_budget_exceeded".into());
+        }
+        Ok(corpus)
+    }
+
+    pub fn decision_trajectory_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        decision_id: &str,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::historical::trajectory::CognitiveDecisionTrajectory, String> {
+        use crate::semantic_state::historical::{HistoricalCoordinate, HistoricalRequest};
+        let txn = self.env.begin_ro_txn().map_err(|error| error.to_string())?;
+        let current = self.get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let mut request = HistoricalRequest::inspection(
+            HistoricalCoordinate::Generation(current.generation), participant_id);
+        request.max_items = 4096;
+        request.max_bytes = 16_777_216;
+        let (latest, scope, _, _) = self.qualified_historical_view_txn(
+            &txn, authenticated, case_id, request, content)?;
+        let generation = latest.known_by_then.iter().find_map(|event| {
+            if let TransitionPayload::DecisionRecorded { decision } = &event.payload {
+                (decision.decision_id == decision_id).then_some(event.recorded_generation)
+            } else { None }
+        }).ok_or("decision_not_visible")?;
+        let cut = generation.checked_sub(1).filter(|cut| *cut > 0)
+            .ok_or("trajectory_pre_decision_cut_unavailable")?;
+        let mut pre_request = HistoricalRequest::inspection(
+            HistoricalCoordinate::Generation(cut), participant_id);
+        pre_request.max_items = 4096;
+        pre_request.max_bytes = 16_777_216;
+        let (pre, _, _, _) = self.qualified_historical_view_txn(
+            &txn, authenticated, case_id, pre_request, content)?;
+        let mut query = crate::graph::experience::ExperienceQuery::default();
+        query.max_events = 4096;
+        query.max_relations = 32768;
+        query.max_bytes = 16_777_216;
+        let graph = crate::graph::experience::derive(&latest, query, &scope)?;
+        let trajectory = crate::semantic_state::historical::trajectory::derive(
+            pre, &latest, &graph, decision_id)?;
+        if serde_json::to_vec(&trajectory).map_err(|error| error.to_string())?.len() > 16_777_216 {
+            return Err("trajectory_output_budget_exceeded".into());
+        }
+        Ok(trajectory)
+    }
+
     /// Read-only Recall: exact sources and current disclosure are qualified in
     /// the same snapshot as the historical reader. No compilation cache is used.
     pub fn recall_trace_authorized(

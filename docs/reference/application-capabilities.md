@@ -2,7 +2,7 @@
 
 Generated from `application/yai-application/src/capabilities.rs`. Edit the code-owned catalog, not this matrix.
 
-Inventory: **42 capabilities** — 18 product reads, 14 product actions, 3 operator diagnostics, 3 internal mechanics and 4 targets. **31** are Application-ready, **35** CLI-exposed and **32** Studio-consumable through the typed Application boundary.
+Inventory: **43 capabilities** — 19 product reads, 14 product actions, 3 operator diagnostics, 3 internal mechanics and 4 targets. **32** are Application-ready, **36** CLI-exposed and **33** Studio-consumable through the typed Application boundary.
 
 | Capability | Disposition / impact | Engine owner | Application | CLI | Studio |
 |---|---|---|---|---|---|
@@ -19,6 +19,7 @@ Inventory: **42 capabilities** — 18 product reads, 14 product actions, 3 opera
 | `cognitive.decision_frontier`<br>Construct and inspect the current finite typed Decision Frontier without scoring | `ProductRead` / `DerivedComputation` | cognitive frontier + LMDB current qualification | `Ready`<br>decision.frontier.prepare | `Exposed`<br>yai.case.cognitive.frontier | `UiAlreadyConsumed` |
 | `cognitive.decision_readout`<br>Score an exact DecisionRequest with a qualified production producer | `TargetOnly` / `DerivedComputation` | future YVEX Decision Readout/Core | `NotApplicable`<br>— | `DeferredWithReason`<br>—<br>No production scorer or public producer contract exists. | `NotUiRelevant` |
 | `cognitive.decision_request`<br>Prepare and inspect a W-bound non-authoritative CognitiveDecisionRequest | `ProductRead` / `DerivedComputation` | Cognitive Decision Plane | `Ready`<br>decision.request.prepare | `Exposed`<br>yai.case.cognitive.decision_request | `UiAlreadyConsumed` |
+| `cognitive.decision_trajectory`<br>Reconstruct disclosed historical Decision prerequisites and qualified consequences; export and evaluate a bounded structured corpus without scoring choices | `ProductRead` / `DerivedComputation` | historical semantic reader + exact experience relations | `Ready`<br>decision.trajectory.corpus<br>decision.trajectory.evaluate<br>decision.trajectory.inspect | `Exposed`<br>yai.case.trajectory<br>yai.case.trajectory.corpus<br>yai.case.trajectory.evaluate | `ApplicationReady` |
 | `cognitive.hot_path_preparation`<br>Compose W requalification, Frontier and DecisionRequest inside one operation-scoped read basis | `InternalMechanic` / `DerivedComputation` | LMDB cognitive preparation | `NotApplicable`<br>— | `NotUseful`<br>—<br>The transient witness and measurements are not product authority. | `NotUiRelevant` |
 | `conversation.execution`<br>Draft/send Turns and execute ordinary Recall-aware Conversation work | `ProductAction` / `ExternalEffect` | shared cognitive execution + Turn/intent/Invocation owners | `Ready`<br>conversation.send<br>execution.get | `Exposed`<br>yai.case.conversation.draft.send<br>yai.case.workbench | `UiAlreadyConsumed` |
 | `conversation.inspect`<br>Inspect authorized retained Conversation turns | `ProductRead` / `Read` | Turn/Conversation projection | `Ready`<br>case.summary | `Exposed`<br>yai.case.conversation.turn.list<br>yai.case.conversation.turn.show | `UiAlreadyConsumed` |
@@ -53,4 +54,4 @@ The catalog describes support and surface posture. `case.capabilities` separatel
 
 ## Current product Application blockers
 
-No retained Application execution-lifecycle blocker among the 31 eligible PRODUCT families. Host lifecycle is the carrier-level exception, not an Application operation. Ready does not imply automatic retry, universal recovery or Studio interaction coverage.
+No retained Application execution-lifecycle blocker among the 32 eligible PRODUCT families. Host lifecycle is the carrier-level exception, not an Application operation. Ready does not imply automatic retry, universal recovery or Studio interaction coverage.

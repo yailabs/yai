@@ -676,3 +676,14 @@ public W → E invalidation protocol. Conservative `REFRESH_REQUIRED` is correct
 when exact irrelevance cannot be proven. Projection/provider preparation still
 perform no retrieval, and ambient posture never replaces final Invocation
 admission.
+
+## Historical Decision trajectory boundary
+
+The derived [Decision trajectory](architecture.md#historical-decision-trajectories)
+uses the exact pre-Decision historical cut and currently qualified experience
+relations. It does **not** call present-day Recall with a guessed historical
+task or treat today's W/Frontier as alternatives available then. Canonical
+Decisions generally retain their selected Operation and DecisionBasis, but not
+their task-conditioned Recall/W, CognitiveDecisionRequest or producer
+Distribution. The bounded corpus records those fields as unavailable and
+measures structural coverage separately from any model-quality metric.

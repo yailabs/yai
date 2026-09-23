@@ -1815,6 +1815,45 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.trajectory",
+        ["case", "trajectory"],
+        "Inspect one disclosure-qualified historical Decision trajectory",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("decision", None)],
+        &[flag("--participant", Some("PARTICIPANT"), true)]
+    ),
+    op!(
+        "yai.case.trajectory.corpus",
+        ["case", "trajectory", "corpus"],
+        "Export bounded structured Decision trajectories, not training labels",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--participant", Some("PARTICIPANT"), true),
+            flag("--limit", Some("DECISIONS"), false)
+        ]
+    ),
+    op!(
+        "yai.case.trajectory.evaluate",
+        ["case", "trajectory", "evaluate"],
+        "Characterize structural coverage of bounded Decision trajectories",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--participant", Some("PARTICIPANT"), true),
+            flag("--limit", Some("DECISIONS"), false)
+        ]
+    ),
+    op!(
         "yai.case.workbench",
         ["case", "workbench"],
         "Open the REPLAI Case workbench with an exact operator and optional cognitive executor",
@@ -3599,6 +3638,10 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
         "cognitive.decision_frontier"
     } else if operation_id == "yai.case.cognitive.decision_request" {
         "cognitive.decision_request"
+    } else if operation_id == "yai.case.trajectory"
+        || operation_id.starts_with("yai.case.trajectory.")
+    {
+        "cognitive.decision_trajectory"
     } else if operation_id.starts_with("yai.case.cognitive.") {
         "cognitive.bindings_and_realization"
     } else if operation_id.starts_with("yai.effect.") {

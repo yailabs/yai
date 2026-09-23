@@ -146,6 +146,8 @@ def main():
                     assert b"FORBIDDEN_REMOTE_PAYLOAD_NEVER_ACQUIRE" not in path.read_bytes()
                     assert b"UNDECLARED_SIBLING_NEVER_ACQUIRE" not in path.read_bytes()
             r1 = items["guide"]["progress"]["revision"]
+            guide_decision = items["guide"]["progress"]["decision_ref"]
+            assert guide_decision, "qualified acquisition must retain its Decision identity"
             duplicate = items["duplicate"]["progress"]["revision"]
             assert r1["revision_id"] != duplicate["revision_id"]
             assert r1["items"][0]["digest"] == duplicate["items"][0]["digest"]
@@ -154,6 +156,11 @@ def main():
             (files / "docs/guide.txt").write_text("Explicit updated source revision, old backing preserved.\n")
             updated = by_name(sources("acquire", "--source", "guide", "--refresh"))["guide"]
             assert updated["progress"]["revision"]["revision_id"] != r1["revision_id"]
+            original_trajectory = cli("case", "trajectory", CASE, guide_decision,
+                                      "--participant", PERSON, "--json")
+            later_revision_in_pre_cut = updated["progress"]["revision"]["revision_id"] in json.dumps(
+                original_trajectory["pre_decision"])
+            assert not later_revision_in_pre_cut, "later Source revision leaked into historical Decision cut"
             assert sources("read", "--source", "guide", "--revision", r1["revision_id"])["items"][0]["text"].startswith("Exact organizational")
             same = by_name(sources("acquire", "--source", "guide", "--refresh"))["guide"]
             assert same["progress"]["revision"]["revision_id"] == updated["progress"]["revision"]["revision_id"]
@@ -198,6 +205,8 @@ def main():
             sources("declare", "--file", write("policy-only.json", single), case=other)
             only = by_name(sources("acquire", case=other))["security"]
             assert only["progress"]["revision"]["items"][0]["backing"] == policy_revision["items"][0]["backing"]
+            cli("case", "trajectory", other, guide_decision,
+                "--participant", PERSON, "--json", reject=True)
             assert sources("publish", "--source", "security", "--reason", "Independent Case binding", case=other)["effective_policy"]["readiness"] == "ready"
             assert sources("inventory", case=other)["coverage"]["declared"] == 1
             cli("case", "verify", other)
@@ -237,6 +246,12 @@ def main():
             cli("policy", "revoke", artifact, "--reason", "Withdraw acquisition authority")
             cli("case", "sources", "read", CASE, "--source", "new", reject=True)
             cli("case", "sources", "declare", CASE, "--file", write("bad-reentry.json", perimeter("reentry", [dict(declarations[0], name="reentry")])), reject=True)
+            print(json.dumps(dict(source_trajectory="PASS", case=CASE, decision=guide_decision,
+                pre_cut=original_trajectory["pre_decision"]["cut_generation"],
+                original_revision=r1["revision_id"],
+                later_revision=updated["progress"]["revision"]["revision_id"],
+                later_revision_in_pre_cut=later_revision_in_pre_cut,
+                cross_case_same_backing_decision_refused=True)), flush=True)
             print("source_bootstrap_product=PASS policy_first=true dual_role_one_backing=true denied_payloads=0 resumed=true revisions=true current_revocation=true models=0", flush=True)
         finally:
             server.shutdown()

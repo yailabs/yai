@@ -111,6 +111,22 @@ pub struct CaseCapabilitiesInput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct DecisionTrajectoryInspectInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub decision_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionTrajectoryCorpusInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub max_decisions: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DecisionFrontierPrepareInput {
     pub working_state: SemanticWorkingState,
     pub max_candidates: usize,
@@ -975,6 +991,26 @@ impl LocalApplication {
                 )?;
                 serde_json::to_value(view)
                     .map_err(|error| format!("case_capabilities_encode:{error}"))
+            }
+            "decision.trajectory.inspect" => {
+                let input: DecisionTrajectoryInspectInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                encode_result("decision_trajectory", store.decision_trajectory_authorized(
+                    &auth, &input.case_ref, &input.participant_ref,
+                    &input.decision_ref, content.as_ref())?)
+            }
+            "decision.trajectory.corpus" | "decision.trajectory.evaluate" => {
+                let input: DecisionTrajectoryCorpusInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let corpus = store.decision_trajectory_corpus_authorized(
+                    &auth, &input.case_ref, &input.participant_ref,
+                    input.max_decisions, content.as_ref())?;
+                if request.operation_ref == "decision.trajectory.evaluate" {
+                    encode_result("decision_trajectory_evaluation",
+                        yai_core_engine::semantic_state::historical::trajectory::evaluate(&corpus)?)
+                } else {
+                    encode_result("decision_trajectory_corpus", corpus)
+                }
             }
             "case.summary" => {
                 let case_ref = input_case_ref(request)?;
@@ -3142,7 +3178,8 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
         (ResultState::CorePending, "Execution capacity is occupied. Observe an existing submission before retrying.")
     } else if matches!(error, "runtime_instance_not_running" | "runtime_instance_not_accepting_work") {
         (ResultState::CorePending, "The runtime is not accepting work. No new execution was submitted.")
-    } else if error.contains("not_visible")
+    } else if error == "historical_scope_unavailable"
+        || error.contains("not_visible")
         || error.contains("authentication")
         || error.contains("principal")
         || error.contains("owner")
@@ -3212,6 +3249,16 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_historical_participant_scope_is_an_authorization_refusal() {
+        let request = OperationRequest { protocol: APPLICATION_PROTOCOL.into(),
+            operation_ref: "decision.trajectory.inspect".into(),
+            correlation_ref: "test:hidden-history".into(), input: Value::Null };
+        let result = map_error(&request, "historical_scope_unavailable");
+        assert_eq!(result.result_state, ResultState::Unauthorized);
+        assert!(result.data.is_none());
+    }
+
+    #[test]
     fn unsupported_operation_is_honest() {
         let app = LocalApplication::from_yai_home("/path/does/not/matter");
         let result = app.call(OperationRequest {
@@ -3236,7 +3283,7 @@ mod tests {
         assert_eq!(result.result_state, ResultState::Success);
         let data = result.data.unwrap();
         assert_eq!(data["schema"], capabilities::CAPABILITY_CATALOG_SCHEMA);
-        assert_eq!(data["capabilities"].as_array().unwrap().len(), 42);
+        assert_eq!(data["capabilities"].as_array().unwrap().len(), 43);
         assert!(data.get("cases").is_none());
         assert!(data.get("resources").is_none());
     }
@@ -3340,8 +3387,8 @@ mod tests {
             .iter()
             .filter(|capability| capability.application_posture == ApplicationPosture::Deferred)
             .count();
-        assert_eq!(product.len(), 32);
-        assert_eq!(ready, 31);
+        assert_eq!(product.len(), 33);
+        assert_eq!(ready, 32);
         assert_eq!(deferred, 0);
         assert_eq!(capabilities::APPLICATION_BLOCKERS.len(), deferred);
         assert!(capabilities::APPLICATION_BLOCKERS.iter().all(|blocker| {
@@ -3354,6 +3401,9 @@ mod tests {
     #[test]
     fn public_application_inputs_are_bidirectionally_typed() {
         fn typed<T: Serialize + for<'de> Deserialize<'de>>() {}
+
+        typed::<DecisionTrajectoryInspectInput>();
+        typed::<DecisionTrajectoryCorpusInput>();
 
         typed::<cognitive_execution::CognitiveComposeInput>();
         typed::<cognitive_execution::CognitiveRealizationPrepareInput>();

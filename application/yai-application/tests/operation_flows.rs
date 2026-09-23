@@ -379,6 +379,50 @@ fn canonical_effect_retry(prepared_only: bool, revoked: bool, process: bool, exp
         TransitionPayload::EffectPrepared {..} | TransitionPayload::ProcessEffectPrepared {..})).count(), 1);
     assert_eq!(history.iter().filter(|t| matches!(t.payload,
         TransitionPayload::EffectFinalized {..} | TransitionPayload::ProcessEffectFinalized {..})).count(), 1);
+    let decision_ref = history.iter().find_map(|transition| {
+        if let TransitionPayload::DecisionRecorded { decision } = &transition.payload {
+            (decision.operation_id == operation.operation_id).then_some(decision.decision_id.clone())
+        } else { None }
+    }).unwrap();
+    let inspect_input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "decision_ref":decision_ref});
+    let mut wrong = inspect_input.clone();
+    wrong["case_ref"] = json!("case:wrong");
+    assert_eq!(f.call("decision.trajectory.inspect", wrong).result_state, ResultState::Unauthorized);
+    let mut hidden = inspect_input.clone();
+    hidden["participant_ref"] = json!("participant:hidden");
+    let hidden_result = f.call("decision.trajectory.inspect", hidden);
+    assert_eq!(hidden_result.result_state, ResultState::Unauthorized, "{:?}", hidden_result.error);
+    let trajectory = f.success("decision.trajectory.inspect", inspect_input.clone());
+    assert_eq!(trajectory["decision"]["decision_id"], decision_ref);
+    assert_eq!(trajectory["candidate_posture"], "partial");
+    assert_eq!(trajectory["readiness"]["historical_distribution_available"], false);
+    let corpus_input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "max_decisions":32});
+    for operation in ["decision.trajectory.corpus", "decision.trajectory.evaluate"] {
+        let mut wrong_case = corpus_input.clone();
+        wrong_case["case_ref"] = json!("case:wrong");
+        assert_eq!(f.call(operation, wrong_case).result_state, ResultState::Unauthorized);
+        let mut hidden_participant = corpus_input.clone();
+        hidden_participant["participant_ref"] = json!("participant:hidden");
+        assert_eq!(f.call(operation, hidden_participant).result_state, ResultState::Unauthorized);
+    }
+    let mut invalid_bounds = corpus_input.clone();
+    invalid_bounds["max_decisions"] = json!(0);
+    assert_ne!(f.call("decision.trajectory.corpus", invalid_bounds).result_state, ResultState::Success);
+    let mut excessive_bounds = corpus_input.clone();
+    excessive_bounds["max_decisions"] = json!(129);
+    assert_ne!(f.call("decision.trajectory.evaluate", excessive_bounds).result_state, ResultState::Success);
+    let corpus = f.success("decision.trajectory.corpus", corpus_input.clone());
+    assert!(corpus["trajectories"].as_array().unwrap().iter().any(|item|
+        item["trajectory_id"] == trajectory["trajectory_id"]));
+    let evaluation = f.success("decision.trajectory.evaluate", corpus_input);
+    assert_eq!(evaluation["temporal_leakage_violations"], 0);
+    assert_eq!(evaluation["false_causality_violations"], 0);
+    assert_eq!(evaluation["cross_case_leakage_violations"], 0);
+    f.app = LocalApplication::from_yai_home(&f.home);
+    assert_eq!(f.success("decision.trajectory.inspect", inspect_input), trajectory);
+    assert_eq!(f.generation(), generation, "derived trajectory cannot append a Transition");
     // A later canonical Operation cannot erase observation of this receipt.
     // Golden's multi-step work exposed a resolver wrongly requiring last_operation.
     let later_lineage = ProviderInvocationLineage { case_generation:f.generation(), ..lineage };

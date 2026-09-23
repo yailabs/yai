@@ -237,6 +237,29 @@ def main(effects=False):
                        for exclusion in capability_view["exclusions"])
             read = request("workspace", "read", {"action": "filesystem_read", "path": "src/retry.txt"})
             assert read["posture"] == "observed" and "retry" in read["observation"]["result"]["text"]
+            decision_ref = read["observation"]["decision_id"]
+            before_trajectory = command("case", "history", CASE, "--json")["total_transitions"]
+            trajectory = command("case", "trajectory", CASE, decision_ref,
+                                 "--participant", HUMAN, "--json")
+            assert trajectory["decision"]["decision_id"] == decision_ref
+            assert trajectory["candidate_posture"] == "partial"
+            assert trajectory["pre_decision"]["cut_generation"] < trajectory["decision_generation"]
+            assert any(relation["kind"] == "decision_observation"
+                       for relation in trajectory["related_relations"])
+            corpus = command("case", "trajectory", "corpus", CASE,
+                             "--participant", HUMAN, "--limit", "8", "--json")
+            assert any(item["trajectory_id"] == trajectory["trajectory_id"]
+                       for item in corpus["trajectories"])
+            evaluation = command("case", "trajectory", "evaluate", CASE,
+                                 "--participant", HUMAN, "--limit", "8", "--json")
+            assert evaluation["consequence_link_count"] >= 1
+            assert evaluation["exact_candidate_set_count"] == 0
+            assert evaluation["temporal_leakage_violations"] == 0
+            assert evaluation["false_causality_violations"] == 0
+            command("case", "trajectory", CASE, decision_ref,
+                    "--participant", "participant:hidden", "--json",
+                    reject="application_operation_failed")
+            assert command("case", "history", CASE, "--json")["total_transitions"] == before_trajectory, "CLI trajectory inspection is read-only"
             # Each CLI command is a fresh process; retry observes canonical material without redispatch.
             repeat = request("workspace", "read", {"action": "filesystem_read", "path": "src/retry.txt"})
             assert repeat["reused"] and repeat["observation"] == read["observation"]
@@ -256,6 +279,10 @@ def main(effects=False):
             assert admitted["posture"] == "content_admitted", admitted
             assert admitted["admission"]["object"]["content_digest"] == candidate["digest"]
             assert admitted["admission"]["discovery_observation_id"] == discovered["observation"]["observation_id"]
+            after_later_admission = command("case", "trajectory", CASE, decision_ref,
+                                            "--participant", HUMAN, "--json")
+            assert admitted["admission"]["object"]["object_id"] not in json.dumps(
+                after_later_admission["pre_decision"]), "later admitted content leaked before Decision"
             candidate_path.write_text("external source subsequently changes; owned content remains exact")
             repeated_admission = request("discovery", "admit", admission_action)
             assert repeated_admission["reused"] and repeated_admission["admission"] == admitted["admission"]

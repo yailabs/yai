@@ -46,8 +46,8 @@ def main() -> int:
     capabilities = catalog["capabilities"]
     operations = catalog["operations"]
     blockers = catalog["blockers"]
-    assert len(capabilities) == 42
-    assert len(operations) == 82
+    assert len(capabilities) == 43
+    assert len(operations) == 85
     assert len(blockers) == 0
     assert [item["capability_id"] for item in capabilities] == sorted(
         item["capability_id"] for item in capabilities
@@ -57,7 +57,7 @@ def main() -> int:
     )
     counts = Counter(item["disposition"] for item in capabilities)
     assert counts == {
-        "product_read": 18,
+        "product_read": 19,
         "product_action": 14,
         "operator_diagnostic": 3,
         "internal_mechanic": 3,
@@ -94,10 +94,10 @@ def main() -> int:
     print(
         "application_capability_surface_run_id=application-capability-surface-v1 "
         "catalog_schema=yai.application_capability_catalog.v1 "
-        "capabilities=42 executable_or_internal=38 target_only=4 "
-        "product_read=18 product_action=14 operator_diagnostic=3 "
-        "internal_mechanic=3 application_operations=82 application_ready=31 "
-        "application_blockers=0 cli_exposed=35 studio_consumable=32 "
+        "capabilities=43 executable_or_internal=39 target_only=4 "
+        "product_read=19 product_action=14 operator_diagnostic=3 "
+        "internal_mechanic=3 application_operations=85 application_ready=32 "
+        "application_blockers=0 cli_exposed=36 studio_consumable=33 "
         "case_identity_leaks=0 direct_cli_invocation=0"
     )
     return 0

@@ -155,6 +155,17 @@ fn historical_policy_chronology_late_observation_and_current_permission() {
     assert_eq!(recorded.recorded_generation, observation_generation);
     assert_eq!(recorded.occurred_at_unix_ms, None); // result JSON is not a timestamp authority
 
+    // Same Resource and later recording are deliberately insufficient to link
+    // this independent operation's Observation to the first Decision.
+    let independent = world.operation("request:historical-independent", "src/retry.txt");
+    let (independent_decision, _) = world.store
+        .derive_and_commit_policy_decision(CASE, &independent.operation_id).unwrap();
+    let independent_read = world.store
+        .admit_resource_read_authorized(&world.owner, CASE, &independent.operation_id).unwrap();
+    let independent_observation = world.store
+        .record_resource_observation_authorized(
+            &world.owner, &independent_read, world.result(&independent_read)).unwrap();
+
     let (_, review_generation) = replace(&world, "2", "allow", true);
     let proposed = world.operation("request:historical-review", "src/retry.txt");
     let (review_decision, reviewed) = world
@@ -334,6 +345,52 @@ fn historical_policy_chronology_late_observation_and_current_permission() {
     use crate::graph::experience::RelationKind as RK;
     assert_eq!(experience.relations.iter().map(|r| r.kind.clone()).collect::<Vec<_>>(),
         vec![RK::DecisionReview, RK::ReviewAction, RK::ReviewReevaluation]);
+    let trajectory = world.store.decision_trajectory_authorized(
+        &world.owner, CASE, HUMAN, &d1.decision_id, None).unwrap();
+    assert_eq!(trajectory.pre_decision.cut_generation + 1, trajectory.decision_generation);
+    assert_eq!(trajectory.decision.decision_id, d1.decision_id);
+    assert_eq!(trajectory.selected_operation.as_ref().unwrap().operation_id, allowed.operation_id);
+    assert!(trajectory.pre_decision.known_by_then.iter().all(|event|
+        event.recorded_generation < trajectory.decision_generation));
+    let serialized_pre = serde_json::to_string(&trajectory.pre_decision).unwrap();
+    assert!(!serialized_pre.contains(&observation.observation_id));
+    assert!(!serialized_pre.contains(&p2));
+    assert!(!serialized_pre.contains(&d2.decision_id));
+    assert!(trajectory.related_relations.iter().any(|relation|
+        relation.kind == RK::DecisionObservation));
+    assert!(trajectory.related_evidence.iter().any(|event| matches!(&event.payload,
+        TransitionPayload::ResourceObservationRecorded { observation: o }
+            if o.observation_id == observation.observation_id)));
+    assert!(!trajectory.related_evidence.iter().any(|event| matches!(&event.payload,
+        TransitionPayload::DecisionRecorded { decision } if decision.decision_id == d2.decision_id)));
+    assert!(!trajectory.related_evidence.iter().any(|event| matches!(&event.payload,
+        TransitionPayload::ResourceObservationRecorded { observation: o }
+            if o.observation_id == independent_observation.observation_id)));
+    assert_ne!(independent_decision.decision_id, d1.decision_id);
+    assert!(!trajectory.readiness.candidate_set_available);
+    assert!(!trajectory.readiness.working_state_available);
+    assert!(!trajectory.readiness.historical_distribution_available);
+    let corrected = world.store.decision_trajectory_authorized(
+        &world.owner, CASE, HUMAN, &review_decision.decision_id, None).unwrap();
+    assert!(corrected.correction_decisions.contains(&approved.decision_id));
+    let corpus = world.store.decision_trajectory_corpus_authorized(
+        &world.owner, CASE, HUMAN, 32, None).unwrap();
+    let limited = world.store.decision_trajectory_corpus_authorized(
+        &world.owner, CASE, HUMAN, 2, None).unwrap();
+    assert_eq!(limited.trajectories.len(), 2);
+    assert_eq!(limited.omitted_visible_decisions, corpus.trajectories.len() - 2);
+    let metrics = crate::semantic_state::historical::trajectory::evaluate(&corpus).unwrap();
+    assert!(metrics.trajectory_count >= 5);
+    assert_eq!(metrics.exact_candidate_set_count, 0);
+    assert_eq!(metrics.temporal_leakage_violations, 0);
+    assert_eq!(metrics.false_causality_violations, 0);
+    assert_eq!(metrics.cross_case_leakage_violations, 0);
+    assert!(world.store.decision_trajectory_authorized(
+        &world.outsider, CASE, HUMAN, &d1.decision_id, None).is_err());
+    println!("decision_trajectory case={CASE} count={} partial_candidates={} consequences={} corrections={} pre_cut={} false_causality=0 temporal_leakage=0",
+        metrics.trajectory_count, metrics.partial_candidate_set_count,
+        metrics.consequence_link_count, metrics.correction_count,
+        trajectory.pre_decision.cut_generation);
     println!("experience_review review={} action={} approved={} qualified_edges=3 old_policy_no_current_authority=true", review.review_id, action.action_id, approved.decision_id);
     println!("historical_decisions p1_artifact={} d1={} basis1={} effective1={} d2={} basis2={} effective2={} review_action={} historical_view={}",
         p1.policy_bindings[0].artifact_id, d1.decision_id, d1.decision_basis.as_ref().unwrap().basis_id,
@@ -586,6 +643,90 @@ fn historical_reconstruction_short_long_measurements() {
             assert!(v.semantic_items < 16);
         }
     }
+    assert!(world.store.verify_case_state(CASE).unwrap());
+    world.finish();
+}
+
+#[test]
+fn decision_trajectory_short_long_characterization_and_backing_loss() {
+    use crate::semantic_state::historical::trajectory::evaluate;
+    let world = World::new();
+    let op = world.operation("request:trajectory-age", "src/retry.txt");
+    let (decision, _) = world.store
+        .derive_and_commit_policy_decision(CASE, &op.operation_id).unwrap();
+    let original = world.store.decision_trajectory_authorized(
+        &world.owner, CASE, HUMAN, &decision.decision_id, None).unwrap();
+    for count in [0, 256] {
+        for n in 0..count {
+            let state = world.store.get_case_state(CASE).unwrap().unwrap();
+            let mut pending = secured_pending(
+                &format!("transition:trajectory-noise:{n}"), CASE, state.generation,
+                &world.owner.projected_principal_id(),
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:model".into(),
+                    role: format!("trajectory-noise-{n}"),
+                });
+            pending.causal_refs = vec![decision.decision_id.clone()];
+            world.store.commit_secured_transition(&world.owner, TENANT, pending, true).unwrap();
+        }
+        let current_generation = world.store.get_case_state(CASE).unwrap().unwrap().generation;
+        let mut pre_request = request(original.pre_decision.cut_generation);
+        pre_request.max_items = 4096;
+        pre_request.max_bytes = 16_777_216;
+        let start = Instant::now();
+        world.store.historical_semantic_view_authorized(
+            &world.owner, CASE, pre_request, None).unwrap();
+        let historical_us = start.elapsed().as_micros();
+        let mut current_request = request(current_generation);
+        current_request.max_items = 4096;
+        current_request.max_bytes = 16_777_216;
+        let start = Instant::now();
+        world.store.experience_view_authorized(&world.owner, CASE, current_request,
+            crate::graph::experience::ExperienceQuery {
+                max_events: 4096, max_relations: 32768, max_bytes: 16_777_216,
+                ..Default::default()
+            }, None).unwrap();
+        let relation_us = start.elapsed().as_micros();
+        let start = Instant::now();
+        let trajectory = world.store.decision_trajectory_authorized(
+            &world.owner, CASE, HUMAN, &decision.decision_id, None).unwrap();
+        let trajectory_us = start.elapsed().as_micros();
+        let start = Instant::now();
+        let corpus = world.store.decision_trajectory_corpus_authorized(
+            &world.owner, CASE, HUMAN, 8, None).unwrap();
+        let corpus_us = start.elapsed().as_micros();
+        let metrics = evaluate(&corpus).unwrap();
+        assert_eq!(trajectory.trajectory_id, original.trajectory_id,
+            "unrelated later history cannot change the exact visible trajectory");
+        assert_eq!(trajectory.related_relations.len(), 0,
+            "caller causal_refs and chronology do not mint qualified relations");
+        println!("decision_trajectory_cost history={} pre_items={} relations={} historical_us={} relation_us={} candidate_reconstruction=unavailable trajectory_us={} corpus_us={} output_bytes={} corpus_bytes={} decisions={}",
+            current_generation,
+            trajectory.pre_decision.known_by_then.len(), trajectory.related_relations.len(),
+            historical_us, relation_us, trajectory_us, corpus_us, serde_json::to_vec(&trajectory).unwrap().len(),
+            metrics.serialized_bytes, metrics.trajectory_count);
+    }
+    let reopened = LmdbRecordStore::open(world.path.join("store")).unwrap();
+    assert_eq!(reopened.decision_trajectory_authorized(
+        &world.owner, CASE, HUMAN, &decision.decision_id, None).unwrap().trajectory_id,
+        original.trajectory_id);
+    world.store.clear_graph_relations_for_case(CASE).unwrap();
+    world.store.drop_effective_policy(CASE).unwrap();
+    world.store.rebuild_graph_relations_for_case(CASE).unwrap();
+    world.store.rebuild_effective_policy(CASE).unwrap();
+    assert_eq!(world.store.decision_trajectory_authorized(
+        &world.owner, CASE, HUMAN, &decision.decision_id, None).unwrap().trajectory_id,
+        original.trajectory_id, "derived graph/policy rebuild cannot change canonical trajectory semantics");
+    let state = world.store.get_case_state(CASE).unwrap().unwrap();
+    world.store.discard_policy_source_for_test(&state.policy_bindings[0].source_id).unwrap();
+    let missing = world.store.decision_trajectory_authorized(
+        &world.owner, CASE, HUMAN, &decision.decision_id, None).unwrap();
+    assert!(missing.missingness.iter().any(|item|
+        item.contains("original_source_unavailable_artifact_retained")));
+    assert_eq!(missing.decision.decision_id, decision.decision_id);
+    let missing_corpus = world.store.decision_trajectory_corpus_authorized(
+        &world.owner, CASE, HUMAN, 8, None).unwrap();
+    assert_eq!(evaluate(&missing_corpus).unwrap().missing_backing_count, 1);
     assert!(world.store.verify_case_state(CASE).unwrap());
     world.finish();
 }
