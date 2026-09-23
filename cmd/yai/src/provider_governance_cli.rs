@@ -384,84 +384,9 @@ fn credential_for(target: &yai_core_engine::provider_governance::ProviderTarget)
         .and_then(provider::env_var)
 }
 
-/// Ephemeral public catalog, not semantic evidence or target admission. The
-/// application caller must authorize metadata access before entering here.
-pub(super) fn discover_provider_models(
-    endpoint: &str,
-    locality: &ProviderLocality,
-    credential_ref: &str,
-) -> Result<Vec<String>, String> {
-    let endpoint =
-        yai_core_engine::provider_governance::normalize_provider_endpoint(endpoint, locality)?;
-    let endpoint = parse_http_endpoint(&endpoint)?;
-    let credential = if credential_ref == "none" {
-        None
-    } else {
-        let key = credential_ref
-            .strip_prefix("env:")
-            .filter(|key| {
-                !key.is_empty()
-                    && key.len() <= 128
-                    && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
-            })
-            .ok_or("provider_credential_reference_invalid")?;
-        Some(std::env::var(key).map_err(|_| "provider_credential_unavailable")?)
-    };
-    let response = super::provider_transport::provider_http(
-        &endpoint,
-        Some(locality),
-        "GET",
-        &api_path(&endpoint, "models"),
-        &[],
-        credential.as_deref(),
-    )?;
-    if matches!(response.status, 401 | 403) {
-        return Err("provider_catalog_auth_required".into());
-    }
-    if response.status != 200 {
-        return Err(format!(
-            "provider_catalog_http_{}:{}",
-            response.status,
-            public_error_code(&response.body)
-        ));
-    }
-    catalog_models(&response.body)
-}
-
-fn catalog_models(body: &[u8]) -> Result<Vec<String>, String> {
-    let value = strict_json(body).map_err(|_| "provider_catalog_invalid")?;
-    let rows = value
-        .get("data")
-        .and_then(Value::as_array)
-        .ok_or("provider_catalog_invalid")?;
-    if rows.len() > 128
-        || value.get("has_more").and_then(Value::as_bool) == Some(true)
-        || value.get("next").is_some_and(|next| !next.is_null())
-    {
-        return Err("provider_catalog_incomplete_or_over_bound".into());
-    }
-    let mut models = Vec::new();
-    for row in rows {
-        let id = row
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or("provider_catalog_invalid")?;
-        if id.is_empty()
-            || id.len() > yai_core_engine::provider_governance::MAX_PROVIDER_MODEL_ID_BYTES
-            || !id
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || "._:-/".contains(c))
-            || models.iter().any(|known| known == id)
-        {
-            return Err("provider_catalog_invalid_or_duplicate_model".into());
-        }
-        models.push(id.to_owned());
-    }
-    models.sort();
-    if models.is_empty() {
-        return Err("provider_catalog_empty: endpoint exposes no models; no qualification or binding performed".into());
-    }
-    Ok(models)
+pub(super) use yai_application::provider_execution::catalog_models;
+pub(super) fn discover_provider_models(endpoint: &str, locality: &ProviderLocality, credential_ref: &str) -> Result<Vec<String>, String> {
+    yai_application::provider_execution::discover_provider_models(endpoint, locality, credential_ref, |key| std::env::var(key).ok())
 }
 
 fn embedding_probe_shape(value: &Value, model_id: &str) -> (Option<u64>, bool) {

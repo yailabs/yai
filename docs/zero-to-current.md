@@ -345,7 +345,7 @@ commands/application operations only; it never reads LMDB or mutates the Case.
 4. Inspect Memory Timeline/Graph, Authority, Work and Compute. Graph selection
    changes Inspector only. Exercise pan, zoom, fit, drag, search/filter and both
    relational and directed layouts where data exists. Conversation contains only
-   committed Turns and remains read-only until SEND is separately qualified.
+   committed Turns; native text SEND uses the selected primary cognitive assignment.
 5. Exercise preview/pinned tabs, Back/Forward, Case switching through `File`,
    the full desktop menu, panel collapse and all three splitters. Resize the
    bottom tools between its bounds, maximize/restore it and resize the window;
@@ -472,7 +472,7 @@ Check these additional UI behaviors at 1600×960, 1440×900, 1280×800 and 1000�
     its exact execution, request cooperative stop of that runner, and reconnect.
     The same durable reference must be recovered without another provider call.
     Settings > YAI Host reports actual supervision. Conversation SEND now has a
-    typed backend lifecycle but its Studio composer remains interaction debt;
+    typed backend lifecycle consumed by the Studio text composer;
     a running older Host may advertise fewer operations. Check the connected
     catalog rather than assuming the installed client and Host match.
 
@@ -513,7 +513,7 @@ application Case switcher. All content is explicitly fixture.
 5. Resize Explorer, Context Panel and bottom tools. Collapse/reopen panels; verify
    local size/tab preservation. Try Ctrl/Command+J, Ctrl/Command+B and
    Ctrl/Command+Shift+B, plus keyboard focus and splitter arrow/Home/End keys.
-6. Confirm Conversation is read-only and no control fake-sends or persists a
+6. Confirm Conversation sends only through the Host and no control fake-sends or persists a
    Turn. Scenario switching/reload resets all transient selection state.
 7. Inspect Terminal, Output, Executions, Evidence and Problems. In the browser,
    Terminal must report that the desktop host is required and accept no command.
@@ -1373,3 +1373,31 @@ Report the actual YAI SHA, external endpoint/model, protocol limitations, each
 lifecycle checkpoint and `PASSED_BY_OPERATOR` or `FAILED_BY_OPERATOR`. Automation
 may structurally qualify this document and approximate the lifecycle, but may
 not supply the human acceptance verdict.
+
+### Studio conversation and configured model acceptance
+
+In Compute use **Discover exposed models** with an operator-supplied endpoint,
+then register the exact model. Import real measured qualification, approve trust
+and bind to the Case. Record an explicit **operator-attested** suitability basis
+and **Assign conversation model**; this does not authorize Resource effects.
+In Conversation send a small question with Send or Ctrl/Command+Enter. Confirm
+one committed user Turn and a separately recorded model response with exact
+request/result identities. Reopen the view: the same response must be recovered
+from the projected canonical request reference. A lost acknowledgement must not
+produce another provider dispatch; a stale generation must leave the draft
+intact. `tests/studio/conversation-actions.mjs` exercises the real Host and a
+controlled provider, including revoked trust and hidden execution refusals.
+
+YVEX acquisition/preparation/loading remains on its native management plane.
+Its OpenAI-compatible listener exposes loaded model identities and inference;
+Studio must not claim to manage remote source acquisition through that listener.
+A live external provider run remains separate from deterministic UI acceptance.
+
+Live DeepSeek qualification on the persistent Studio Case passed the bounded
+provider probe, but the populated Case request received HTTP 413 (109855 request
+bytes) from its current 4096-token deployment. This is a deployment/context
+capacity limitation, not a successful Case response. Preserve the committed
+Turn and exact execution outcome; never silently truncate Case context or
+redispatch it as a new message. The generic local endpoint currently depends
+on an operator loopback forward. Native remote model acquisition/load is not
+an exposed compat HTTP operation.

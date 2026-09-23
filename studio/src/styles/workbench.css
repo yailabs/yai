@@ -3052,3 +3052,44 @@ summary {
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* Conversation: a quiet model bar, readable transcript, anchored composer. */
+.conversation-operational { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.conversation-model-bar { flex: none; padding: 6px 16px; }
+.conversation-model-choice { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 6px 0; border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; cursor: pointer; }
+.conversation-model-choice:hover { color: var(--text); }
+.conversation-messages { flex: 1; min-height: 0; overflow: auto; padding: 18px 18px 24px; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.conversation-messages:has(.conversation-welcome) { display: flex; align-items: center; justify-content: center; }
+.conversation-welcome { text-align: center; max-width: 250px; padding-bottom: 32px; }
+.conversation-monogram { display: inline-block; color: var(--text); font-size: 17px; font-weight: 600; letter-spacing: .1em; margin-bottom: 20px; }
+.conversation-welcome h2 { font-size: 17px; font-weight: 500; letter-spacing: -.025em; line-height: 1.4; margin: 0 0 8px; }
+.conversation-welcome p { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.6; }
+.conversation-exchange { margin-bottom: 28px; }
+.conversation-operational .real-turn { border: 0; padding: 0; margin: 0; background: transparent; }
+.conversation-operational .real-turn p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: 13px; margin: 9px 0 0; }
+.conversation-operational .real-turn header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; }
+.conversation-operational .real-turn small { color: var(--text-muted); font-size: 10px; }
+.conversation-operational .turn-human { margin-left: 26px; padding: 12px 14px; border-radius: 16px 16px 4px 16px; background: var(--surface); }
+.conversation-operational .turn-human header { color: var(--text-muted); }
+.conversation-operational .turn-ai { padding-top: 22px; }
+.conversation-operational .turn-ai > header > strong { color: var(--text); font-weight: 600; }
+.conversation-operational details { font-size: 11px; overflow-wrap: anywhere; margin-top: 12px; color: var(--text-muted); }
+.conversation-operational details summary { cursor: pointer; width: fit-content; }
+.conversation-operational details pre { white-space: pre-wrap; }
+.conversation-operational details code { display: block; margin-top: 8px; }
+.conversation-composer { flex: none; padding: 12px; margin: 0 12px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.conversation-composer textarea:focus-visible { outline: none; box-shadow: none; }
+.conversation-composer textarea { display: block; box-sizing: border-box; width: 100%; min-height: 44px; max-height: 176px; resize: none; padding: 4px; font: inherit; line-height: 1.6; font-size: 13px; color: inherit; background: transparent; border: 0; border-radius: 0; outline: none; }
+.conversation-composer > p { font-size: 12px; line-height: 1.5; margin: 0 4px 10px; }
+.conversation-send-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.conversation-send-row small { color: var(--text-muted); font-size: 10px; padding-left: 4px; }
+.conversation-send-row .conversation-send { width: 30px; height: 30px; min-height: 30px; padding: 0; border-radius: 50%; font-size: 21px; background: var(--text); color: var(--surface); }
+.conversation-send:disabled { opacity: .3; }
+.conversation-error { color: var(--error); overflow-wrap: anywhere; }
+.conversation-composer .object-action-row { flex-wrap: wrap; }
+@media (max-height: 700px) { .conversation-welcome { padding-bottom: 0; } .conversation-messages { padding-top: 8px; } .conversation-composer { margin-bottom: 8px; } }
+
+.provider-setup-steps { padding-left: 24px; display: grid; gap: 12px; }
+.provider-setup-steps li { padding-left: 6px; }
+.provider-setup-steps strong { display: block; margin-bottom: 4px; }
+.provider-setup-steps span { color: var(--text-muted); }

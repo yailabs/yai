@@ -47,7 +47,7 @@ def main() -> int:
     operations = catalog["operations"]
     blockers = catalog["blockers"]
     assert len(capabilities) == 42
-    assert len(operations) == 81
+    assert len(operations) == 82
     assert len(blockers) == 0
     assert [item["capability_id"] for item in capabilities] == sorted(
         item["capability_id"] for item in capabilities
@@ -96,7 +96,7 @@ def main() -> int:
         "catalog_schema=yai.application_capability_catalog.v1 "
         "capabilities=42 executable_or_internal=38 target_only=4 "
         "product_read=18 product_action=14 operator_diagnostic=3 "
-        "internal_mechanic=3 application_operations=81 application_ready=31 "
+        "internal_mechanic=3 application_operations=82 application_ready=31 "
         "application_blockers=0 cli_exposed=35 studio_consumable=32 "
         "case_identity_leaks=0 direct_cli_invocation=0"
     )

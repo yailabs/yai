@@ -33,3 +33,11 @@ export function readProbeEvidence(value: unknown): ProviderProbeEvidence | undef
   if (!Array.isArray(candidate.failure_codes) || !candidate.failure_codes.every(item => typeof item === "string")) return;
   return candidate;
 }
+
+export interface SemanticEvidence { evidence_id: string; target_id: string; capability: string; posture: string; suite_id: string; run_id: string }
+export interface CognitiveBinding { binding_id: string; participant_id: string; role: string; capability: string; target_id: string; semantic_evidence_id: string }
+export interface SuitabilityInput { target_ref: string; capability: "primary_conversation"; suite_ref: string; run_ref: string; evidence_refs: string[] }
+export interface CognitiveBindingInput { case_ref: string; participant_ref: string; role: "primary"; capability: "primary_conversation"; candidates: Array<{ target_ref: string; semantic_evidence_ref: string }>; replace: boolean }
+
+export interface ProviderModelsInput { tenant_id: string; endpoint: string; locality: ProviderRegistration["locality"]; credential_ref: string }
+export interface ProviderModels { models: string[]; scope: "currently_exposed"; authority: "provider_metadata_only" }

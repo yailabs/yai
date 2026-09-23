@@ -141,6 +141,9 @@ fn conversation_submission_is_durable_idempotent_and_observable_without_provider
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     f.app = LocalApplication::from_yai_home(&f.home);
+    let summary = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    assert_eq!(summary["conversation"]["turns"][0]["execution_request_ref"], acknowledged["execution"]["request_ref"]);
+    assert_eq!(summary["conversation"]["turns"][0]["id"], acknowledged["execution"]["turn_ref"]);
     let retry = f.success("conversation.send", input.clone());
     assert_eq!(retry["created"], false);
     assert_eq!(retry["execution"]["turn_ref"], acknowledged["execution"]["turn_ref"]);
@@ -1094,4 +1097,35 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
         assert!(result.data.is_none());
     }
     assert_eq!(f.generation(), generation, "observing cannot progress or reacquire a source");
+}
+
+#[test]
+fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_case() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    let f = Fixture::new("model-discovery");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let input = json!({"tenant_id":"tenant:audit","endpoint":endpoint,"locality":"loopback","credential_ref":"none"});
+    let mut hidden = input.clone(); hidden["tenant_id"] = json!("tenant:hidden");
+    assert_ne!(f.call("provider.models", hidden).result_state, ResultState::Success);
+    let mut wrong_locality = input.clone(); wrong_locality["locality"] = json!("remote");
+    assert_ne!(f.call("provider.models", wrong_locality).result_state, ResultState::Success);
+    let generation = f.generation();
+    let peer = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut line = String::new();reader.read_line(&mut line).unwrap();
+        assert!(line.starts_with("GET /v1/models "));
+        loop { line.clear();reader.read_line(&mut line).unwrap();if line == "\r\n" { break } }
+        let body = r#"{"data":[{"id":"qualified-model-a"}]}"#;
+        write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+    });
+    let result = f.success("provider.models", input);
+    peer.join().unwrap();
+    assert_eq!(result["models"],json!(["qualified-model-a"]));
+    assert_eq!(result["authority"],"provider_metadata_only");
+    assert_eq!(f.generation(),generation);
+    assert!(f.success("case.summary",json!({"case_ref":"case:audit"}))["compute"]["targets"].as_array().unwrap().is_empty());
 }

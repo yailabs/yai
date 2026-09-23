@@ -501,7 +501,8 @@ YVEX is a strategic first-party integration with additional qualified management
 capabilities; inference semantics remain generic. Studio now renders the generic
 provider target/posture exposed by YAI, with sanitized endpoint identity. Compute
 supports typed target registration, import of measured qualification evidence,
-trust decisions and explicit Case binding. Qualification records supplied
+trust decisions, explicit Case binding, owner-authenticated exposed-model discovery,
+primary-conversation suitability attestation and cognitive assignment. Qualification records supplied
 evidence; it does not perform an undisclosed probe. Native YVEX management and
 Tenant-wide target discovery remain unimplemented.
 
@@ -1215,3 +1216,26 @@ remain explicit. Historical archaeology inspected `yai-dev` at `5c1c7b9d0`,
 including the non-executable graph view stub and the adjacent lineage graph
 projection boundary: exact relation identity and explanation are retained in the
 current projection/Inspector seam; historical UI/runtime ownership is not copied.
+
+### Conversation execution in Studio
+
+The native composer calls `conversation.send` through the resident Host. It
+retains the exact submission envelope before dispatch. Committed Turns and
+`execution.get` results are rendered independently; no optimistic Turn or
+invented assistant reply enters the transcript. Lost acknowledgements are
+observed first and can retry only the same envelope. Stale generation refusal
+preserves the local draft. A projected `execution_request_ref` lets another
+Studio process recover the recorded response without dispatching it again.
+Result observation rechecks current authority. Draft/envelope retention is
+window-session storage, partitioned by Case and Participant, not Case truth.
+Text is currently bounded to 64 KiB; streaming and attachment authoring remain
+unimplemented. The immutable Conversation projection remains a read surface;
+SEND availability comes from the current operation catalog and YAI admission.
+
+Compute separates measured wire qualification from operator-attested semantic
+suitability and the primary cognitive binding. `provider.models` authorizes the
+Tenant owner before bounded generic catalog access, and reuses the CLI discovery
+algorithm. Catalog metadata neither registers a target nor qualifies it. YVEX
+compat.v3 HTTP has no Source/Artifact acquisition or engine-load management API;
+the producer's local management plane requires a separate qualified connection.
+Studio displays that boundary explicitly instead of issuing remote shell commands.

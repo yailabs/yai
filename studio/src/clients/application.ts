@@ -1,3 +1,6 @@
+import type { ProviderModelsInput } from "./compute";
+import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
+import type { ConversationSendInput } from "./conversation";
 import type { ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput } from "./execution";
 import type { KnowledgeRequest } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
@@ -115,6 +118,11 @@ export class ApplicationAccess implements Disposable {
   declineHandoff(input: HandoffDeclineInput) { return this.invoke("handoff.decline", () => this.client.declineHandoff(input)); }
   resultHandoff(input: HandoffResultInput) { return this.invoke("handoff.result.record", () => this.client.resultHandoff(input)); }
   reconcileHandoff(input: { source_case_ref: string; handoff_ref: string }) { return this.invoke("handoff.reconcile", () => this.client.reconcileHandoff(input)); }
+  sendConversation(input: ConversationSendInput) { return this.invoke("conversation.send", () => this.client.sendConversation(input)); }
+  observeConversation(input: Parameters<LiveClient["observeConversation"]>[0]) { return this.invoke("execution.get", () => this.client.observeConversation(input)); }
+  attestProvider(input: SuitabilityInput) { return this.invoke("provider.suitability.record", () => this.client.attestProvider(input)); }
+  bindCognition(input: CognitiveBindingInput) { return this.invoke("cognitive.binding.set", () => this.client.bindCognition(input)); }
+  discoverProviderModels(input: ProviderModelsInput) { return this.invoke("provider.models", () => this.client.discoverProviderModels(input)); }
   registerProvider(input: ProviderRegistration) { return this.invoke("provider.register", () => this.client.registerProvider(input)); }
   qualifyProvider(input: ProviderQualificationInput) { return this.invoke("provider.qualify", () => this.client.qualifyProvider(input)); }
   trustProvider(input: { target_ref: string; posture: "approved" | "denied" }) { return this.invoke("provider.trust.set", () => this.client.trustProvider(input)); }

@@ -633,6 +633,15 @@ pub struct ParticipantViewAdmitInput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ProviderModelsInput {
+    pub tenant_id: String,
+    pub endpoint: String,
+    pub locality: ProviderLocality,
+    pub credential_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderRegisterInput {
     pub tenant_id: String,
     pub provider_key: String,
@@ -1822,6 +1831,13 @@ impl LocalApplication {
                     ),
                 )
             }
+            "provider.models" => {
+                let input: ProviderModelsInput = decode_input(request)?;
+                store.resolve_security_context(&auth, &input.tenant_id)?.require_owner()?;
+                let models = provider_execution::discover_provider_models(&input.endpoint, &input.locality,
+                    &input.credential_ref, |key| provider_execution::credential_from_profile(&self.home_path, key))?;
+                encode_result("provider_models", json!({ "models": models, "scope": "currently_exposed", "authority": "provider_metadata_only" }))
+            }
             "provider.register" => {
                 let input: ProviderRegisterInput = decode_input(request)?;
                 let target = ProviderTargetInput {
@@ -2763,6 +2779,11 @@ fn case_snapshot(
                 "thread_ref": turn.thread_id,
                 "participant_ref": turn.participant_id,
                 "generation": turn.base_generation + 1,
+                "execution_request_ref": history.iter().find_map(|transition| match &transition.payload {
+                    TransitionPayload::ConversationExecutionIntentRecorded { request }
+                        if request.source_turn_id == turn.turn_id && request.participant_id == participant_ref => Some(&request.request_id),
+                    _ => None,
+                }),
                 "parts": turn.ordered_parts.iter().map(|part| json!({
                     "modality": part.object.modality,
                     "media_type": part.object.media_type,
@@ -3036,14 +3057,16 @@ fn compute_projection(
                 "locality": target.locality,
                 "endpoint": sanitized_endpoint(&target.endpoint),
                 "posture": posture,
-                "management": "not_exposed"
+                "management": "not_exposed",
+                "semantic_evidence": store.list_semantic_suitability_evidence_authorized(auth, &target.target_id, Some(CognitiveCapability::PrimaryConversation)).unwrap_or_default()
             })
         })
         .collect::<Vec<_>>();
     Ok(json!({
         "status": if projected.is_empty() { "empty" } else { "available" },
         "message": if projected.is_empty() { "No provider is connected to this Case." } else { "Provider facts are reported by YAI." },
-        "targets": projected
+        "targets": projected,
+        "cognitive_bindings": state.cognitive_bindings
     }))
 }
 
@@ -3389,6 +3412,7 @@ mod tests {
         typed::<ParticipantRoleAddInput>();
         typed::<ParticipantPrincipalLinkInput>();
         typed::<ParticipantViewAdmitInput>();
+        typed::<ProviderModelsInput>();
         typed::<ProviderRegisterInput>();
         typed::<ProviderQualifyInput>();
         typed::<ProviderTrustInput>();

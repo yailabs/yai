@@ -143,7 +143,8 @@ try {
   await screenshot("fixture-memory-graph");
 
   await page.getByRole("button", { name: "Conversation", exact: true }).click();
-  await page.getByPlaceholder("Send is not qualified").waitFor();
+  await page.getByRole("textbox", { name: "Message to the Case" }).waitFor();
+  if (await page.getByRole("button", { name: "Send", exact: true }).isEnabled()) throw new Error("Fixture conversation cannot dispatch provider execution");
   await screenshot("conversation-quality-pass");
   await page.getByRole("button", { name: "Activity", exact: true }).click();
   await page.getByText(/Latest \d+ of \d+ events/).waitFor();

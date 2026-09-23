@@ -24,28 +24,31 @@ Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 foundation established. The qualified interactions below consume published
 owners; the remaining partial properties do not become complete by publication.
 
-**ACTIVE / NEXT:** consolidate S1 runtime supervision on the published execution
+**ACTIVE:** Conversation text SEND and Compute model discovery/primary assignment.
+
+**NEXT:** consolidate S1 runtime supervision on the published execution
 foundation. The existing scheduler remains the sole runtime owner; Studio does
 not create another scheduler.
 **THEN:** deepen S4 typed Memory/navigation, S5 governed authoring/intake, S6
 Authority/Work and S7 generic Compute against the named Application boundaries.
 **BLOCKED:** governed Save, folder intake with qualified routing, policy catalog
 and combined-policy explanation, and recovery unsupported by the actual carrier.
-Conversation SEND and exact execution observation are now backend-ready interaction
-debt, not missing Application contracts; no automatic redispatch is implied.
+Conversation text SEND now consumes the published durable Turn/intent and exact
+execution observation contracts. Pending delivery retains its exact request; no
+automatic redispatch is implied. Native remote YVEX acquisition/preparation/load
+requires a qualified management transport; compat.v3 HTTP exposes inference and
+currently loaded model metadata only.
 **HORIZON:** native YVEX management, external/mobile clients, Computer Use,
 shared declarative Case Views and public extensions.
 
 ### Backend and Capability Delta Check
 
 Backend execution-lifecycle reconciliation preserves Studio commits `8ccb712`
-and `6bf088d`. The Application catalog now contains 81 operations and 31/31
-eligible PRODUCT families are Ready. Nine added operation IDs are explicitly
-classified as interaction debt in the existing consumer evidence map: Case
-resume, realization preparation/realize/compose, ordinary SEND, effect
-propose/submit/reconcile and provider suitability attestation. This records
-63 connected interactions, four alternate paths and fourteen interaction debts;
-it does not qualify new UI or promote this board. `test:capabilities` must
+and `6bf088d`. The Application catalog now contains 82 operations and 31/31
+eligible PRODUCT families are Ready. Remaining actions are explicitly classified in the consumer evidence map.
+With provider model discovery, text SEND, suitability and primary assignment this records
+67 connected interactions, four alternate paths and eleven interaction debts;
+counts do not qualify whole capability families or promote this board. `test:capabilities` must
 continue to reject any future published operation without an explicit posture.
 Host supervision uses the existing scheduler; runtime/UI program acceptance
 remains separate from this backend lifecycle evidence.
@@ -120,11 +123,11 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SO02 | 🟡 PARTIAL | Define/bind human checkpoint workflows, HumanInput, checkpoint patch propose/adopt | Other node authors, effective patched topology/prompt projection open | work-actions.mjs |
 | SO03 | 🟡 PARTIAL | Explicit Handoff offer/accept/decline/result/reconcile | Authored exact refs work; inbox/read projection and richer result navigation open | work-actions.mjs |
 | SO04 | 🟢 ESTABLISHED | Journal from committed history, follow/pause/search/type/component, Inspector/Timeline | Latest 160 disclosure; not a complete ledger browser | navigation-journal.mjs; operational-live.mjs |
-| SC01 | 🟡 PARTIAL | Committed Conversation read and local composer draft | Published reconnect-safe SEND/execution owner required | attachment-lifecycle.mjs |
+| SC01 | 🟡 PARTIAL | Text SEND, canonical Turn/result display, exact lost-ack recovery and local draft retention | Live token streaming, attachments, explicit cancellation and broader execution diagnosis remain | conversation-actions.mjs |
 | SP01 | 🟢 ESTABLISHED | Authored generic target register, measured evidence import, trust and explicit Case binding | Full model/runtime catalog not implied | compute-actions.mjs |
-| SP02 | 🟡 PARTIAL | Models, provider adapter, deployment, qualification, trust and health kept distinct | Tenant target discovery and typed probe operation absent | compute-actions.mjs |
-| SP03 | 🟡 PARTIAL | Cognitive preparation distinguished from provider configuration | Semantic evidence authoring/discovery and exact requirement preparation remain UI/Application composition debt | Explicit Compute posture |
-| SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Real DeepSeek deployment unavailable in current external lane | Controlled provider test is not external model evidence |
+| SP02 | 🟡 PARTIAL | Models, provider adapter, deployment, qualification, trust and health kept distinct | Exposed model discovery is typed; Tenant target discovery and typed probe operation remain absent | compute-actions.mjs |
+| SP03 | 🟡 PARTIAL | Cognitive preparation distinguished from provider configuration | Primary conversation suitability and assignment are authored; auxiliary roles and exact planning/realization remain debt | Explicit Compute posture |
+| SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Live qualification passed; populated Case execution received HTTP 413 from the current 4096-token deployment | Controlled provider test is not external model evidence |
 | SY02 | ⚪ LATER | Native YVEX Source/Artifact/Profile/Engine/Session management | Versioned YVEX public management plane | No private producer coupling |
 | SH01 | 🟢 ESTABLISHED | Resident same-user Unix Host, singleton discovery, events, auto-attach, telemetry and lifecycle | Host survives Studio; normal live mode never embeds Application | application/yai-host tests; existing native acceptance |
 | SH02 | 🟡 PARTIAL | Host supervises the existing RuntimeInstance; exact run/stop and reconnect observation | S1 lifecycle depth and ambiguous-delivery recovery remain open | effect-actions.mjs; application-execution-lifecycle characterization |
@@ -147,8 +150,8 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | Memory | Transition, Recall, Semantic Working State | Recall/compile/page/refresh/frontier/request typed; CLI owner surfaces | Authored forms and results; ambient consumer lineage missing in inspection |
 | Authority | Policy compiler/IR, lifecycle, EffectivePolicy, Review/Grant | Typed lifecycle/binding/reviews; CLI catalogs/routes | Typed candidate rules and active bindings; catalog read and combined-policy explanation need projection |
 | Work | Workflow, Handoff, execution owners | Typed workflow/handoff/run/resume/stop/effect/execution observation; CLI shares owners | Existing authored forms and window-retained receipt references; new resume/effect interactions, Handoff inbox and complete discovery remain open |
-| Compute | Provider governance and cognitive binding owners | Register/qualify/trust/bind, attestation and exact realization/composition typed; CLI shares owners | Explicit target setup; new attestation/realization/composition interactions remain unconnected |
-| Conversation | Committed Turns and execution controller | Read summary plus durable ordinary SEND/observation | Read-only UI; composer interaction and lost-response qualification remain open; no fake Turn |
+| Compute | Provider governance and cognitive binding owners | Register/qualify/trust/bind, attestation and exact realization/composition typed; CLI shares owners | Explicit target setup, model discovery, suitability attestation and primary assignment; auxiliary roles and realization/composition authors remain unconnected |
+| Conversation | Committed Turns and execution controller | Read summary plus durable ordinary SEND/observation | Text composer, canonical Turns/results, exact delivery retry and reconnect observation; no optimistic fake Turn, token streaming or attachment author |
 | Journal / Activity | Committed Transition history | Authorized latest-160 timeline | Journal filter/follow, latest-20 Activity; missing typed pagination |
 | Host / Settings | Rust Host / Studio-local preference owner | Real Host IPC telemetry/control; CLI lifecycle | Local preferences separate from Case; actual scheduler supervision reported by Host |
 
