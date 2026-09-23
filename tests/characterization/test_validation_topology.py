@@ -126,7 +126,11 @@ class TopologyTests(unittest.TestCase):
             self.assertIn('"' + command, terminal, command)
         for path in re.findall(r'python3 ([^ ]+)', manual):
             self.assertEqual(path, 'tests/cases/04-golden/world.py')
-        self.assertIn('cumulative', (ROOT / 'AGENTS.md').read_text())
+        agents = (ROOT / 'AGENTS.md').read_text()
+        wave = (ROOT / 'skills/yai-wave-delivery/SKILL.md').read_text()
+        self.assertIn('skills/yai-wave-delivery/SKILL.md', agents)
+        self.assertIn('../../docs/zero-to-current.md', wave)
+        self.assertIn('cumulative', wave)
 
     def test_actual_child_failure_reports_class_and_preserves_exit(self):
         with tempfile.TemporaryDirectory(prefix='yai-topology-failure-') as temp:

@@ -1,227 +1,56 @@
 # YAI repository agent contract
 
-This file is the canonical repository contract for Codex when developing YAI.
-It applies to the entire repository. Claude-specific project settings are not
-supported; `.claude/` must not be introduced or treated as a compatibility
-surface.
+Work as a senior engineering agent: infer a safe implementation strategy from
+the requested outcome, inspect the evidence needed for that task, and carry
+authorized work through validation and publication. Ordinary scoped edits,
+archaeology, refactoring and disposable local tests do not need a separate
+approval. Ask when a missing choice would materially change scope or authority.
+Future task prompts should state **outcome → authority → freedom → invariants →
+completion**; they need not prescribe an edit-by-edit plan.
 
-## Root README boundary
+## Repository invariants
 
-Do not modify the root `README.md` unless Francesco explicitly requests that
-exact edit in the current turn. Wave instructions, delivery notes, checklists,
-roadmaps, acceptance criteria, guards, validation steps, and generated task
-lists do not override this boundary. Put incidental operational detail in the
-canonical engineering or architecture documentation instead.
+- Executable source, tests and observed behavior outrank documentation claims.
+  Committed Transition history owns canonical Case history; CaseState is its
+  rebuildable current materialization. Graph, memory, retrieval, analytics,
+  Projection, ContextFrame and runtime/model state do not acquire that authority.
+  Immutable owned content retains its separate exact-backing obligation.
+- Model/provider output is candidate material, never operational authority.
+  External effects fail closed through the current typed admission chain.
+- Add a semantic owner only for an independent lifecycle, canonical resource,
+  transition, execution boundary or stable multi-consumer contract. Avoid
+  module-per-noun architecture, speculative registries and duplicate C/Rust
+  owners. A runtime loop does not own Case continuity. Consult
+  [semantic dispositions](docs/reference/semantics.md) for rejected owners.
+- Preserve unrelated dirty and concurrent work. Characterize protected behavior
+  before destructive redesign or removal; stage only owned paths or hunks.
+- Do not edit the root `README.md` unless Francesco explicitly requests that
+  exact edit in the current turn. Do not introduce `.claude/` as an instruction
+  or compatibility surface.
 
-The root README is the principal public entry document. Do not add, remove,
-rewrite, compress, expand, modernize, or roadmap-update it as incidental work.
+## Context and completion
 
-## Evidence and authority
+[Architecture](docs/architecture.md) records current executable truth;
+[ROADMAP](ROADMAP.md) owns live project control; [Constitution](docs/constitution.md)
+and [references](docs/index.md) own stable semantics. Read the parts relevant to
+the change, not the whole stack for every edit. Architecture must describe what
+works, not be made true by weakening runtime behavior.
 
-- Executable source, tests, persisted fixtures, and observed behavior outrank
-  documentation claims. Reconcile contradictions before changing a
-  load-bearing property.
-- Committed Transition history is canonical authority. CaseState is its
-  rebuildable materialization. Graph, memory, retrieval, analytics, Projection,
-  ContextFrame, residency decisions, and provider/runtime state remain derived
-  or non-canonical.
-- Model and provider output is candidate material, never operational authority.
-  External effects fail closed and require the current typed admission chain;
-  no text, derived view, or historical compatibility object may bypass it.
+For a named implementation or hardening wave, use the
+[wave-delivery skill](skills/yai-wave-delivery/SKILL.md). When materially changing
+an executable capability, also use the
+[capability-surface skill](skills/yai-capability-surface/SKILL.md): every such
+capability needs an explicit engine, Application, CLI and Studio disposition,
+with behavioral product evidence or an exact deferred/internal reason. For a
+load-bearing historical redesign or recovery, use the
+[legacy-archaeology skill](skills/yai-legacy-archaeology/SKILL.md). Load the
+[external-YVEX skill](skills/yai-external-yvex/SKILL.md) only when that
+qualification is explicitly selected; YVEX is a black-box provider to YAI.
 
-## Source ownership
-
-- Do not create module-per-noun architecture.
-- Do not add a registry before a demonstrated multi-consumer or external
-  contract requires one.
-- Do not create a semantic owner without an independent lifecycle, canonical
-  state or resource, transition algorithm, execution boundary, or stable
-  multi-consumer contract.
-- Do not introduce an Agent runtime owner. A Case owns durable continuity; a
-  runtime loop may advance it but may not own its history, memory, authority, or
-  resources.
-- `Space` remains rejected unless a new independent lifecycle and ownership
-  boundary is demonstrated that Case cannot represent without semantic
-  overload.
-- Do not maintain independent C and Rust owners for the same semantic type or
-  transition. Cross-language boundaries must be coarse, versioned, and owned in
-  one place.
-
-## Legacy archaeology gate
-
-Before materially redesigning or deleting a load-bearing property, inspect
-`yai-dev` and its relevant Git history. Determine:
-
-- whether YAI implemented the property before, and in which epoch or commit;
-- the strongest executable mechanism and tests that existed;
-- its invariants and failure behavior;
-- why it was later removed or replaced;
-- which property belongs in the current owner and which historical ownership
-  must remain rejected.
-
-Recover semantics, contracts, small algorithms, tests, fixtures, validation
-rules, and failure behavior when they remain valid. Never copy historical
-planes, directory trees, registries, or runtime ownership wholesale. Record the
-historical source, recovered property, target owner, and reason for reuse.
-
-No rediscovery without archaeology.
-
-Historical recovery ledgers in Git are navigation, never authority. Reinspect
-`yai-dev` source, history, tests, consumers, and adjacent semantic families when
-recovering a property, even when an old ledger says `refounded_proven`; do not
-search only the directory named by the current noun. Repository evidence wins
-over an old verdict. Record corrections in current contracts/tests or Roadmap,
-not by reviving a separate recovery ledger.
-
-## Safe change discipline
-
-- Inspect Git status before editing. Preserve unrelated dirty work and stage
-  only an explicit task or wave whitelist.
-- Characterize behavior and identify unique protected properties before
-  destructive deletion, collapse, or compatibility removal.
-- Do not change runtime semantics merely to make implementation claims match
-  the Constitution. Architecture documents current executable truth; Roadmap
-  owns the remaining gap.
-- Validate in proportion to risk and inspect the complete staged diff before
-  committing.
-
-## Product capability surface discipline
-
-Every wave that adds or materially changes an executable capability must update
-the code-owned Application capability catalog or explicitly confirm that the
-existing entry remains exact. Wave closure must classify and report:
-
-- the engine/domain owner and stable capability identity;
-- the typed `yai-application` operation, or an explicit deferred/internal-only
-  reason and parent product capability;
-- CLI exposure or a concrete not-useful/deferred reason;
-- Studio/future-client posture without moving semantics into presentation;
-- diagnostic-only surfaces and retained product tests.
-
-No executable capability may remain surface-unclassified. Product metadata is
-not authority: client discovery never bypasses Principal, Participant, Policy,
-review/Grant, Resource, disclosure or effect-time admission. Update the
-authoritative catalog first and regenerate its human matrix; do not create a
-second prose registry or expose an internal helper merely to manufacture parity.
-An executable PRODUCT capability may remain Application-deferred only with a
-code-owned, test-enforced blocker naming the genuinely missing semantic
-contract. CLI ownership, wrapper/refactor effort, absent Studio UI or historical
-placement are never blocker classes. Partial typed operations must remain listed
-without promoting the whole family to Ready.
-
-Surface qualification is behavioral and per semantic action. A catalog entry,
-operation count, successful build, serializable input, or unchanged engine test
-does not prove an Application operation or Studio interaction works. For each
-new or materially changed action retain a product-boundary positive test and
-the relevant refusal/stale/hidden test, asserting resulting domain facts (or
-their absence), not only a success envelope. Exercise the actual typed
-dispatcher; a domain test alone cannot qualify Application error mapping.
-For effectful submissions also prove lost-response retry, exact durable identity
-and current-authority observation without duplicate dispatch. A blocker record
-is an inventory fact, not evidence that safe composition is impossible.
-
-At closure distinguish backend execution, Application operation coverage, CLI
-presentation coverage and Studio interaction coverage. Do not infer whole-family
-parity from one summary operation: enumerate each supported semantic action and
-its stable operation or precise remaining gap. Studio `UiAlreadyConsumed`
-requires the typed client, authored interaction and product test; an available
-Application method is only `ApplicationReady`. Preserve the existing source of
-operation identities and derive client/matrix checks from it. Do not close a
-wave while any of its required behavioral proofs remain unexecuted.
-
-## Wave discipline
-
-A wave is not complete when its code merely works locally. Completion requires:
-
-```text
-implementation
-  -> validation
-  -> staged-diff inspection
-  -> isolated wave commit
-  -> push
-  -> origin/master verification
-```
-
-- Never include unrelated dirty work in a wave commit.
-- Do not begin the next wave from overlapping uncommitted or unpublished
-  architectural work that makes its baseline/ownership ambiguous. Preserve and
-  separately reconcile that work; never silently mix owners in one commit.
-  Unrelated external observations or operator experiments do not automatically
-  block another wave merely because the worktree is dirty. Stage only owned
-  paths/hunks and keep each concern's commit and push separate.
-- Git commits own change history; ROADMAP owns current project control;
-  architecture/reference documents own current contracts. Update these owners
-  in place. Do not create a report, ledger, before/after snapshot, or directory
-  for every wave. Do not recreate `refoundation/` or move that dossier pattern
-  wholesale under another name.
-- Preserve executable tests and fixtures under `tests/`, reusable validation
-  helpers under `tools/validation/`, and independently needed experimental or
-  external observations under the relevant `labs/` surface. Retain raw evidence
-  when it is needed to audit a non-reproducible observation or unresolved
-  qualification; do not replace it with a summary or a PASS cache. Historical
-  reports already committed remain available through immutable Git references.
-- The final handoff records baseline/final SHA, validation results, exact
-  blockers, push result, and equality of `HEAD`, `origin/master`, and the remote
-  branch reference. It does not require a duplicate committed wave report.
-- Every implementation or hardening wave must retain actual executable
-  evidence. Retained observations must identify the exact command, working
-  directory and relevant environment, real exit status, a bounded unedited
-  stdout/stderr excerpt, produced identifiers, and the invariant demonstrated. Each retained
-  block also records a run ID, execution order, and material pre-state; outputs
-  from different runs must not be mixed into one causal proof. The reusable
-  `tools/validation/capture_evidence.py` helper can capture command evidence
-  without creating a wave dossier. Product commands and qualification suites
-  are distinct evidence; use both when a product surface exists. Never
-  reconstruct, paraphrase as raw output, or
-  fabricate a transcript after the fact.
-- A failed or rejected push leaves the wave blocked at publication; do not
-  declare it complete and do not automatically pull, merge, rebase, or force
-  push through an unexpected remote divergence.
-
-## Cumulative product acceptance
-
-Substantive user-visible or Case-semantic waves update the single cumulative
-`docs/zero-to-current.md` runbook rather than creating disconnected manuals.
-Report automated proof/provider axes, Golden local, Golden external YVEX,
-continuity canary, human acceptance, runbook update and exact blockers according
-to `docs/test-cases.md`. Run the ordinary deterministic publication union plus
-the explicit Golden local lane when affected. An aggregate test count is not
-sufficient evidence. Never claim human acceptance without the operator's result
-at the relevant SHA; otherwise `HUMAN_GOLDEN_CASE = PENDING_OPERATOR`.
-Never reset an operator-owned continuity canary as automated test setup.
-
-## YVEX external consumer qualification
-
-External YVEX qualification is an independent characterization/evidence axis,
-not a default implementation or publication gate. Slow, unavailable, incomplete
-or failing live execution does not block unrelated YAI semantic/security work.
-A wave is gated by live YVEX only when it explicitly selects an external-provider
-property whose correctness requires the real producer. Otherwise local
-deterministic correctness and the applicable Golden local lane can close the
-bounded YAI wave; external, human and canary results remain separately reported.
-YVEX remains the primary owned external provider pressure test when that lane
-is selected. Never turn a characterization timeout into an unrelated wave gate.
-
-- YVEX qualification is black-box provider consumption. YAI development does
-  not inspect or administer YVEX source, repositories, CLI, profiles, engines,
-  artifacts, sessions, or model-loading workflows. The YVEX operator supplies
-  an endpoint and its provider-exposed model identity.
-- Every attempted qualification records the YAI SHA, exact exposed model,
-  endpoint and run ID. An unavailable endpoint/model is an external-lane
-  DEPLOYMENT_LIMITATION, never a fabricated pass or an implicit YAI work stop.
-- Basic YAI↔YVEX invocation uses the same generic OpenAI-compatible provider
-  boundary intended for llama.cpp, vLLM and other compatible providers. Core
-  authority, Case, projection, workflow and provider semantics must never
-  branch on `provider == "yvex"`.
-- A future YVEX-native inspection/evidence lane may be optional. Generic YAI
-  semantic correctness must never require it.
-- Performance is informational unless explicitly qualified. Slow generation
-  is not a failure when transport and semantics are correct.
-- Every final implementation-wave handoff includes `YVEX EXTERNAL FINDINGS`
-  with new findings, an explicit no-new-findings statement, or the exact reason
-  live qualification was not executed.
-- Findings/postures may be `NOT_RUN`, `MEASURED_LIMITATION`, `NO_NEW_FINDINGS`,
-  `YAI_DEFECT`, `YVEX_CANDIDATE`,
-  `GENERIC_PROVIDER_CONTRACT_GAP`, `DEPLOYMENT_LIMITATION`, `MODEL_BEHAVIOR`,
-  `EXPECTED_LIMITATION`, or `NO_ISSUE`. Never silently compensate for an
-  external defect with a provider-brand special case.
+Completion means affected validation, complete staged-diff review, an isolated
+commit, push and verification against remote master. A rejected push is a
+publication blocker, not permission to pull, rebase, merge or force-push.
+Evidence must come from actual commands and observations, never reconstructed
+transcripts. Keep automated, Golden-local, external-provider, continuity-canary
+and human-acceptance verdicts distinct; only the operator can grant human
+acceptance. Preserve the exact limitations in the final handoff.
