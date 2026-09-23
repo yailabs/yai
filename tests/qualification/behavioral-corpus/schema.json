@@ -69,6 +69,37 @@
           "items": {
             "$ref": "#/$defs/assertion"
           }
+        },
+        "observe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "while",
+            "max_observations",
+            "interval_ms"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/"
+            },
+            "while": {
+              "type": "array",
+              "minItems": 1,
+              "items": {}
+            },
+            "max_observations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600
+            },
+            "interval_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            }
+          }
         }
       }
     },

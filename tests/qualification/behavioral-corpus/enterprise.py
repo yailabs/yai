@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect or advance the real enterprise-release Case using ordinary YAI CLI.
+"""Inspect or advance a selected operational Case using ordinary YAI CLI.
 
 No reset, generated business evidence, fixture injection or implicit provider
 dispatch. The repository documents are real release criteria/contracts; their
@@ -31,7 +31,7 @@ def perimeter(root):
     for path in paths:
         if not (root / path).is_file() or (root / path).stat().st_size > 65536:
             raise ValueError(f"Material absent or outside acquisition bound: {path}")
-    resource = dict(schema="yai.resource_definition.v1", attachment_id="resource:enterprise-repository",
+    resource = dict(schema="yai.resource_definition.v1", attachment_id="resource:infra-operations" if CASE == "case:tech-infra-inference-service" else "resource:enterprise-repository",
                     policy_owner=PARTICIPANT, participant_ids=[PARTICIPANT],
                     operations=["discover", "admit_content", "content_read"], read_prefixes=paths,
                     names=[], max_output_bytes=65536, max_items=16,
@@ -41,22 +41,29 @@ def perimeter(root):
     sources.extend(dict(name=name, resource=resource["attachment_id"], roles=["knowledge"],
                         action=dict(action="discover", path=path), media_type=media, bootstrap_policy=False)
                    for name, path, media in MATERIAL)
-    return dict(schema="yai.source_perimeter.v1", name="enterprise-release", participant=PARTICIPANT,
+    return dict(schema="yai.source_perimeter.v1", name="infra-operations" if CASE == "case:tech-infra-inference-service" else "enterprise-release", participant=PARTICIPANT,
                 resources=[resource], sources=sources)
 
 
 def main():
+    global CASE, MATERIAL
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["inspect", "advance"])
+    parser.add_argument("--scenario", choices=["release", "infrastructure"], default="release")
     parser.add_argument("--yai", type=Path, required=True)
     parser.add_argument("--tenant", required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--perimeter", type=Path, required=True, help="Generated path-qualified manifest location")
     parser.add_argument("--profile", type=Path, help="Write a new corpus profile from acquired Source identities, not Recall results")
     args = parser.parse_args()
+    if args.scenario == "infrastructure":
+        CASE = "case:tech-infra-inference-service"
+        MATERIAL = [("operations-brief", "tests/qualification/behavioral-corpus/infra-operations.md", "text/markdown"),
+                    ("operations-workflow", "tests/qualification/behavioral-corpus/infra-workflow.json", "application/json"),
+                    ("provider-contract", "docs/provider-governance.md", "text/markdown")]
     if not os.environ.get("YAI_HOME"):
         parser.error("Explicit YAI_HOME required")
-    run = f"enterprise-{time.time_ns()}"
+    run = f"{args.scenario}-{time.time_ns()}"
     order = 0
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     with args.evidence.open("x") as evidence:
@@ -92,14 +99,18 @@ def main():
         def write_profile():
             if not args.profile:
                 return
-            source = next(s for s in inventory["sources"] if s["name"] == "release-validation")
+            source_name, material_path, _ = MATERIAL[0]
+            source = next(s for s in inventory["sources"] if s["name"] == source_name)
             if source["phase"] != "acquired":
-                raise ValueError("Corpus profile requires acquired release-validation")
+                raise ValueError(f"Corpus profile requires acquired {source_name}")
             revision = source["progress"]["revision"]
-            material = next(item for item in revision["items"] if item["path"] == "docs/test-cases.md")
+            material = next(item for item in revision["items"] if item["path"] == material_path)
             profile = dict(case_ref=CASE, tenant_ref=args.tenant, participant_ref=PARTICIPANT,
                            release_source_ref=source["source_id"], release_revision_ref=revision["revision_id"],
                            release_digest=material["digest"])
+            if args.scenario == "infrastructure":
+                for suffix in ("source_ref", "revision_ref", "digest"):
+                    profile["operations_" + suffix] = profile.pop("release_" + suffix)
             with args.profile.open("x") as stream:
                 json.dump(profile, stream, indent=2)
                 stream.write("\n")
@@ -131,7 +142,7 @@ def main():
             inventory = cli("case", "sources", "acquire", CASE, "--source", "release-policy")
         if inventory["effective_policy"]["readiness"] != "ready":
             cli("case", "sources", "publish", CASE, "--source", "release-policy", "--reason",
-                "Permit only declared repository reads for real enterprise release assessment; no release approval")
+                "Permit declared documentary acquisition and reads only; no infrastructure effect or operational approval")
         for name, _, _ in MATERIAL:
             inventory = cli("case", "sources", "inventory", CASE)
             source = next(s for s in inventory["sources"] if s["name"] == name)
@@ -142,9 +153,9 @@ def main():
         after = cli("case", "show", CASE)
         inventory = cli("case", "sources", "inventory", CASE)
         emit(dict(result="advanced", before_generation=before["generation"], after_generation=after["generation"],
-                  source_refs=[s["name"] for s in inventory["sources"]], release_readiness="not_assessed"))
+                  source_refs=[s["name"] for s in inventory["sources"]], assessment="not_assessed", scenario=args.scenario))
         write_profile()
-        print(json.dumps(dict(run_id=run, case_ref=CASE, generation=after["generation"], release_readiness="not_assessed")))
+        print(json.dumps(dict(run_id=run, case_ref=CASE, generation=after["generation"], assessment="not_assessed", scenario=args.scenario)))
 
 
 if __name__ == "__main__":

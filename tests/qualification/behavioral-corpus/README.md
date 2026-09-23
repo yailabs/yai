@@ -71,3 +71,32 @@ and CLI replay. This proves local product behavior, not model-driven competence.
 It records allocated profile bytes, stops the Host and removes only its own new
 profile. `portfolio.py --retain` explicitly preserves the stopped profile for
 further Studio inspection. Neither operator Case nor Golden is a cleanup target.
+
+Execution steps may use an explicit bounded `observe` clause only for cataloged
+read operations. Its response pointer, pending values, observation count and
+interval are authored in the evaluation. Each read and its timing are retained.
+Exhausting the bound while execution remains pending reports `INCOMPLETE`, not
+model failure or success; transport loss
+is never automatically retried. Mutation or derived-computation operations
+cannot use observation loops. Exact SEND retry remains a separate explicit step.
+This lets the same corpus observe slow real providers without silently submitting
+another Turn or disguising an unfinished execution as a failed model answer.
+
+## Operational infrastructure Case
+
+The operator retired `case:yai-enterprise-launch`; do not recreate or reopen it
+as the active product use case. The replacement is
+`case:tech-infra-inference-service`, an internal infrastructure service change
+on the operator's Exon/Spark stack. No invented company, customer or production
+acceptance is claimed. `infra-operations.md` is the requested operating brief;
+`infra-workflow.json` defines seven human checkpoints, not automated effects.
+
+`enterprise.py advance --scenario infrastructure` reuses normal YAI Source
+declaration/acquisition and Knowledge construction for this Case. It requires
+explicit `--yai`, `--tenant`, `--evidence`, `--perimeter` and `YAI_HOME`. The
+perimeter admits only the named documentary files and a read-only policy.
+The command does not start YVEX, load a model or approve infrastructure changes.
+The infrastructure profile uses separate `operations_*` references from acquisition
+inventory and `infra.overlay.json`; release expectations cannot resolve against
+that profile. Their assertions do not describe the infrastructure Case. Workflow definition/binding
+remains an ordinary separate YAI operation; acquiring the recipe does not bind it.

@@ -20,6 +20,10 @@ DIMENSIONS = {"KNOWS", "SEES", "RECALLS", "REMEMBERS", "REASONS", "CAN_DO",
 MAX_FRAME = 16 * 1024 * 1024
 
 
+class PendingObservation(Exception):
+    """A bounded observation ended without proving completion or failure."""
+
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -206,17 +210,40 @@ def evaluate(test, variant, profile, host, impacts, allow_mutations, emit):
             raise ValueError("Evaluation attempts a forbidden action")
         if impacts[operation] not in {"read", "derived_computation"} and not allow_mutations:
             raise ValueError("Mutation requires explicit --allow-mutations and selected profile")
+        observe = step.get("observe")
+        if observe is not None:
+            if impacts[operation] != "read":
+                raise ValueError("Repeated observation requires an actual read operation")
+            if not isinstance(observe, dict) or set(observe) != {"path", "while", "max_observations", "interval_ms"}:
+                raise ValueError("Observation needs explicit bounds and pending postures")
+            if not isinstance(observe["path"], str) or not observe["path"].startswith("/"):
+                raise ValueError("Observation requires an exact response pointer")
+            if not isinstance(observe["while"], list) or not observe["while"]:
+                raise ValueError("Observation requires explicit pending postures")
+            if type(observe["max_observations"]) is not int or not 1 <= observe["max_observations"] <= 600:
+                raise ValueError("Observation count must be bounded to 1..600")
+            if type(observe["interval_ms"]) is not int or not 0 <= observe["interval_ms"] <= 1000:
+                raise ValueError("Observation interval must be bounded to 0..1000 ms")
     for assertion in [*test["assertions"], *(a for step in steps for a in step.get("assertions", []))]:
         if assertion.get("op") not in {"equal", "contains", "excludes", "some"} or "value" not in assertion or not isinstance(assertion.get("path"), str):
             raise ValueError("Malformed semantic assertion")
     for index, step in enumerate(steps):
         operation = step["operation"]
         inputs = resolve(step["input"], bindings)
-        started = time.monotonic()
-        # Never retry on transport loss. Exact retry must be another authored step.
-        result = host.call(operation, inputs, f"behavioral:{time.time_ns()}:{index}")
-        emit(dict(step=index, operation=operation, input=inputs, result=result,
-                  elapsed_ms=(time.monotonic() - started) * 1000))
+        observe = step.get("observe")
+        for observation in range(observe["max_observations"] if observe else 1):
+            started = time.monotonic()
+            # Never retry on transport loss, including during read observation.
+            # An effectful exact retry must be a separate authored step.
+            result = host.call(operation, inputs, f"behavioral:{time.time_ns()}:{index}:{observation}")
+            emit(dict(step=index, observation=observation, operation=operation, input=inputs, result=result,
+                      elapsed_ms=(time.monotonic() - started) * 1000))
+            if not observe or result.get("result_state") != "success" or not any(
+                exact(pointer(result, observe["path"]), pending) for pending in observe["while"]):
+                break
+            if observation + 1 == observe["max_observations"]:
+                raise PendingObservation(f"{step['id']}: observation bound exhausted; no redispatch and no execution verdict")
+            time.sleep(observe["interval_ms"] / 1000)
         bindings["results"][step["id"]] = result
         # Preconditions can depend on a prior authoritative read. Refuse before
         # subsequent steps rather than discovering a stale pre-state after effects.
@@ -257,6 +284,7 @@ def main():
     impacts = {op["operation_id"]: op["impact"] for op in catalog["data"]["operations"]}
     run = f"behavioral-{time.time_ns()}"
     failed = False
+    pending = False
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x") as evidence:
         order = 0
@@ -274,12 +302,15 @@ def main():
                                    args.allow_mutations, lambda r: emit(dict(evaluation=identity, **r)))
                 emit(dict(evaluation=identity, dimensions=test["dimensions"], result=posture,
                           language_quality="NOT_ASSESSED"))
+            except PendingObservation as error:
+                pending = True
+                emit(dict(evaluation=identity, result="INCOMPLETE", error=str(error), language_quality="NOT_ASSESSED"))
             except (ValueError, KeyError, AssertionError, OSError) as error:
                 failed = True
                 emit(dict(evaluation=identity, result="FAIL", error=str(error)))
-        print(canonical(dict(run_id=run, result="FAIL" if failed else "EXECUTED",
+        print(canonical(dict(run_id=run, result="FAIL" if failed else "INCOMPLETE" if pending else "EXECUTED",
                              evaluations=len(selected), evidence=str(args.output))))
-    raise SystemExit(1 if failed else 0)
+    raise SystemExit(1 if failed else 2 if pending else 0)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,140 @@
+{
+  "schema": "yai.behavioral_corpus.v1",
+  "evaluations": [
+    {
+      "id": "overlay.recalls",
+      "mode": "deterministic",
+      "preconditions": [
+        "Infrastructure perimeter has acquired and built the operations brief; profile pins its Source/revision/digest independently from acquisition inventory"
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "semantic.recall"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/operations_source_ref"
+        },
+        {
+          "$ref": "/profile/operations_revision_ref"
+        }
+      ],
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          },
+          "assertions": [
+            {
+              "path": "/results/before/result_state",
+              "op": "equal",
+              "value": "success"
+            },
+            {
+              "path": "/results/before/data/case/case_ref",
+              "op": "equal",
+              "value": {
+                "$ref": "/profile/case_ref"
+              }
+            }
+          ]
+        },
+        {
+          "id": "recall",
+          "operation": "semantic.recall",
+          "input": {
+            "request": {
+              "schema": "yai.recall_request.v2",
+              "case_id": {
+                "$ref": "/profile/case_ref"
+              },
+              "expected_generation": {
+                "$ref": "/results/before/data/case/generation"
+              },
+              "participant_id": {
+                "$ref": "/profile/participant_ref"
+              },
+              "at": {
+                "kind": "generation",
+                "value": {
+                  "$ref": "/results/before/data/case/generation"
+                }
+              },
+              "query": "servizio inferenza autorizzazione rollback",
+              "required_refs": [],
+              "bounds": {
+                "candidates": 16,
+                "events": 64,
+                "relations": 128,
+                "segments": 16,
+                "expansion_depth": 4,
+                "semantic_units": 16384,
+                "bytes": 1048576
+              }
+            }
+          },
+          "assertions": [
+            {
+              "path": "/results/recall/result_state",
+              "op": "equal",
+              "value": "success"
+            }
+          ]
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/recall/data/trace/request/case_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/case_ref"
+          }
+        },
+        {
+          "path": "/results/recall/data/trace/generation",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data/case/generation"
+          }
+        },
+        {
+          "path": "/results/recall/data/trace/documentary/sources",
+          "op": "some",
+          "value": {
+            "/source/path": "tests/qualification/behavioral-corpus/infra-operations.md",
+            "/source/source_id": {
+              "$ref": "/profile/operations_source_ref"
+            },
+            "/source/revision_id": {
+              "$ref": "/profile/operations_revision_ref"
+            },
+            "/source/digest": {
+              "$ref": "/profile/operations_digest"
+            },
+            "applicable_at_cut": true
+          }
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    }
+  ]
+}

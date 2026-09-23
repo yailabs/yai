@@ -37,6 +37,13 @@ try {
   await page.goto(base, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Open a Case." }).waitFor();
   await page.getByRole("region", { name: "Fixture Cases" }).waitFor();
+  const startCaseSearch = page.getByRole("searchbox", { name: "Search Cases" });
+  await startCaseSearch.fill("no-such-case-identity");
+  await page.getByText("No matching Cases", { exact: true }).waitFor();
+  if (await page.getByText("YAI returned an empty authorized Case list.", { exact: false }).count()) throw new Error("Local filter claimed authoritative Case absence");
+  await startCaseSearch.fill("");
+  const firstCase = page.locator(".live-case-row").first();
+  if (!(await firstCase.getAttribute("data-case-ref"))) throw new Error("Case row lacks exact navigation identity");
   await screenshot("start-center");
   report("Explicit FixtureDataSource Start Center uses no live fallback");
 

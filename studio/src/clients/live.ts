@@ -89,7 +89,7 @@ export interface LiveWorkspace {
   work: {
     status: string;
     message?: string;
-    definition?: { nodes?: unknown[] };
+    definition?: { name?: string; description?: string; nodes?: unknown[] };
     resolution?: { effective_topology_digest?: string; completed?: boolean; nodes: Array<{ node_id: string; node_kind: string; posture: string; reason: string; evidence_refs: string[] }> };
     nodes: Array<{ node_id: string; node_kind: string; posture: string; reason: string }>;
     edges: LiveEdge[];

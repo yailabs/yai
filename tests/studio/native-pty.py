@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -21,6 +22,8 @@ p.add_argument('--case', default='case:studio-live-qualification')
 p.add_argument('--evidence', type=Path, required=True)
 p.add_argument('--context-tools', action='store_true')
 a = p.parse_args()
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/validation'))
+from behavioral_corpus import Host
 assert os.environ.get('YAI_HOME'), 'Explicit YAI_HOME required'
 a.evidence.mkdir(parents=True, exist_ok=True)
 with socket.socket() as listener:
@@ -59,9 +62,13 @@ try:
     request('POST',f'/session/{session}/window/rect',{'x':0,'y':0,'width':round(1440*scale),'height':round(900*scale)})
     wait('return document.querySelector(".workbench-kernel") || document.querySelector(".live-case-row")')
     if not script('return Boolean(document.querySelector(".workbench-kernel"))'):
-        script('const row=[...document.querySelectorAll(".live-case-row")].find(x=>x.textContent.includes(arguments[0])); if(!row)throw Error("Case absent");row.click()',a.case.removeprefix('case:').replace('-',' ').title())
+        script('const row=[...document.querySelectorAll(".live-case-row")].find(x=>x.dataset.caseRef===arguments[0]); if(!row)throw Error("Exact Case absent");row.click()',a.case)
     wait('return document.querySelector(".workbench-kernel")?.dataset.caseRef===arguments[0]',a.case)
     generation=script('return document.querySelector(".kernel-status").innerText')
+    host = Host(Path(os.environ['YAI_HOME']))
+    before = host.call('case.summary', {'case_ref':a.case}, f'native-before:{time.time_ns()}')
+    assert before['result_state'] == 'success'
+    (a.evidence/'case-before.json').write_text(json.dumps(before))
     # Use the Workbench's ordinary Terminal tab/command; no direct IPC invocation.
     script('const tab=[...document.querySelectorAll("button")].find(x=>x.textContent==="Terminal" && x.closest(".live-bottom")); if(tab)tab.click(); else document.dispatchEvent(new KeyboardEvent("keydown",{key:"`",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')
@@ -110,7 +117,11 @@ try:
         script('document.querySelector(`button[aria-label="Dock Conversation"]`).click()')
         assert script('return window.nativeComposer===document.querySelector(`textarea[aria-label="Message to the Case"]`) && window.nativeComposer.value==="NATIVE_UNSENT_CONTEXT_DRAFT"')
         assert script('return document.querySelector(".kernel-status").innerText')==generation
-        print(json.dumps({'result':'PASS','proof':'Native dock/float/close retains exact composer; two independent bounded cards; four viewport sizes; no Case generation change'}))
+        print(json.dumps({'result':'PASS','proof':'Native dock/float/close retains exact composer; two independent bounded cards; four viewport sizes; stable visible status'}))
+    after = host.call('case.summary', {'case_ref':a.case}, f'native-after:{time.time_ns()}')
+    (a.evidence/'case-after.json').write_text(json.dumps(after))
+    assert after['result_state'] == 'success'
+    assert after['data']['case'] == before['data']['case'], 'Authoritative Case identity/state changed during native acceptance'
     print(json.dumps({'result':'PASS','case_ref':a.case,'status':generation,'driver':attached['capabilities'],'proof':['Native release WebKitGTK/Tauri Workbench','Real PTY shell output','Four CSS viewport sizes','Single-row headers','Status bar remains visible','No horizontal terminal overflow','Two shells -> conditional sidebar -> last close hides panel -> Ctrl+J recreates shell','Case generation unchanged']}))
 except Exception:
     if session:

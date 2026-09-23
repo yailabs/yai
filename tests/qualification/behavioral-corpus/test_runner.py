@@ -19,6 +19,54 @@ class Client:
 
 
 class CorpusTest(unittest.TestCase):
+    def observation_test(self):
+        test = copy.deepcopy(self.test)
+        test['steps'][0]['observe'] = dict(path='/data/posture', **{'while':['running']}, max_observations=3, interval_ms=0)
+        return test
+
+    def test_bounded_observation_uses_read_only_exact_inputs(self):
+        host = Client()
+        original = host.call
+        def call(*args):
+            result = original(*args)
+            result['data']['posture'] = 'running' if len(host.calls) < 3 else 'completed'
+            return result
+        host.call = call
+        records = []
+        self.assertEqual(corpus.evaluate(self.observation_test(), {}, {'case_ref':'case:A'}, host,
+            {'case.summary':'read'}, False, records.append), 'PASS')
+        self.assertEqual(host.calls, [('case.summary', {'case_ref':'case:A'})] * 3)
+        self.assertEqual([row['observation'] for row in records], [0,1,2])
+
+    def test_pending_is_not_failure_or_success_and_never_resubmits(self):
+        host = Client()
+        original = host.call
+        def call(*args):
+            result = original(*args); result['data']['posture'] = 'running'; return result
+        host.call = call
+        with self.assertRaises(corpus.PendingObservation):
+            corpus.evaluate(self.observation_test(), {}, {'case_ref':'case:A'}, host,
+                {'case.summary':'read'}, False, lambda _:None)
+        self.assertEqual(len(host.calls), 3)
+
+    def test_observation_cannot_repeat_effects_or_derived_computation(self):
+        for impact in ['canonical_mutation', 'external_effect', 'derived_computation']:
+            host = Client()
+            with self.assertRaises(ValueError):
+                corpus.evaluate(self.observation_test(), {}, {'case_ref':'case:A'}, host,
+                    {'case.summary':impact}, True, lambda _:None)
+            self.assertEqual(host.calls, [])
+
+    def test_observation_transport_loss_is_not_retried(self):
+        host = Client()
+        def call(*args):
+            host.calls.append(args); raise OSError('lost connection')
+        host.call = call
+        with self.assertRaises(OSError):
+            corpus.evaluate(self.observation_test(), {}, {'case_ref':'case:A'}, host,
+                {'case.summary':'read'}, False, lambda _:None)
+        self.assertEqual(len(host.calls), 1)
+
     def setUp(self):
         self.test = dict(id="identity", dimensions=["ISOLATES"], meaning="Exact Case identity",
                          preconditions=[], required_refs=[], allowed_actions=["case.summary"],

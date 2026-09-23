@@ -22,9 +22,21 @@ their actual results. It never initializes a home, deletes a Case, fabricates
 release results or refreshes acquired revisions implicitly. Repeated advancement
 must preserve generation and Source identities when no work is missing.
 
-In Studio, open **YAI — Primo rilascio aziendale**. Check acquired repository
-evidence under Environment, its exact material in the editor, derived Knowledge
-and the actual policy binding. Acquisition is not acceptance of a release claim.
+The operator replaced the release-assessment scenario with
+`case:tech-infra-inference-service` (**Tech Infra Inference Service**). The old
+Case is cancelled and closed; do not recreate it. Use `enterprise.py` with
+`--scenario infrastructure` and the explicit arguments above for bounded,
+repeatable acquisition. The release overlay is not valid for this scenario.
+
+In Studio, open **Tech Infra Inference Service**. The Overview shows the current
+Workflow name/description, exact checkpoint instructions and Sources with links.
+Check that the first checkpoint asks for the service request, later checkpoints
+retain their actual dependency posture, and no completed result is invented.
+Open the operating brief in Environment: it describes the Exon/Spark service,
+roles, admission boundaries, verification criteria and missing observations.
+Inspect its exact material, derived Knowledge and the documentary policy binding.
+This policy grants no remote startup or infrastructure effect authority.
+Acquisition is not evidence that the service has been deployed.
 Providers must show authorized Tenant deployments even before Case binding;
 Compute must show only the Case's bound targets. Inspect an unbound target and
 verify the Inspector does not substitute Settings or unrelated Case metadata.
@@ -44,10 +56,11 @@ from the usefulness of a model answer. The bounded `portfolio.py` runner creates
 fresh independent Cases from `portfolio.json`; it never accepts an operator home
 for disposable setup or cleanup.
 
-The opt-in `STUDIO_ENTERPRISE_WORKFLOW=1` mode of
+The historical release-only opt-in `STUDIO_ENTERPRISE_WORKFLOW=1` mode of
 `tests/studio/operational-live.mjs` uses the authored Work forms to define/bind
 `enterprise-workflow.json` only when this exact enterprise Case has no Workflow.
-Existing bindings are preserved. Four checkpoints ask for real findings and a
+Do not run this mode against the retired operator Case. Existing bindings are
+preserved. Its historical four checkpoints ask for real findings and a
 human release decision; the procedure supplies no invented checkpoint result.
 Run it with explicit `YAI_STUDIO_TEST_BINARY`, `YAI_STUDIO_TEST_HOME`,
 `YAI_STUDIO_TEST_CASE=case:yai-enterprise-launch`, local `STUDIO_TEST_URL` and a

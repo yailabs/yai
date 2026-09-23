@@ -1,0 +1,14 @@
+.overview-story { margin-bottom: 24px; max-width: 1000px; }
+.overview-story > p, .overview-story-evidence > p { color: var(--text-secondary); line-height: 1.6; max-width: 78ch; }
+.overview-story-steps { padding-left: 24px; }
+.overview-story-steps li { padding: 6px 0 6px 8px; }
+.overview-story-steps button { display: flex; align-items: flex-start; gap: 16px; width: 100%; text-align: left; padding: 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; color: inherit; }
+.overview-story-steps button > span:first-child { flex: 1; min-width: 0; }
+.overview-story-steps strong { font-weight: 500; line-height: 1.5; }
+.overview-story-steps small { display: block; margin-top: 6px; color: var(--text-secondary); }
+.overview-story-evidence { margin-top: 24px; }
+.overview-story-evidence h2 { font-size: 14px; }
+.overview-story-evidence button { display: flex; align-items: center; gap: 8px; background: transparent; color: inherit; border: 0; padding: 8px; width: 100%; text-align: left; }
+.overview-story-evidence button span { flex: 1; }
+.overview-story-evidence button small { color: var(--text-secondary); }
+@media (max-width: 1100px) { .overview-story-steps button { flex-wrap: wrap; } }

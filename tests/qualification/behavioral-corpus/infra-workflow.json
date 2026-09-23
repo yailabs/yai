@@ -1,0 +1,20 @@
+{
+  "schema": "yai.studio_checkpoint_recipe.v1",
+  "case_ref": "case:tech-infra-inference-service",
+  "name": "Servizio di inferenza interno — attivazione controllata",
+  "key": "tech-infra-inference-service",
+  "version": "1",
+  "description": "Operational infrastructure scenario over the operator's Exon/Spark stack. No customer, company identity, incident or production SLA is invented. Every checkpoint requires retained observations; approval is not execution and a model answer is not authority.",
+  "roles": [
+    "workflow-input"
+  ],
+  "prompts": [
+    "Richiesta: rendere disponibile un servizio di inferenza interno agli operatori tecnici. Registrare responsabile, utilizzatori autorizzati, scopo e criteri di accettazione. Identificare quali componenti sono reali e quali sono laboratorio; nessun requisito non fornito diventa un fatto.",
+    "Inventario e dipendenze: osservare Exon, Spark, Host YAI e target YVEX attraverso i contratti disponibili. Registrare identità, raggiungibilità, modello, capacità e data delle osservazioni. READY nel catalogo non prova che un modello sia caricato o il servizio disponibile.",
+    "Preparazione del cambiamento: documentare configurazione corrente e desiderata, limiti di memoria e contesto, accessi, rischi, verifiche e rollback. Conservare i riferimenti alle evidenze; ciò che non è osservabile resta sconosciuto.",
+    "Autorizzazione: verificare policy e Review richieste per ogni operazione. Registrare la decisione del soggetto autorizzato. Questo input descrittivo non concede autorità e non sostituisce admission o Review.",
+    "Attivazione controllata: usare esclusivamente operazioni pubbliche e governate disponibili. Registrare identità dell'esecuzione e risultato; se manca il contratto di avvio remoto, segnalarlo come blocco senza aggirarlo con comandi generati dal modello.",
+    "Verifica: eseguire una richiesta reale attraverso Studio, Host e Application. Conservare Recall/W, omissioni, capacità, risposta o rifiuto, tempi misurati ed evidenze. Provare anche isolamento e recupero senza redispatch incerto.",
+    "Consegna operativa o rollback: confrontare i risultati con i criteri approvati. L'operatore decide se mantenere il servizio o effettuare il rollback attraverso operazioni autorizzate. Registrare limitazioni, responsabile e prossima verifica."
+  ]
+}

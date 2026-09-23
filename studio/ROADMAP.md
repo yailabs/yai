@@ -39,8 +39,10 @@ three historical Decision trajectory operations. The latter are explicitly
 Studio interaction debt; the historical evaluator is structural, not a model
 quality score. Prior catalog counts below describe earlier reconciliation cuts.
 
-The operating assets have separate responsibilities: `case:yai-enterprise-launch`
-is real release-readiness work; `case:studio-live-qualification` is the persistent
+The operating assets have separate responsibilities: `case:tech-infra-inference-service`
+is the operator-selected internal infrastructure service change on Exon/Spark;
+`case:yai-enterprise-launch` was cancelled and closed by operator request, with
+history retained; `case:studio-live-qualification` is the persistent
 technical oracle; deterministic Cases use bounded reconstructible inputs.
 Neither operator Case is disposable test setup. Behavioral evidence separates
 KNOWS, SEES, RECALLS, REMEMBERS, REASONS, CAN_DO, REFUSES, RECOVERS and ISOLATES;
@@ -64,13 +66,13 @@ transport. Machine/model/resource observations require exact run provenance.
 identity, typed Environment/Work/Memory operations, ordinary Conversation SEND
 and primary model setup. These do not imply complete action coverage.
 
-**NOW:** enterprise Case/behavioral portfolio, Tenant Providers and Case Compute
+**NOW:** infrastructure Case/behavioral portfolio, Tenant Providers and Case Compute
 separation, registered rail preferences and Material/Product/Canvas composition.
 Independent docked/floating Conversation and Inspector are qualified in fixture,
 real-Host and native WebKitGTK lanes. Exact serialized-request preflight and explicit
 archived context inspection now have controlled Host/UI/refusal/restart evidence;
-successful real enterprise inference remains open.
-**NEXT:** qualify the enterprise release question end to end, context closure,
+successful real infrastructure-Case inference remains open.
+**NEXT:** qualify the internal service readiness question end to end, context closure,
 parallel/multi-client Case isolation and recovery through the actual Studio.
 **THEN:** extend the corpus and hardware matrix from observed product findings.
 **BLOCKED/OPEN CONTRACTS:** governed file Save; qualified folder intake/routing;
@@ -119,7 +121,8 @@ selection and evidence, not an alternative capability catalog.
 
 | Case / topology | Responsibility and retention | Current evidence / remaining boundary |
 |---|---|---|
-| `case:yai-enterprise-launch` / single | Persistent real release assessment; never reset by tests | Six bounded Sources, repository Resource, bound policy and derived Knowledge; exact documentary Recall and Host restart/replay qualified. Studio bound four real release-assessment checkpoints at generation 55; none is a fabricated release approval. Governed model answer remains open. |
+| `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Four acquired Sources, one documentary Resource, bound read-only policy, seven human checkpoints and 275 Knowledge units observed through Host at state version 37. Repeated acquisition preserves state. Overview renders exact checkpoint prompts and Source links at four viewport sizes. Remote management and real governed inference remain open. |
+| `case:yai-enterprise-launch` / retired | Operator-requested cancellation and closure; history retained | Closed at state version 57. Earlier release-assessment evidence does not qualify the replacement infrastructure Case. Do not recreate or resume it automatically. |
 | `case:studio-live-qualification` / single | Persistent technical oracle; preserve operator additions | Existing heterogeneous qualification world retained; no cleanup or recreation by portfolio runner. |
 | `behavioral-alpha` + `behavioral-beta` / parallel | Fresh isolated profile reconstructed from manifest; remove only after Host stop, or explicitly retain | Concurrent independent clients, role isolation, repeated mutation, stale snapshot refusal and restart equivalence qualified by `make test-behavioral-portfolio`. This is product behavior, not model competence. |
 | Enterprise / multi-client | Same durable Case, independent views and local drafts | Studio Workflow binding advanced 54 → 55; two Host-backed browser Workbenches received events and refetched, Journal pause/resume preserved its cut. Three existing native clients separately reattached after Host restart. Combined two-native-client mutation delivery remains a separate acceptance proof. |

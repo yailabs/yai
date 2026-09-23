@@ -325,7 +325,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
       <ContextTools layout={contextTools} views={auxiliaryViews} context={renderContext} active={auxiliary} select={setAuxiliary} visible={auxiliaryVisible} close={() => setRightOpen(false)} />
     </div>
     <footer className="kernel-status" aria-label="Workbench status">
-      <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>Generation {workspace.case.generation}</span><span>{activeInput?.title ?? activeContainer}</span></div>
+      <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>{activeInput?.title ?? activeContainer}</span></div>
       <div><button className="host-status" data-state={hostState.state} onClick={() => openSettings("yai-host")} title="Open Settings > YAI Host">YAI {hostState.state === "live" ? "●" : hostState.state}</button>{workspace.presentation.dataKind === "fixture" && <span>Fixture data</span>}<span>{workspace.case.participant_ref}</span></div>
     </footer>
     {editingNotice && <div className="editing-notice" role="alert"><span>{editingNotice}</span><IconButton aria-label="Dismiss editing notice" onClick={() => platform.editing.dismiss()}><Icon name="close" /></IconButton></div>}
