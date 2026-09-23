@@ -1,0 +1,14 @@
+{
+  "schema": "yai.case_portfolio.v1",
+  "tenant": "tenant:behavioral-portfolio",
+  "organization": "organization:yai-qualification",
+  "participant": "participant:operator",
+  "cases": [
+    {"case_ref": "case:behavioral-alpha", "role": "alpha-evidence-reader"},
+    {"case_ref": "case:behavioral-beta", "role": "beta-release-reviewer"}
+  ],
+  "purpose": "Parallel independent Cases, idempotent role mutation, stale snapshot refusal and restart reconstruction; no model-quality claim",
+  "nested_case": "not_selected_without_canonical_parent_child_owner",
+  "provider": "none",
+  "retention": "Fresh isolated profile; remove only after graceful Host stop unless explicitly retained"
+}

@@ -1,4 +1,5 @@
 import { PolicyActions } from "./PolicyActions";
+import { ProviderTargetInspector } from "./ProviderTargetInspector";
 import { ReviewActions } from "./applicationActions";
 import type { AuxiliaryViewProps } from "../../workbench/kernel/types";
 import { Icon } from "../../components/Icon";
@@ -7,7 +8,9 @@ import { CollectionList } from "../../components/CollectionList";
 import { fileInput, materialInput, resourceInput, sourceInput } from "../surfaces/inputs";
 import { factIcon, factKind, factReferences, findFact } from "./facts";
 
-export function InspectorView({ workspace, selection, actions, platform }: AuxiliaryViewProps) {
+export function InspectorView(props: AuxiliaryViewProps) {
+  const { workspace, selection, actions, platform } = props;
+  if (selection.startsWith("provider-target:") && !workspace.compute.targets.some(target => target.id === selection)) return <ProviderTargetInspector {...props} />;
   if (selection.startsWith("settings:")) return <div className="context-scroll inspector-view"><PanelHeader title="Application preferences" /><p className="surface-note">These preferences belong to Studio. Case objects remain available in the Explorer.</p></div>;
   const fact = findFact(workspace, selection);
   const kind = factKind(workspace, selection);

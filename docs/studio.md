@@ -10,6 +10,32 @@ progression and dependencies without owning maturity.
 
 ## Purpose and Product Position
 
+The permanent development loop is published YAI/public YVEX contract → explicit
+delta classification → sibling CLI/Studio integration → real Case exercise →
+owner-level finding. Studio milestones begin with both YAI Capability and YVEX
+Public Contract Delta Checks. Only published contracts count as current support;
+running Host versions, local edits and public producer observations are separate
+evidence. Studio product control remains in `studio/ROADMAP.md`.
+
+`case:yai-enterprise-launch` is real release-readiness work, distinct from the
+persistent technical oracle `case:studio-live-qualification`. Reconstructible
+behavioral Cases supply controlled counterexamples without resetting either
+operator Case. A model's release opinion is evidence to inspect, never a release
+decision or a substitute for validation and human acceptance.
+
+Providers projects Tenant computational inventory independently of a Case's
+bindings. The Host carries this service; it does not own provider semantics.
+Compute projects the current Case's bound capability and cognitive assignments.
+The YVEX platform view lists compatible deployments using qualified extension
+metadata, which is not proof of producer identity or native management support.
+Public management, inventory and generic inference remain distinct contracts.
+
+Workbench renderers declare Material, Product or Canvas presentation archetypes
+independently of their interaction roles. The rail contribution metadata keeps
+core YAI, platform and eligible pinned views distinct; fixed defaults cannot be
+hidden by local pinning preferences. Neither archetypes nor navigation metadata
+create canonical YAI object kinds.
+
 Studio is the official first-party Case IDE / Case Workbench inside YAI.
 The Case is the primary visual and operational unit: a coherent workspace for
 its sources, knowledge, experience, authority and work. A Case window/workspace

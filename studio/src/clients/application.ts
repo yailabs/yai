@@ -122,6 +122,7 @@ export class ApplicationAccess implements Disposable {
   observeConversation(input: Parameters<LiveClient["observeConversation"]>[0]) { return this.invoke("execution.get", () => this.client.observeConversation(input)); }
   attestProvider(input: SuitabilityInput) { return this.invoke("provider.suitability.record", () => this.client.attestProvider(input)); }
   bindCognition(input: CognitiveBindingInput) { return this.invoke("cognitive.binding.set", () => this.client.bindCognition(input)); }
+  providerInventory(tenant: string) { return this.invoke("provider.inventory", () => this.client.providerInventory(tenant)); }
   discoverProviderModels(input: ProviderModelsInput) { return this.invoke("provider.models", () => this.client.discoverProviderModels(input)); }
   registerProvider(input: ProviderRegistration) { return this.invoke("provider.register", () => this.client.registerProvider(input)); }
   qualifyProvider(input: ProviderQualificationInput) { return this.invoke("provider.qualify", () => this.client.qualifyProvider(input)); }

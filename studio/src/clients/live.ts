@@ -93,7 +93,7 @@ export interface LiveWorkspace {
     nodes: Array<{ node_id: string; node_kind: string; posture: string; reason: string }>;
     edges: LiveEdge[];
   };
-  compute: { cognitive_bindings?: CognitiveBinding[]; status: string; message: string; targets: Array<{ id: string; provider_key: string; adapter: string; model_id: string; locality: string; endpoint: string; posture?: ProviderPosture | string; management: string; semantic_evidence?: SemanticEvidence[] }> };
+  compute: { cognitive_bindings?: CognitiveBinding[]; status: string; message: string; targets: Array<{ id: string; provider_key: string; adapter: string; model_id: string; locality: string; endpoint: string; posture?: ProviderPosture | string; management: string; extension_adapter_id?: string | null; semantic_evidence?: SemanticEvidence[] }> };
   conversation: { read_only: boolean; turns: Array<{ id: string; thread_ref: string; participant_ref: string; generation: number; execution_request_ref?: string | null; parts: Array<{ modality: string; media_type: string; text?: string }> }> };
   freshness: { generation: number; resync_operation: string };
 }
@@ -177,6 +177,7 @@ export class LiveClient {
   observeConversation(input: { case_ref: string; participant_ref: string; execution: { domain: "conversation"; submission_ref: string } | { domain: "cognitive_composition"; request_ref: string } }) { return this.call<ConversationExecution>("execution.get", input); }
   attestProvider(input: SuitabilityInput) { return this.call<SemanticEvidence>("provider.suitability.record", input); }
   bindCognition(input: CognitiveBindingInput) { return this.call<CognitiveBinding>("cognitive.binding.set", input); }
+  providerInventory(tenant_id: string) { return this.call<{ tenant_ref: string; targets: LiveWorkspace["compute"]["targets"]; total_visible_targets: number; omitted: number; case_usage: string }>("provider.inventory", { tenant_id }); }
   discoverProviderModels(input: ProviderModelsInput) { return this.call<ProviderModels>("provider.models", input); }
   registerProvider(input: ProviderRegistration) { return this.call<ProviderTarget>("provider.register", input); }
   qualifyProvider(input: ProviderQualificationInput) { return this.call<ProviderQualification>("provider.qualify", input); }

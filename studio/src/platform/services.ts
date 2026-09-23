@@ -21,6 +21,8 @@ export class PlatformServices extends DisposableStore {
     "workbench.auxiliary.width": 320,
     "workbench.panel.heightRatio": 0.36,
     "workbench.openPreview": true,
+    "workbench.rail.hidden": [],
+    "workbench.rail.order": [],
     "appearance.reducedMotion": false,
     "terminal.scrollback": 5000,
   }));

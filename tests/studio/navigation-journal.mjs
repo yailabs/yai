@@ -34,6 +34,12 @@ try {
  await page.getByRole('button',{name:'Journal',exact:true}).click();await page.locator('.case-journal').waitFor();const events=page.locator('.journal-event');assert.ok(await events.count()>0);await events.first().click();const ref=await events.first().getAttribute('title');assert.equal(await page.locator('.inspector').getAttribute('data-inspected-ref'),ref);
  await page.getByRole('button',{name:'Pause follow',exact:true}).click();await page.getByRole('button',{name:'Resume follow',exact:true}).waitFor();await page.getByRole('searchbox',{name:'Search Journal'}).fill('NO_MATCH_SENTINEL');assert.equal(await events.count(),0);await page.getByRole('searchbox',{name:'Search Journal'}).fill('');await page.getByRole('button',{name:'Resume follow',exact:true}).click();
  await page.getByRole('button',{name:'Timeline',exact:true}).click();await page.locator('[data-surface-type="case.timeline"]').waitFor();
+ assert.equal(await page.locator('.live-surface').getAttribute('data-archetype'),'canvas');
+ await page.locator('.real-timeline li').last().scrollIntoViewIfNeeded();
+ assert.equal(await page.locator('.real-timeline li').last().evaluate(node=>{
+  const surface=node.closest('.live-surface').getBoundingClientRect(), row=node.getBoundingClientRect();
+  return row.bottom<=surface.bottom+1 && row.top>=surface.top-1;
+ }),true,'Canvas grammar must not clip the scrollable Timeline');
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {await page.setViewportSize({width,height});assert.ok(await page.locator('.kernel-status').isVisible());await page.screenshot({path:`${output}/navigation-${width}x${height}.png`});}
  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',proof:['Perspective/File/Source history preserves exact content','Alt+Left and titlebar share history','Settings section history + singleton','New navigation clears forward entries','Identity/Manage footer','Quick Open contribution','Journal search/pause/resume/Inspector/Timeline','4 viewport matrix']}));
 }catch(error){console.error({errors,body:await page.locator('body').innerText()});await page.screenshot({path:`${output}/failure.png`});throw error;}finally{await browser.close();}

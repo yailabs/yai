@@ -237,6 +237,21 @@ test("Workbench registries expose registered regions and remove disposed contrib
   assert.equal(registry.viewsFor("Memory").length, 0);
 });
 
+test("rail preferences cannot hide core or confuse platform and pinned contributions", () => {
+  const registry = new WorkbenchRegistry();
+  for (const [id, order, section, fixed, defaultPinned] of [
+    ["Overview", 0, "core", true, true], ["Providers", 20, "platform", true, true],
+    ["tool-A", 30, "pinned", false, true], ["tool-B", 31, "pinned", false, false],
+  ]) registry.registerViewContainer({id, title:id, icon:"case", order,
+    rail:{section,fixed,defaultPinned}, surface:{id,identity:id,surfaceType:"test",title:id,icon:"case",pinned:true}});
+  const ids = preferences => registry.railContainers(preferences).map(item => item.id);
+  assert.deepEqual(ids({hidden:[], order:[]}), ["Overview", "Providers", "tool-A"]);
+  assert.deepEqual(ids({hidden:["Overview","Providers","tool-A"], order:["tool-B"]}), ["Overview", "Providers", "tool-B"]);
+  assert.deepEqual(ids({hidden:[], order:["tool-B","tool-A","Providers","Overview"]}), ["Overview", "Providers", "tool-B", "tool-A"]);
+  assert.equal(registry.viewContainers().length, 4, "Unpinning does not deregister navigation");
+  assert.deepEqual(ids({hidden:[], order:[]}), ["Overview", "Providers", "tool-A"], "Restore defaults");
+});
+
 test("settings registry owns ordered definitions and disposal", () => {
   const registry = new WorkbenchRegistry();
   const local = registry.settings.register({ id: "workbench.preview", title: "Preview", description: "Reuse preview", section: "Workbench", scope: "local", control: "boolean", defaultValue: true, available: true });
@@ -398,5 +413,9 @@ test('local preferences reject corrupt or unsafe values and retain bounded chang
     preferences.update('terminal.scrollback',Infinity);preferences.update('terminal.scrollback',-20);preferences.update('terminal.scrollback',3.14);preferences.update('workbench.sidebar.width',204);assert.equal(changes,0);
     preferences.update('terminal.scrollback',12000);preferences.update('workbench.sidebar.width',280);assert.equal(changes,2);assert.equal(JSON.parse(stored).values['workbench.sidebar.width'],280);
     const restored=new ConfigurationService({'terminal.scrollback':5000,'workbench.sidebar.width':204,'workbench.openPreview':true});assert.equal(restored.get('terminal.scrollback'),12000);assert.equal(restored.get('workbench.sidebar.width'),280);
+    const rail=new ConfigurationService({'workbench.rail.order':[]});
+    for(const invalid of [null,{},[1],['A','A'],Array.from({length:129},(_,i)=>String(i))]) rail.update('workbench.rail.order',invalid);
+    assert.deepEqual(rail.get('workbench.rail.order'),[]);rail.update('workbench.rail.order',['B','A']);
+    assert.deepEqual(new ConfigurationService({'workbench.rail.order':[]}).get('workbench.rail.order'),['B','A']);
   }finally{global.window=previous;}
 });

@@ -1,0 +1,15 @@
+{
+  "schema": "yai.studio_checkpoint_recipe.v1",
+  "case_ref": "case:yai-enterprise-launch",
+  "name": "Valutazione del primo rilascio aziendale",
+  "key": "yai-enterprise-release-assessment",
+  "version": "1",
+  "description": "Record real release findings and evidence. Defining or binding these checkpoints does not establish readiness or human acceptance.",
+  "roles": ["workflow-input"],
+  "prompts": [
+    "Identify the qualified release criteria and exact supporting Sources. Record missing, stale or unverified evidence.",
+    "Assess governed inference: what Recall and W disclosed, required and omitted; exact target capacity; execution result or refusal. Cite retained evidence.",
+    "Assess restart, retry, authority and parallel Case isolation using qualified product observations. Record unresolved defects and limitations.",
+    "Human release decision: ready or not ready, with reasons, exact evidence references and remaining conditions. Automated qualification cannot supply human acceptance."
+  ]
+}

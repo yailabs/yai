@@ -39,6 +39,7 @@ export interface ViewContainerContribution {
   icon: IconName;
   order: number;
   surface: SurfaceInput;
+  rail?: { section: "core" | "platform" | "pinned"; fixed: boolean; defaultPinned?: boolean };
 }
 
 export interface SidebarViewProps extends WorkbenchRenderContext {
@@ -66,6 +67,7 @@ export interface SurfaceRendererProps extends WorkbenchRenderContext {
 export interface SurfaceRendererContribution {
   type: string;
   role: SurfaceRole;
+  archetype?: "material" | "product" | "canvas";
   capabilities: readonly SurfaceCapability[];
   component: ComponentType<SurfaceRendererProps>;
   findInRenderer?: boolean;

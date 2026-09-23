@@ -17,6 +17,8 @@ const paths = {
   resource: "M8 3v5 M16 3v5 M6 8h12v3a6 6 0 0 1-12 0z M12 17v4",
   work: "M5 5h4v4H5z M15 15h4v4h-4z M7 9v8h8 M9 7h8v8",
   provider: "M7 3v4 M17 3v4 M5 7h14v4a7 7 0 0 1-14 0z M12 18v4",
+  providers: "M4 4h16v6H4z M4 14h16v6H4z M7 7h.01 M7 17h.01 M11 7h6 M11 17h6",
+  processor: "M6 6h12v12H6z M9 9h6v6H9z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4",
   left: "M3 4h18v16H3z M9 4v16",
   right: "M3 4h18v16H3z M15 4v16",
   bottom: "M3 4h18v16H3z M3 14h18",

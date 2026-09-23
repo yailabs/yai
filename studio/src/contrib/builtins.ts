@@ -15,14 +15,33 @@ const PdfSurface = lazy(() => import("./surfaces/PdfSurface"));
 const RecallSurface = lazy(() => import("./case/MemorySurfaces").then(module => ({ default: module.RecallSurface })));
 const WorkingStateSurface = lazy(() => import("./case/MemorySurfaces").then(module => ({ default: module.WorkingStateSurface })));
 
+const ProvidersSurface = lazy(() => import("./case/ComputeSurface").then(module => ({default: module.ProvidersSurface})));
+const YvexSurface = lazy(() => import("./case/ComputeSurface").then(module => ({default: module.YvexSurface})));
+const ProviderNavigation = lazy(() => import("./case/ComputeSurface").then(module => ({default: module.ProviderNavigation})));
+
 export const builtInContributions: readonly StudioContribution[] = [
   {
     id: "yai.case-perspectives",
     register({ workbench }) {
       return perspectives.flatMap((perspective, order) => [
-        workbench.registerViewContainer({ id: perspective, title: perspective, icon: perspectiveMeta[perspective].icon, order, surface: perspectiveInput(perspective, perspective, perspectiveMeta[perspective].icon) }),
+        workbench.registerViewContainer({ id: perspective, rail: {section: "core", fixed: true}, title: perspective, icon: perspectiveMeta[perspective].icon, order, surface: perspectiveInput(perspective, perspective, perspectiveMeta[perspective].icon) }),
         workbench.registerView({ id: `${perspective}.explorer`, containerId: perspective, title: perspective, order: 0, component: CaseSidebarView }),
       ]);
+    },
+  },
+  {
+    id: "yai.computational-platform",
+    register({ workbench }) {
+      return [
+        ...(["Providers", "YVEX"] as const).flatMap((id, index) => [
+          workbench.registerViewContainer({id, title: id, icon: id === "Providers" ? "providers" : "processor", order: 20 + index,
+            rail: {section: "platform", fixed: true},
+            surface: {id: `platform:${id}`, identity: `platform:${id}`, title: id, icon: id === "Providers" ? "providers" : "processor", pinned: true, viewId: id, surfaceType: `platform.${id.toLowerCase()}`}}),
+          workbench.registerView({id: `${id}.navigation`, containerId: id, title: id, order: 0, component: ProviderNavigation}),
+        ]),
+        workbench.registerSurfaceRenderer({type: "platform.providers", role: "system", archetype: "product", capabilities: ["pinnable", "navigable"], component: ProvidersSurface}),
+        workbench.registerSurfaceRenderer({type: "platform.yvex", role: "system", archetype: "product", capabilities: ["pinnable", "navigable"], component: YvexSurface}),
+      ];
     },
   },
   {
@@ -32,24 +51,24 @@ export const builtInContributions: readonly StudioContribution[] = [
         workbench.registerQuickOpen({ id: "case.projected-objects", items: caseOpenTargets }),
         workbench.registerActivityFooter({ id: "studio.identity", order: 0, component: IdentityAccess }),
         workbench.registerActivityFooter({ id: "studio.manage", order: 1, component: ManageAccess }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.perspective, role: "projection", capabilities: ["pinnable", "navigable", "selectable"], component: PerspectiveSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.source, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: SourceSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.resource, role: "system", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: ResourceSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.textEditor, role: "content", capabilities: ["previewable", "pinnable", "editable", "dirty-aware", "navigable", "selectable", "searchable"], component: TextEditorSurface, findInRenderer: true, search: searchMaterialSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.markdown, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: MarkdownSurface, search: searchMaterialSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.text, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TextSurface, search: searchMaterialSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.structuredText, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: StructuredTextSurface, search: searchMaterialSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.image, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable"], component: ImageSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.pdf, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: PdfSurface, search: searchPdfSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.audio, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: AudioSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.video, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: VideoSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.table, role: "projection", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TableSurface, search: searchMaterialSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.timeline, role: "projection", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: TimelineSurface, search: searchTimelineSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.graph, role: "projection", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: GraphSurface, search: searchGraphSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.recall, role: "projection", capabilities: ["pinnable", "navigable", "selectable"], component: RecallSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.workingState, role: "projection", capabilities: ["pinnable", "navigable", "selectable"], component: WorkingStateSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.settings, role: "system", capabilities: ["singleton", "navigable", "searchable"], component: SettingsSurface, search: async (context, input, query) => (await import("./settings/SettingsSurface")).searchSettingsSurface(context, input, query) }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.unavailable, role: "content", capabilities: ["previewable", "pinnable", "navigable"], component: UnavailableMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.perspective, role: "projection", archetype: "product", capabilities: ["pinnable", "navigable", "selectable"], component: PerspectiveSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.source, role: "content", archetype: "product", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: SourceSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.resource, role: "system", archetype: "product", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: ResourceSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.textEditor, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "editable", "dirty-aware", "navigable", "selectable", "searchable"], component: TextEditorSurface, findInRenderer: true, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.markdown, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: MarkdownSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.text, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TextSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.structuredText, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: StructuredTextSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.image, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable"], component: ImageSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.pdf, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: PdfSurface, search: searchPdfSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.audio, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: AudioSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.video, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: VideoSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.table, role: "projection", archetype: "material", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TableSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.timeline, role: "projection", archetype: "canvas", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: TimelineSurface, search: searchTimelineSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.graph, role: "projection", archetype: "canvas", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: GraphSurface, search: searchGraphSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.recall, role: "projection", archetype: "product", capabilities: ["pinnable", "navigable", "selectable"], component: RecallSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.workingState, role: "projection", archetype: "product", capabilities: ["pinnable", "navigable", "selectable"], component: WorkingStateSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.settings, role: "system", archetype: "product", capabilities: ["singleton", "navigable", "searchable"], component: SettingsSurface, search: async (context, input, query) => (await import("./settings/SettingsSurface")).searchSettingsSurface(context, input, query) }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.unavailable, role: "content", archetype: "material", capabilities: ["previewable", "pinnable", "navigable"], component: UnavailableMaterialSurface }),
         workbench.settings.register({ id: "workbench.openPreview", title: "Open material in preview", description: "Single-click reuses one preview tab. Double-click pins the Surface.", section: "Workbench", scope: "local", control: "boolean", defaultValue: true, available: true }),
         workbench.settings.register({ id: "workbench.sidebar.width", title: "Explorer width", description: "Width in pixels. Dragging the Explorer divider updates the same preference.", section: "Workbench", scope: "local", control: "number", defaultValue: 204, available: true }),
         workbench.settings.register({ id: "workbench.auxiliary.width", title: "Context panel width", description: "Width in pixels for Conversation, Inspector and Activity.", section: "Workbench", scope: "local", control: "number", defaultValue: 320, available: true }),

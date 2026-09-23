@@ -33,6 +33,22 @@ export class WorkbenchRegistry implements Disposable {
   registerActivityFooter(value: ActivityFooterContribution) { return this.insert(this.footer, value.id, value, "activity footer"); }
 
   viewContainers() { return [...this.containers.values()].sort((a, b) => a.order - b.order); }
+  railContainers(preference: { hidden: readonly string[]; order: readonly string[] }) {
+    const section = { core: 0, platform: 1, pinned: 2 };
+    return this.viewContainers().filter(item => item.rail?.fixed !== false ||
+      (!preference.hidden.includes(item.id) && (item.rail.defaultPinned !== false || preference.order.includes(item.id))))
+      .sort((a, b) => {
+        const group = section[a.rail?.section ?? "core"] - section[b.rail?.section ?? "core"];
+        if (group) return group;
+        const fixedA = a.rail?.fixed !== false, fixedB = b.rail?.fixed !== false;
+        if (fixedA !== fixedB) return fixedA ? -1 : 1;
+        if (fixedA) return a.order - b.order;
+        const position = (id: string, fallback: number) => {
+          const index = preference.order.indexOf(id); return index < 0 ? preference.order.length + fallback : index;
+        };
+        return position(a.id, a.order) - position(b.id, b.order);
+      });
+  }
   viewsFor(containerId: string) { return [...this.views.values()].filter((view) => view.containerId === containerId).sort((a, b) => a.order - b.order); }
   surfaceRenderer(type: string) { return this.surfaces.get(type); }
   panelViews() { return [...this.panels.values()].sort((a, b) => a.order - b.order); }

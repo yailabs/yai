@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "YAI Case Behavioral Evaluation Corpus v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "evaluations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "yai.behavioral_corpus.v1"
+    },
+    "evaluations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evaluation"
+      }
+    }
+  },
+  "$defs": {
+    "assertion": {
+      "type": "object",
+      "required": [
+        "path",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(/|$)"
+        },
+        "op": {
+          "enum": [
+            "equal",
+            "contains",
+            "excludes",
+            "some"
+          ]
+        },
+        "value": {}
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "id",
+        "operation",
+        "input"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input": {
+          "type": "object"
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "required": [
+        "id",
+        "dimensions",
+        "meaning",
+        "preconditions",
+        "required_refs",
+        "allowed_actions",
+        "forbidden_actions",
+        "expected_consequences",
+        "repeatability",
+        "mode",
+        "steps",
+        "assertions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "KNOWS",
+              "SEES",
+              "RECALLS",
+              "REMEMBERS",
+              "REASONS",
+              "CAN_DO",
+              "REFUSES",
+              "RECOVERS",
+              "ISOLATES",
+              "PERFORMS"
+            ]
+          }
+        },
+        "meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "required_refs": {
+          "type": "array"
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "expected_consequences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "repeatability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variants": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        }
+      }
+    }
+  }
+}

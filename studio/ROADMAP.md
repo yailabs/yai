@@ -20,62 +20,80 @@ Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 
 ## Execution control
 
-**CURRENT:** `STUDIO.CASE.IDE.OPERATIONALIZATION.0` — bounded operational
-foundation established. The qualified interactions below consume published
-owners; the remaining partial properties do not become complete by publication.
+**ACTIVE: `YAI.REAL.CASE.PRODUCT.CONVERGENCE.0`.** YAI, Studio, public
+provider contracts and the Case portfolio evolve together. The current boundary
+is a persistent enterprise-release Case operated through Studio with governed
+inference, exact context evidence and reproducible behavioral qualification.
+Implementation and acceptance remain in progress; no maturity promotion follows
+from selecting this boundary.
 
-**ACTIVE:** Conversation text SEND and Compute model discovery/primary assignment.
+Every Studio milestone performs both a **YAI Capability Delta Check** and a
+**YVEX Public Contract Delta Check**. Record exact published versions and classify
+each delta as consumed, newly consumable, partial, semantic blocker,
+intentionally non-UI or future. Unavailable public contract evidence is explicitly
+unverified, never inferred from private producer internals. The code-owned
+Application catalog and Studio consumer map remain the operation inventories.
 
-**NEXT:** consolidate S1 runtime supervision on the published execution
-foundation. The existing scheduler remains the sole runtime owner; Studio does
-not create another scheduler.
-**THEN:** deepen S4 typed Memory/navigation, S5 governed authoring/intake, S6
-Authority/Work and S7 generic Compute against the named Application boundaries.
-**BLOCKED:** governed Save, folder intake with qualified routing, policy catalog
-and combined-policy explanation, and recovery unsupported by the actual carrier.
-Conversation text SEND now consumes the published durable Turn/intent and exact
-execution observation contracts. Pending delivery retains its exact request; no
-automatic redispatch is implied. Native remote YVEX acquisition/preparation/load
-requires a qualified management transport; compat.v3 HTTP exposes inference and
-currently loaded model metadata only.
-**HORIZON:** native YVEX management, external/mobile clients, Computer Use,
-shared declarative Case Views and public extensions.
+Baseline `21647b0` includes published Conversation SEND/model setup and the
+three historical Decision trajectory operations. The latter are explicitly
+Studio interaction debt; the historical evaluator is structural, not a model
+quality score. Prior catalog counts below describe earlier reconciliation cuts.
+
+The operating assets have separate responsibilities: `case:yai-enterprise-launch`
+is real release-readiness work; `case:studio-live-qualification` is the persistent
+technical oracle; deterministic Cases use bounded reconstructible inputs.
+Neither operator Case is disposable test setup. Behavioral evidence separates
+KNOWS, SEES, RECALLS, REMEMBERS, REASONS, CAN_DO, REFUSES, RECOVERS and ISOLATES;
+PERFORMS records measurements separately. Natural-language quality never
+substitutes for deterministic authority, identity and effect assertions.
+
+Providers is Tenant inventory/governance carried by the Host; Compute projects
+Case bindings and use; YVEX native management consumes only qualified public
+contracts. Shared targets do not imply shared Case authority. Material, Product
+and Canvas are Workbench presentation grammars, not semantic owners.
+
+The selected acceptance sequence establishes the real/reconstructible portfolio,
+governed context-compatible inference and operational Studio, then qualifies the
+combined release-assessment path. Context and product composition may advance
+independently against published contracts. Single, parallel and multi-client
+Cases are separate qualification axes; nested Cases remain unqualified without
+a canonical relationship. Remote provider access does not qualify remote Host
+transport. Machine/model/resource observations require exact run provenance.
+
+**ESTABLISHED FOUNDATION:** resident Host and scheduler supervision, exact material
+identity, typed Environment/Work/Memory operations, ordinary Conversation SEND
+and primary model setup. These do not imply complete action coverage.
+
+**NOW:** enterprise Case/behavioral portfolio, Tenant Providers and Case Compute
+separation, registered rail preferences and Material/Product/Canvas composition.
+Real context-capacity execution and independent Conversation/Inspector tools are
+still in progress.
+**NEXT:** qualify the enterprise release question end to end, context closure,
+parallel/multi-client Case isolation and recovery through the actual Studio.
+**THEN:** extend the corpus and hardware matrix from observed product findings.
+**BLOCKED/OPEN CONTRACTS:** governed file Save; qualified folder intake/routing;
+policy catalog/composition projection; parent/child Case ownership; native YVEX
+remote management; complete request-capacity observation before inference.
+**HORIZON:** public E-state consumption, remote/mobile clients, Computer Use,
+shared declarative Case Views and public extensions. No automatic X03/X04 promotion.
 
 ### Backend and Capability Delta Check
 
-Backend execution-lifecycle reconciliation preserves Studio commits `8ccb712`
-and `6bf088d`. The Application catalog now contains 82 operations and 31/31
-eligible PRODUCT families are Ready. Remaining actions are explicitly classified in the consumer evidence map.
-With provider model discovery, text SEND, suitability and primary assignment this records
-67 connected interactions, four alternate paths and eleven interaction debts;
-counts do not qualify whole capability families or promote this board. `test:capabilities` must
-continue to reject any future published operation without an explicit posture.
-Host supervision uses the existing scheduler; runtime/UI program acceptance
-remains separate from this backend lifecycle evidence.
-
-Last Studio review: `d049888b4f273748657a24e02245b979ccb73e02`.
-This implementation started on published
-`6482df05858a14c8bc138943932f72fca492af01`: `1f724c13` added the bounded provider
-latency diagnostic and `6482df05` excluded Cargo output from placement checks.
-During validation, `28001995e3d83d581c0b170b56cedaff1797b518` published the execution
-foundation. With explicit operator authorization, only the isolated Studio commit
-was rebased onto it. Independently owned work remains untouched.
-
-The new published delta adds eleven operations: `case.run`, `case.stop`,
-`execution.get`, `source.acquire`, `source.resume`, `resource.attach_process`,
-`resource.request`, `knowledge.inspect`, `knowledge.search`, `knowledge.resolve`
-and `knowledge.navigation`. At that publication the catalog exposed 72 operations; partial family
-blockers remain exact. The Host supervises the existing RuntimeInstance. This is
-not Conversation SEND, complete interrupted-delivery recovery or native YVEX control.
+Starting published cut: `21647b0dde51c98c5c6a7314438b38bc08be48e3`.
+`6f31e10995c77735f500f269ddbf7a430e738c1b` subsequently published instruction/skill
+reorganization without an executable Application delta. The starting catalog had
+85 operations and 32/32 eligible PRODUCT families Ready. This boundary adds
+`provider.inventory`, reusing authorized Tenant provider governance; it does not
+add a provider owner. Historical Decision trajectory operations remain explicit
+Studio interaction debt rather than obsolete backend blockers.
 
 The code-owned [Application catalog](../application/yai-application/src/capabilities.rs)
-remains the operation identity owner. Studio's
-[consumer evidence map](src/contrib/settings/capabilityPosture.ts) classifies
-63 connected interactions, four deliberately alternate paths and fourteen named
-interaction debts after the execution-lifecycle delta. `tests/studio/capability-parity.mjs` compares every ID against
-the executable catalog. This inventory does not replace per-action positive,
-refusal/stale and lost-acknowledgement tests. A newly advertised Host operation
-stays unqualified until reconciled; a running Host may predate the checkout.
+remains the operation identity owner. The
+[Studio consumer map](src/contrib/settings/capabilityPosture.ts) and
+`tests/studio/capability-parity.mjs` derive the current per-operation inventory;
+no second hand-maintained count is authoritative. A connected operation is not
+proof of all its positive, refusal/stale and lost-acknowledgement properties.
+A running Host can predate the checkout and must be reconciled independently.
 
 Action-level coverage is mandatory: a summary projection does not qualify
 search, historical reconstruction, mutation or execution for that family. Each
@@ -91,13 +109,44 @@ regenerate its human matrix. Never infer authority from discoverability.
 
 ## Capability board
 
+### Case portfolio and machine qualification
+
+The [versioned portfolio](../tests/qualification/behavioral-corpus/portfolio.json)
+and its ordinary-product runner own reconstructible inputs. These tables track
+selection and evidence, not an alternative capability catalog.
+
+| Case / topology | Responsibility and retention | Current evidence / remaining boundary |
+|---|---|---|
+| `case:yai-enterprise-launch` / single | Persistent real release assessment; never reset by tests | Six bounded Sources, repository Resource, bound policy and derived Knowledge; exact documentary Recall and Host restart/replay qualified. Studio bound four real release-assessment checkpoints at generation 55; none is a fabricated release approval. Governed model answer remains open. |
+| `case:studio-live-qualification` / single | Persistent technical oracle; preserve operator additions | Existing heterogeneous qualification world retained; no cleanup or recreation by portfolio runner. |
+| `behavioral-alpha` + `behavioral-beta` / parallel | Fresh isolated profile reconstructed from manifest; remove only after Host stop, or explicitly retain | Concurrent independent clients, role isolation, repeated mutation, stale snapshot refusal and restart equivalence qualified by `make test-behavioral-portfolio`. This is product behavior, not model competence. |
+| Enterprise / multi-client | Same durable Case, independent views and local drafts | Studio Workflow binding advanced 54 → 55; two Host-backed browser Workbenches received events and refetched, Journal pause/resume preserved its cut. Three existing native clients separately reattached after Host restart. Combined two-native-client mutation delivery remains a separate acceptance proof. |
+| Nested Cases | No frontend parent identifier or implicit scope inheritance | No qualified canonical parent/child owner selected; semantic gap remains explicit. Handoff and Workflow subflows do not substitute for Case parentage. |
+
+| Studio / Host | Provider location | Case / client topology | Qualification posture |
+|---|---|---|---|
+| Exon, Arch Linux x86_64 | None | Two disposable Cases, independent Host clients | Local product runner `portfolio-1790176379355556389`: PASS, 143,360 allocated profile bytes before cleanup; no inference or performance verdict. |
+| Exon, Arch Linux x86_64 | Operator-exposed compatible endpoint | Enterprise / two browser Workbenches; native Host attachments separately observed | Read/reopen evidence only. Exact model, deployment and capacity must be pinned again for the inference run. |
+| Exon | Spark / YVEX | Enterprise single and parallel | Selected external lane; generic public inference/preflight only. Existing 4096-token deployment is not proof that populated Case input fits. |
+| Spark | Spark | Single Case | NOT_RUN; no duplicate heavyweight deployment launched by this program. |
+| Exon | Exon | Local single Case | NOT_RUN; provider and memory budget must be selected explicitly. |
+| MacBook | Qualified target | Single / multiple clients | NOT_RUN; Linux qualification does not establish native macOS behavior. |
+
+Storage observations distinguish allocated filesystem bytes from logical content.
+The initial disposable profile measurement does not separate canonical, retained
+and derived stores. Persistent-profile breakdown and growth remain open. Use
+existing immutable backing where qualified; no lossy history compaction or
+implicit shared-backing claim. External model residency is unknown unless a
+public observation supplies it. Schedule heavyweight deployment scenarios
+serially and retain exact versions, run identities and measured results.
+
 The rows are Studio-local product properties, not new backend semantic owners.
 Evidence paths refer to `tests/studio/` unless otherwise qualified.
 
 | ID | Status | Capability / executable truth | Next boundary / dependency | Evidence |
 |---|---|---|---|---|
-| SW01 | 🟢 ESTABLISHED | One contribution-driven Workbench for live and fixture data | Feature-local quality passes | kernel.test.cjs; workbench.mjs |
-| SW02 | 🟢 ESTABLISHED | Universal Surface registry, roles, preview/pin/close and singleton Settings | Multiple visible groups later | kernel.test.cjs; workbench.mjs |
+| SW01 | 🟢 ESTABLISHED | Contribution-driven Workbench, protected core/platform rail and local pin/order/restore preferences | Additional views opt in without Kernel feature logic | kernel.test.cjs; workbench.mjs |
+| SW02 | 🟢 ESTABLISHED | Universal Surface registry, Material/Product/Canvas archetypes, preview/pin/close and singleton Settings | Multiple visible groups later | kernel.test.cjs; workbench.mjs |
 | SW03 | 🟢 ESTABLISHED | Back/Forward across perspectives, objects, Surface activation and Settings; new navigation invalidates Forward | Preserve Case-local lifetime | navigation-journal.mjs |
 | SW04 | 🟢 ESTABLISHED | Command Palette, projected-object Quick Open, renderer-owned Find, top command center | Semantic Case Search needs an owner | workbench.mjs; navigation-journal.mjs |
 | SW05 | 🟢 ESTABLISHED | Reversible Surface focus, region resizing, window-local draft/tab/navigation retention | Shared/persisted Case Views later | focus-layout.mjs; reliability.mjs |
@@ -125,7 +174,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SO04 | 🟢 ESTABLISHED | Journal from committed history, follow/pause/search/type/component, Inspector/Timeline | Latest 160 disclosure; not a complete ledger browser | navigation-journal.mjs; operational-live.mjs |
 | SC01 | 🟡 PARTIAL | Text SEND, canonical Turn/result display, exact lost-ack recovery and local draft retention | Live token streaming, attachments, explicit cancellation and broader execution diagnosis remain | conversation-actions.mjs |
 | SP01 | 🟢 ESTABLISHED | Authored generic target register, measured evidence import, trust and explicit Case binding | Full model/runtime catalog not implied | compute-actions.mjs |
-| SP02 | 🟡 PARTIAL | Models, provider adapter, deployment, qualification, trust and health kept distinct | Exposed model discovery is typed; Tenant target discovery and typed probe operation remain absent | compute-actions.mjs |
+| SP02 | 🟡 PARTIAL | Models, provider adapter, deployment, qualification, trust and health kept distinct | Tenant target inventory and exposed model discovery are typed; per-Case usage aggregation and typed probe action remain open | compute-actions.mjs |
 | SP03 | 🟡 PARTIAL | Cognitive preparation distinguished from provider configuration | Primary conversation suitability and assignment are authored; auxiliary roles and exact planning/realization remain debt | Explicit Compute posture |
 | SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Live qualification passed; populated Case execution received HTTP 413 from the current 4096-token deployment | Controlled provider test is not external model evidence |
 | SY02 | ⚪ LATER | Native YVEX Source/Artifact/Profile/Engine/Session management | Versioned YVEX public management plane | No private producer coupling |

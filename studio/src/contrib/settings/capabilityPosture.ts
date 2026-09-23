@@ -58,6 +58,7 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "policy.validate": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/policy-intake.mjs" },
   "provider.case.bind": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
   "provider.qualify": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
+  "provider.inventory": { state: "integrated", detail: "Tenant Providers inventory and unbound-target Inspector; Case bindings remain separate", proof: "tests/studio/compute-actions.mjs" },
   "provider.models": { state: "integrated", detail: "Explicit bounded model discovery during target setup", proof: "tests/studio/conversation-actions.mjs" },
   "provider.register": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
   "provider.trust.set": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },

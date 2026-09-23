@@ -24,6 +24,8 @@ export class ConfigurationService implements Disposable {
 
   private valid(key: string, value: unknown) {
     if (!Object.hasOwn(this.defaults, key) || typeof value !== typeof this.defaults[key]) return false;
+    if (Array.isArray(this.defaults[key])) return Array.isArray(value) && value.length <= 128 &&
+      value.every(item => typeof item === "string" && item.length > 0 && item.length <= 128) && new Set(value).size === value.length;
     if (typeof value !== "number") return true;
     const bounds = preferenceNumberBounds[key];
     return Number.isFinite(value) && (!bounds || (value >= bounds.min && value <= bounds.max && (bounds.step < 1 || Number.isInteger(value))));

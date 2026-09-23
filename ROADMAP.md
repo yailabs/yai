@@ -11,7 +11,7 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **COGNITIVE.DECISION.TRAJECTORY.EVALUATION.0 — COMPLETE** at bounded currently disclosed historical Decision/corpus reconstruction and structural evaluation scope. Next implementation boundary UNSELECTED. |
+| Selected engineering boundary | **YAI.REAL.CASE.PRODUCT.CONVERGENCE.0 — IN_PROGRESS**: persistent enterprise release-readiness Case, behavioral portfolio, context-compatible governed inference and first-party Studio consumption. Historical Decision trajectory evaluation remains established at its bounded structural scope; no X03/X04 promotion is implied. |
 | Latest major completed product boundary | Thirty-two eligible PRODUCT families have typed Application operations. Existing RuntimeInstance supervision, exact Case run/resume/stop, ordinary SEND, realization/composition, controlled effects/reconciliation and Source attempts remain observable across client loss without blind replay. |
 | Most important structural gap | Application availability is not complete Studio interaction coverage or universal recovery. Carrier loss can remain indeterminate; arbitrary legacy checkpoints are not automatically resumable. Stable exported SDK/general events, remote transport, a production decision producer, adaptive routing and public W → E remain open. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
@@ -936,12 +936,12 @@ PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 remains COMPLETE at bounded explicit-prefl
 SCOPED.SEMANTIC.PAGING.0 retains its independently complete exact-group scope.
 RECALL-AWARE.WORKING.STATE.0 and KNOWLEDGE.RECALL.INTEGRATION.0 retain their
 independently complete bounded scopes.
-Next implementation boundary: **UNSELECTED**.
+Current implementation boundary: **YAI.REAL.CASE.PRODUCT.CONVERGENCE.0 — IN_PROGRESS**.
 
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| COGNITIVE.DECISION.TRAJECTORY.EVALUATION.0 | COMPLETE | E07 Q06 X03 | Currently disclosed exact pre-Decision cut, canonical Decision/DecisionBasis, typed qualified consequence/correction lineage and bounded structured corpus/evaluation; historical W/Frontier/Distribution and optimal labels remain unavailable. |
+| YAI.REAL.CASE.PRODUCT.CONVERGENCE.0 | IN_PROGRESS | Q06 X03 X04 | Persistent enterprise Case; governed real inference with context fidelity; reproducible behavioral portfolio; CLI/Application/Studio parity; Providers/Compute/YVEX separation and qualified Workbench use. Historical Decision trajectory remains established at its bounded scope. Global maturity is not automatically promoted. |
 <!-- execution:end -->
 
 The retroactive bounded inventory contains 39 current executable/internal

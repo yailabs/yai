@@ -976,6 +976,16 @@ test-topology:
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/test_validation_topology.py
 
+.PHONY: test-behavioral-corpus
+test-behavioral-corpus:
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/qualification/behavioral-corpus/test_runner.py
+
+.PHONY: test-behavioral-portfolio
+test-behavioral-portfolio: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@corpus_evidence=$$(mktemp -d); python3 tests/qualification/behavioral-corpus/portfolio.py --yai target/debug/yai --output "$$corpus_evidence/observations.jsonl"
+
 test-rust-doc:
 	@python3 tools/validation/topology.py label --entry $@
 	CARGO_NET_OFFLINE=true cargo test --manifest-path engine/Cargo.toml --workspace --doc

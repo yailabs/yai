@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {execFileSync, spawn} from 'node:child_process';
-import {mkdir, writeFile} from 'node:fs/promises';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 const require=createRequire(path.resolve(import.meta.dirname,'../../studio/package.json'));
@@ -55,6 +55,31 @@ try{
  }
  await pages[0].getByRole('button',{name:'Pause follow',exact:true}).click();
  const paused=await pages[0].locator('.journal-events').innerText();
+ if(process.env.STUDIO_ENTERPRISE_WORKFLOW==='1'){
+  const recipe=JSON.parse(await readFile(new URL('../qualification/behavioral-corpus/enterprise-workflow.json',import.meta.url),'utf8'));
+  assert.equal(caseRef,recipe.case_ref,'Enterprise recipe cannot mutate another operator Case');
+  assert.equal(recipe.schema,'yai.studio_checkpoint_recipe.v1');
+  // Existing work is operator-owned. Replaying this procedure never replaces
+  // a binding, supplies a fictional assessment, or duplicates its graph.
+  if(!before.data.work.nodes.length){
+   const page=pages[0];await page.locator('.live-rail button[aria-label="Work"]').click();
+   await page.getByRole('button',{name:'Define checkpoint Workflow',exact:true}).click();
+   let form=page.getByRole('dialog',{name:'Define checkpoint Workflow'});
+   await form.getByLabel('Name',{exact:true}).fill(recipe.name);await form.getByLabel('Workflow key').fill(recipe.key);
+   await form.getByLabel('Version',{exact:true}).fill(recipe.version);await form.getByLabel('Description',{exact:true}).fill(recipe.description);
+   await form.getByLabel('Checkpoints, one prompt per line').fill(recipe.prompts.join('\n'));
+   await form.getByLabel('Required Participant roles, comma separated').fill(recipe.roles.join(','));
+   await form.getByRole('button',{name:'Retain definition',exact:true}).click();await form.waitFor({state:'hidden'});
+   const definition=exchanges.findLast(item=>item.request.operation_ref==='workflow.define').result;
+   assert.equal(definition.result_state,'success');assert.equal(definition.data.nodes.length,recipe.prompts.length);
+   await page.getByRole('button',{name:'Bind Workflow',exact:true}).click();form=page.getByRole('dialog',{name:'Bind Workflow'});
+   assert.equal(await form.getByLabel('Definition reference').inputValue(),definition.data.workflow_definition_id);
+   await form.getByRole('button',{name:'Bind definition',exact:true}).click();await form.waitFor({state:'hidden'});
+   const binding=exchanges.findLast(item=>item.request.operation_ref==='workflow.bind').result;
+   assert.equal(binding.result_state,'success');
+  }
+  command={operation:'Studio workflow.define / workflow.bind',recipe:recipe.key,existing_binding_preserved:Boolean(before.data.work.nodes.length)};
+ }
  if(process.env.STUDIO_ADVANCE_WORLD==='1'){
   assert.ok(process.env.STUDIO_WORLD_ROOT,'Persistent qualification input root required');
   command=['python3','tests/qualification/studio-product-vertical/operational_world.py','advance','--yai',binary,'--case',caseRef,'--root',process.env.STUDIO_WORLD_ROOT,'--evidence',`${evidence}/commands.jsonl`];
@@ -63,6 +88,11 @@ try{
   const exit=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});await writeFile(`${evidence}/advance.log`,Buffer.concat(stdout));assert.equal(exit,0,'Inspect advance.log; no reset/retry fabricated');
  }
  const after=await call('case.summary',{case_ref:caseRef});assert.equal(after.result_state,'success');
+ if(process.env.STUDIO_ENTERPRISE_WORKFLOW==='1'){
+  assert.ok(after.data.work.nodes.length>0,'A real bound Workflow must be projected');
+  const checked=JSON.parse(execFileSync(binary,['case','verify',caseRef,'--json'],{env,encoding:'utf8'}));
+  assert.equal(checked.status,'ok');await writeFile(`${evidence}/cli-verify.json`,JSON.stringify(checked,null,2));
+ }
  for(const page of pages)await page.getByLabel('Workbench status').getByText(`Generation ${after.data.case.generation}`,{exact:true}).waitFor();
  if(after.data.case.generation!==before.data.case.generation){
   for(let client=0;client<2;client++)assert.ok(events.some(e=>e.client===client&&e.case_ref===caseRef&&e.generation>before.data.case.generation),'Real Host events for each attachment');

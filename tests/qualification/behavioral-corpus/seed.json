@@ -1,0 +1,316 @@
+{
+  "schema": "yai.behavioral_corpus.v1",
+  "evaluations": [
+    {
+      "preconditions": [
+        "An explicitly selected, already populated Case and authenticated Host"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "deterministic",
+      "id": "material.case_identity",
+      "dimensions": [
+        "SEES",
+        "ISOLATES"
+      ],
+      "meaning": "The projected Case and tenant are the exact selected identities",
+      "steps": [
+        {
+          "id": "snapshot",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/snapshot/result_state",
+          "op": "equal",
+          "value": "success"
+        },
+        {
+          "path": "/results/snapshot/data/case/case_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/case_ref"
+          }
+        },
+        {
+          "path": "/results/snapshot/data/case/tenant_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/tenant_ref"
+          }
+        }
+      ]
+    },
+    {
+      "preconditions": [
+        "An explicitly selected, already populated Case and authenticated Host"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "deterministic",
+      "id": "continuity.repeat_read",
+      "dimensions": [
+        "REMEMBERS",
+        "RECOVERS"
+      ],
+      "meaning": "Independent Host attachments reconstruct identical disclosed state without mutation",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/before/result_state",
+          "op": "equal",
+          "value": "success"
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    },
+    {
+      "preconditions": [
+        "Select a Case-specific overlay with independently authored expected facts and authority"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "case_overlay_required",
+      "id": "overlay.knows",
+      "dimensions": [
+        "KNOWS"
+      ],
+      "meaning": "Compare a context-free model answer separately from Case-disclosed evidence",
+      "steps": [],
+      "assertions": []
+    },
+    {
+      "preconditions": [
+        "Select a Case-specific overlay with independently authored expected facts and authority"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "case_overlay_required",
+      "id": "overlay.recalls",
+      "dimensions": [
+        "RECALLS"
+      ],
+      "meaning": "Require exact independently selected documentary references in Recall closure",
+      "steps": [],
+      "assertions": []
+    },
+    {
+      "preconditions": [
+        "Select a Case-specific overlay with independently authored expected facts and authority"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "case_overlay_required",
+      "id": "overlay.reasons",
+      "dimensions": [
+        "REASONS"
+      ],
+      "meaning": "Assess an evidence-grounded release conclusion separately from structural assertions",
+      "steps": [],
+      "assertions": []
+    },
+    {
+      "preconditions": [
+        "Select a Case-specific overlay with independently authored expected facts and authority"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "case_overlay_required",
+      "id": "overlay.can_do",
+      "dimensions": [
+        "CAN_DO"
+      ],
+      "meaning": "Observe a governed action and its exact canonical receipt",
+      "steps": [],
+      "assertions": []
+    },
+    {
+      "preconditions": [
+        "An explicitly selected, already populated Case and authenticated Host"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "case.capabilities"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation"
+      ],
+      "repeatability": "Read again against the same exact generation; concurrent mutation is a failed precondition",
+      "mode": "deterministic",
+      "id": "overlay.refuses",
+      "dimensions": [
+        "REFUSES",
+        "ISOLATES"
+      ],
+      "meaning": "An unlinked Participant cannot inspect Case requestability; refusal causes no mutation",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "hidden",
+          "operation": "case.capabilities",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": "participant:behavioral-unlinked"
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/hidden/result_state",
+          "op": "equal",
+          "value": "unauthorized"
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    }
+  ]
+}

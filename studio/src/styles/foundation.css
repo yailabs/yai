@@ -190,6 +190,15 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .surface-tabs [role=button] { margin-left: auto; padding: 2px 4px; border-radius: 4px; }
 .surface-tabs [role=button]:hover { background: var(--yai-floating); }
 .live-surface { min-height: 0; flex: 1; overflow: auto; background: var(--yai-canvas); }
+.live-surface[data-archetype="material"] { background: var(--yai-inset); }
+.live-surface[data-archetype="canvas"] > .live-page { max-width: none; }
+.live-rail > button[data-section-start="true"] { margin-top: 12px; }
+.live-rail > button[data-section-start="true"]::after { content: ""; position: absolute; top: -7px; left: 9px; right: 9px; height: 1px; background: var(--yai-divider); }
+.provider-navigation { padding: 8px; }
+.provider-navigation > small { display: block; margin: 16px 4px 6px; color: var(--yai-text-muted); font-size: 11px; }
+.provider-navigation button[aria-current="page"] { background: var(--yai-selected); color: var(--yai-text); }
+.provider-inventory-status { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.provider-inventory-status p { color: var(--yai-text-muted); font-size: 12px; }
 .live-page { max-width: 1120px; min-height: 100%; padding: 34px clamp(28px,4.2vw,68px) 70px; }
 .settings-surface { min-height: 100%; display: grid; grid-template-columns: 220px minmax(0,760px); gap: 42px; padding: 38px clamp(28px,4.2vw,68px) 70px; }
 .settings-surface > aside { display: flex; flex-direction: column; gap: 3px; }
@@ -733,3 +742,13 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 }
 .knowledge-queries .object-action-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .execution-receipt header strong { margin-right: auto; }
+.rail-customization-backdrop { place-items: center; padding: 24px 16px; box-sizing: border-box; }
+.rail-customization { box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 20px; background: var(--yai-panel); border: 1px solid var(--yai-divider); border-radius: 10px; }
+.rail-customization > header, .rail-customization > footer, .rail-preference-row { display: flex; align-items: center; gap: 10px; }
+.rail-customization > header h2, .rail-preference-row > span { flex: 1; }
+.rail-customization h2 { margin: 0; font-size: 16px; }
+.rail-customization h3 { margin: 18px 0 6px; font-size: 11px; color: var(--yai-text-muted); text-transform: uppercase; letter-spacing: .06em; }
+.rail-customization p { font-size: 12px; line-height: 1.5; color: var(--yai-text-muted); }
+.rail-preference-row { min-height: 32px; font-size: 13px; }
+.rail-preference-row small { color: var(--yai-text-muted); }
+.rail-customization > footer { justify-content: space-between; margin-top: 20px; }

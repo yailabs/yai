@@ -34,6 +34,51 @@ impl Fixture {
 impl Drop for Fixture { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.home); } }
 
 #[test]
+fn case_capability_disclosure_refusal_is_typed_and_preserves_state() {
+    let f = Fixture::new("capability-disclosure");
+    let policy = f.success("policy.ingest", json!({"tenant_id":"tenant:audit",
+        "source_bytes":include_bytes!("../../../tests/fixtures/cli-product-policy.json").to_vec()}));
+    let artifact = &policy["view"]["artifact"]["artifact_id"];
+    for op in ["policy.validate", "policy.publish"] {
+        f.success(op, json!({"artifact_ref":artifact, "reason":"Qualified requestability test"}));
+    }
+    f.success("policy.case.bind", json!({"case_ref":"case:audit", "artifact_ref":artifact,
+        "expected_generation":f.generation(), "reason":"Qualified requestability test"}));
+    let before = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    let admitted = f.success("case.capabilities", json!({
+        "case_ref":"case:audit", "participant_ref":"participant:operator"}));
+    assert_eq!(admitted["case_id"], "case:audit");
+    assert_eq!(admitted["participant_id"], "participant:operator");
+    let hidden = f.call("case.capabilities", json!({
+        "case_ref":"case:audit", "participant_ref":"participant:unlinked"}));
+    assert_eq!(hidden.result_state, ResultState::Unauthorized);
+    assert!(hidden.data.is_none());
+    assert_eq!(hidden.error.unwrap().code, "capability_view_participant_not_admitted");
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), before);
+}
+
+#[test]
+fn tenant_provider_inventory_is_independent_of_case_binding_and_refuses_hidden_tenant() {
+    let f = Fixture::new("provider-inventory");
+    let before = f.generation();
+    let target = f.success("provider.register", json!({"tenant_id":"tenant:audit",
+        "provider_key":"inventory", "adapter":"open_ai_compatible", "endpoint":"http://127.0.0.1:1/private-path",
+        "model_id":"inventory-model", "credential_ref":"env:INVENTORY_TEST_SECRET", "locality":"loopback"}));
+    let inventory = f.success("provider.inventory", json!({"tenant_id":"tenant:audit"}));
+    assert_eq!(inventory["targets"][0]["id"], target["target_id"]);
+    assert_eq!(inventory["targets"][0]["model_id"], "inventory-model");
+    assert_eq!(inventory["targets"][0]["endpoint"], "http://127.0.0.1:1");
+    assert_eq!(inventory["total_visible_targets"], 1);
+    assert_eq!(inventory["omitted"], 0);
+    assert_eq!(inventory["case_usage"], "not_projected");
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"}))["compute"]["targets"], json!([]));
+    let hidden = f.call("provider.inventory", json!({"tenant_id":"tenant:hidden"}));
+    assert_eq!(hidden.result_state, ResultState::Unauthorized);
+    assert!(hidden.data.is_none());
+    assert_eq!(f.generation(), before);
+}
+
+#[test]
 fn provider_suitability_records_honest_attestation_and_refuses_invalid_input() {
     use yai_core_engine::{security::AuthenticatedPrincipal, store::lmdb::LmdbRecordStore};
     let f = Fixture::new("provider-suitability");

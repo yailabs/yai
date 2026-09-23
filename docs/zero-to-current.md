@@ -13,6 +13,49 @@ A previous PASS is not silently inherited by a changed product HEAD.
 
 ## Studio resident-Host live local acceptance
 
+The enterprise-release Case is a second persistent asset, not a replacement for
+the technical oracle. Inspect/advance it with
+`tests/qualification/behavioral-corpus/enterprise.py`, an explicit existing
+`YAI_HOME`, built `--yai`, selected `--tenant`, fresh `--evidence` and generated
+`--perimeter` output path. The helper uses normal product commands and retains
+their actual results. It never initializes a home, deletes a Case, fabricates
+release results or refreshes acquired revisions implicitly. Repeated advancement
+must preserve generation and Source identities when no work is missing.
+
+In Studio, open **YAI — Primo rilascio aziendale**. Check acquired repository
+evidence under Environment, its exact material in the editor, derived Knowledge
+and the actual policy binding. Acquisition is not acceptance of a release claim.
+Providers must show authorized Tenant deployments even before Case binding;
+Compute must show only the Case's bound targets. Inspect an unbound target and
+verify the Inspector does not substitute Settings or unrelated Case metadata.
+YVEX compatibility metadata must not imply acquisition/loading controls exist.
+Open Manage → Customize Activity Rail: core YAI and first-party platform entries
+are fixed; eligible additional contributions support pin/unpin, ordering and
+Restore defaults. Preferences survive reopening without changing Case history.
+
+The behavioral runner and seed are documented under
+`tests/qualification/behavioral-corpus/`. Its typed-Host structural observations,
+external model responses, measured performance and human judgement are separate
+evidence. Empty overlay requirements remain NOT_RUN. No complete behavioral
+corpus or end-to-end enterprise inference PASS is implied by these initial checks.
+The enterprise overlay compares Recall with exact acquired Source/revision/digest
+from `enterprise.py inspect --profile NEW_PATH`. Its structural verdict is separate
+from the usefulness of a model answer. The bounded `portfolio.py` runner creates
+fresh independent Cases from `portfolio.json`; it never accepts an operator home
+for disposable setup or cleanup.
+
+The opt-in `STUDIO_ENTERPRISE_WORKFLOW=1` mode of
+`tests/studio/operational-live.mjs` uses the authored Work forms to define/bind
+`enterprise-workflow.json` only when this exact enterprise Case has no Workflow.
+Existing bindings are preserved. Four checkpoints ask for real findings and a
+human release decision; the procedure supplies no invented checkpoint result.
+Run it with explicit `YAI_STUDIO_TEST_BINARY`, `YAI_STUDIO_TEST_HOME`,
+`YAI_STUDIO_TEST_CASE=case:yai-enterprise-launch`, local `STUDIO_TEST_URL` and a
+fresh `STUDIO_EVIDENCE_DIR`. Two independent Workbenches consume real Host events;
+the test retains exchanges and verifies CLI replay. Repeating it must leave
+generation unchanged. This browser/Host proof is separate from native PTY and
+two-native-process acceptance.
+
 This lane exercises the bounded resident-Host real-Case Studio vertical. Use a
 dedicated non-Golden YAI home; never reset the operator continuity canary or
 populate Studio through frontend fixtures.

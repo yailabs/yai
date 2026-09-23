@@ -1867,6 +1867,16 @@ impl LocalApplication {
                     ),
                 )
             }
+            "provider.inventory" => {
+                let input: TenantGetInput = decode_input(request)?;
+                let targets = store.list_provider_targets_authorized(&auth, &input.tenant_id)?;
+                let total = targets.len();
+                let targets = targets.into_iter().take(128)
+                    .map(|target| provider_target_projection(&store, &auth, target)).collect::<Vec<_>>();
+                Ok(json!({"tenant_ref":input.tenant_id, "targets":targets,
+                    "total_visible_targets":total, "limit":128, "omitted":total.saturating_sub(128),
+                    "case_usage":"not_projected"}))
+            }
             "provider.models" => {
                 let input: ProviderModelsInput = decode_input(request)?;
                 store.resolve_security_context(&auth, &input.tenant_id)?.require_owner()?;
@@ -2616,6 +2626,10 @@ fn source_kind(action: &ResourceAction) -> &'static str {
 /// details. The application boundary owns this bounded fallback until YAI has
 /// a qualified persistent display-name contract.
 fn case_display_name(case_ref: &str) -> String {
+    // First-party operational Case label; canonical lookup identity is unchanged.
+    if case_ref == "case:yai-enterprise-launch" {
+        return "YAI — Primo rilascio aziendale".into();
+    }
     let Some(slug) = case_ref.strip_prefix("case:") else {
         return case_ref.to_string();
     };
@@ -3027,6 +3041,57 @@ fn workflow_projection(
     )
 }
 
+
+fn provider_target_projection(
+    store: &LmdbRecordStore, auth: &AuthenticatedPrincipal,
+    target: yai_core_engine::provider_governance::ProviderTarget,
+) -> Value {
+    let posture = store
+        .provider_posture_authorized(auth, &target.target_id)
+        .ok()
+        .map(|(_, qualification, trust, health)| {
+            json!({
+                "qualification": qualification.map(|value| json!({
+                    "id": value.qualification_id,
+                    "suite_id": value.suite_id,
+                    "run_id": value.run_id,
+                    "qualified_at_unix_ms": value.qualified_at_unix_ms,
+                    "valid_until_unix_ms": value.valid_until_unix_ms,
+                    "capabilities": value.capabilities.into_iter().map(|capability| json!({
+                        "capability": format!("{:?}", capability.capability).to_lowercase(),
+                        "provenance": format!("{:?}", capability.provenance).to_lowercase(),
+                        "evidence_refs": capability.evidence_refs,
+                        "verified_minimum": capability.verified_minimum
+                    })).collect::<Vec<_>>()
+                })),
+                "trust": trust.map(|value| json!({
+                    "event_ref": value.event_id,
+                    "posture": format!("{:?}", value.posture).to_lowercase(),
+                    "recorded_at_unix_ms": value.recorded_at_unix_ms
+                })),
+                "health": {
+                    "posture": format!("{:?}", health.posture).to_lowercase(),
+                    "circuit": format!("{:?}", health.circuit).to_lowercase(),
+                    "consecutive_failures": health.consecutive_failures,
+                    "observed_at_unix_ms": health.observed_at_unix_ms,
+                    "failure_class": health.failure_class
+                }
+            })
+        });
+    json!({
+        "id": target.target_id,
+        "provider_key": target.provider_key,
+        "extension_adapter_id": target.extension_adapter_id,
+        "adapter": target.adapter,
+        "model_id": target.model_id,
+        "locality": target.locality,
+        "endpoint": sanitized_endpoint(&target.endpoint),
+        "posture": posture,
+        "management": "not_exposed",
+        "semantic_evidence": store.list_semantic_suitability_evidence_authorized(auth, &target.target_id, Some(CognitiveCapability::PrimaryConversation)).unwrap_or_default()
+    })
+}
+
 fn compute_projection(
     store: &LmdbRecordStore,
     auth: &AuthenticatedPrincipal,
@@ -3052,51 +3117,7 @@ fn compute_projection(
     let projected = targets
         .into_iter()
         .filter(|target| bound.contains(&target.target_id))
-        .map(|target| {
-            let posture = store
-                .provider_posture_authorized(auth, &target.target_id)
-                .ok()
-                .map(|(_, qualification, trust, health)| {
-                    json!({
-                        "qualification": qualification.map(|value| json!({
-                            "id": value.qualification_id,
-                            "suite_id": value.suite_id,
-                            "run_id": value.run_id,
-                            "qualified_at_unix_ms": value.qualified_at_unix_ms,
-                            "valid_until_unix_ms": value.valid_until_unix_ms,
-                            "capabilities": value.capabilities.into_iter().map(|capability| json!({
-                                "capability": format!("{:?}", capability.capability).to_lowercase(),
-                                "provenance": format!("{:?}", capability.provenance).to_lowercase(),
-                                "evidence_refs": capability.evidence_refs,
-                                "verified_minimum": capability.verified_minimum
-                            })).collect::<Vec<_>>()
-                        })),
-                        "trust": trust.map(|value| json!({
-                            "event_ref": value.event_id,
-                            "posture": format!("{:?}", value.posture).to_lowercase(),
-                            "recorded_at_unix_ms": value.recorded_at_unix_ms
-                        })),
-                        "health": {
-                            "posture": format!("{:?}", health.posture).to_lowercase(),
-                            "circuit": format!("{:?}", health.circuit).to_lowercase(),
-                            "consecutive_failures": health.consecutive_failures,
-                            "observed_at_unix_ms": health.observed_at_unix_ms,
-                            "failure_class": health.failure_class
-                        }
-                    })
-                });
-            json!({
-                "id": target.target_id,
-                "provider_key": target.provider_key,
-                "adapter": target.adapter,
-                "model_id": target.model_id,
-                "locality": target.locality,
-                "endpoint": sanitized_endpoint(&target.endpoint),
-                "posture": posture,
-                "management": "not_exposed",
-                "semantic_evidence": store.list_semantic_suitability_evidence_authorized(auth, &target.target_id, Some(CognitiveCapability::PrimaryConversation)).unwrap_or_default()
-            })
-        })
+        .map(|target| provider_target_projection(store, auth, target))
         .collect::<Vec<_>>();
     Ok(json!({
         "status": if projected.is_empty() { "empty" } else { "available" },
@@ -3178,6 +3199,9 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
         (ResultState::CorePending, "Execution capacity is occupied. Observe an existing submission before retrying.")
     } else if matches!(error, "runtime_instance_not_running" | "runtime_instance_not_accepting_work") {
         (ResultState::CorePending, "The runtime is not accepting work. No new execution was submitted.")
+    } else if error == "capability_view_participant_not_admitted" {
+        (ResultState::Unauthorized,
+            "This Participant is not admitted to inspect the Case capabilities.")
     } else if error == "historical_scope_unavailable"
         || error.contains("not_visible")
         || error.contains("authentication")
@@ -3311,6 +3335,8 @@ mod tests {
 
     #[test]
     fn case_presentation_label_preserves_canonical_identity_separately() {
+        assert_eq!(case_display_name("case:yai-enterprise-launch"),
+            "YAI — Primo rilascio aziendale");
         assert_eq!(
             case_display_name("case:studio-live-qualification"),
             "Studio Live Qualification"

@@ -57,6 +57,8 @@ try {
   const state={state:'live',telemetry,resync_required:false};
   const host={capabilities:{kind:'web',nativeDesktop:false,terminalAvailable:false,windowControlsAvailable:false},snapshot:()=>state,subscribe:()=>({dispose(){}}),dispose(){},closeWindow(){},status:async()=>telemetry};
   const client=new LiveClient();const platform=new PlatformServices(host,client);const registry=new WorkbenchRegistry();registerContributions(builtInContributions,{platform,workbench:registry});
+  // Presentation-only contributions qualify pinning without inventing Case objects.
+  for(const [id,order] of [['Qualification Tool A',30],['Qualification Tool B',31]]) registry.registerViewContainer({id,title:id,icon:'case',order,rail:{section:'pinned',fixed:false,defaultPinned:true},surface:{identity:id,surfaceType:'case.overview',title:id,icon:'case',pinned:true}});
   const container=document.createElement('div');document.body.appendChild(container);
   ReactDOM.createRoot(container).render(React.createElement(StudioApplication,{dataSource:new LiveDataSource(client),platform,registry}));
   window.qualificationPlatform=platform;
@@ -89,7 +91,52 @@ try {
 
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets[0].posture.trust.posture,'denied');assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,bound.case.generation,'Tenant trust changes are not Case transitions');
 
+ await page.locator('.live-rail').getByRole('button',{name:'Providers',exact:true}).click();
+ await page.getByRole('heading',{name:'Providers',exact:true}).waitFor();
+ await page.locator('.compute-target').getByText('controlled-text-model',{exact:true}).waitFor();
+ assert.equal(await page.locator('.live-surface').getAttribute('data-archetype'),'product');
+ await page.getByRole('button',{name:'Register provider target',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Register provider target'});
+ await form.getByLabel('Provider / runtime label').fill('unbound-inventory-target');
+ await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);
+ await form.getByLabel('Exact model identity').fill('controlled-text-model');
+ await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Refresh inventory',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===2);
+ const inventory=await accepted('provider.inventory',{tenant_id:'tenant:studio-ui'});
+ assert.equal(inventory.targets.length,2);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,1,'Tenant registration does not expand Case binding');
+ assert.equal(inventory.case_usage,'not_projected');
+ await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
+ await page.locator('.inspector-view').getByRole('heading',{name:'unbound-inventory-target',exact:true}).waitFor();
+ await page.locator('.inspector-view').getByText('Not bound',{exact:true}).waitFor();
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+   await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/providers-${width}x${height}.png`});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ }
+ await page.locator('.live-rail').getByRole('button',{name:'YVEX',exact:true}).click();
+ await page.getByText('No matching deployment',{exact:true}).waitFor();
+ assert.equal(await page.locator('.compute-target').count(),0,'Generic target is not claimed as YVEX-compatible');
+ await page.locator('.live-rail').getByRole('button',{name:'Compute',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===1);
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.view.customizeRail'));
+ const railDialog=page.getByRole('dialog',{name:'Customize Activity Rail'});
+ await railDialog.getByRole('button',{name:'Unpin Qualification Tool A',exact:true}).click();
+ assert.equal(await page.locator('.live-rail').getByRole('button',{name:'Qualification Tool A',exact:true}).count(),0);
+ assert.equal(await railDialog.getByRole('button',{name:'Unpin Overview',exact:true}).count(),0,'Core grammar cannot be unpinned');
+ await railDialog.getByRole('button',{name:'Pin Qualification Tool A',exact:true}).click();
+ await railDialog.getByRole('button',{name:'Move Qualification Tool B up',exact:true}).click();
+ assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool B','Qualification Tool A']);
+ const retainedRail=await page.evaluate(async()=>{
+   const {ConfigurationService}=await import('/src/platform/configuration.ts');
+   const restored=new ConfigurationService({'workbench.rail.hidden':[],'workbench.rail.order':[]});
+   return restored.get('workbench.rail.order');
+ });
+ assert.deepEqual(retainedRail,['Qualification Tool B','Qualification Tool A']);
+ await railDialog.getByRole('button',{name:'Restore rail defaults',exact:true}).click();
+ assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
+ await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}
