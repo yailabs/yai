@@ -106,6 +106,24 @@ try{
   await page.locator(`.live-rail button[aria-label="${name}"]`).click();
   await page.locator('.live-page').waitFor();await page.screenshot({path:`${evidence}/${name.toLowerCase()}.png`});
  }
+ if(process.env.STUDIO_CONTEXT_TOOLS==='1'){
+  await page.getByRole('button',{name:'Conversation',exact:true}).click();
+  const composer=page.getByRole('textbox',{name:'Message to the Case'});
+  await composer.fill('Unsent qualification draft: inspect enterprise release evidence.');
+  await page.getByRole('button',{name:'Float Conversation',exact:true}).click();
+  await page.getByRole('button',{name:'Open Inspector tool',exact:true}).click();
+  await page.getByRole('button',{name:'Float Inspector',exact:true}).click();
+  await page.getByRole('button',{name:'Pin Inspector',exact:true}).click();
+  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){
+   await page.setViewportSize({width,height});
+   await page.waitForFunction(()=>[...document.querySelectorAll('.context-tool-floating:not([hidden])')].every(element=>{const r=element.getBoundingClientRect();return r.x>=12&&r.y>=72&&r.right<=innerWidth-12&&r.bottom<=innerHeight-32;}));
+   await page.screenshot({path:`${evidence}/context-tools-${width}x${height}.png`});
+  }
+  assert.equal(await composer.inputValue(),'Unsent qualification draft: inspect enterprise release evidence.');
+  const stable=await call('case.summary',{case_ref:caseRef});
+  assert.equal(stable.data.case.generation,after.data.case.generation,'Local tool layout must not mutate the Case');
+  assert.deepEqual(stable.data.conversation,after.data.conversation,'Unsent draft must not become a Turn');
+ }
  assert.deepEqual(errors,[]);await writeFile(`${evidence}/summary.json`,JSON.stringify(after,null,2));
  console.log(JSON.stringify({result:'PASS',case_ref:caseRef,before:before.data.case.generation,after:after.data.case.generation,host_instance:telemetry.instance_id,host_pid:telemetry.pid,attachments:2,events:events.length,resources:after.data.environment.resources.map(r=>r.kind),sources:after.data.environment.sources.map(s=>({id:s.id,kind:s.kind,revision:s.revision_ref,posture:s.posture})),proof:after.data.case.generation!==before.data.case.generation?'Real Unix Host event fanout -> two LiveClients -> authoritative resync; Journal pause/resume':'Two live Host attachments and read-only surface inspection; mutation event proof not selected',mutation:command??'none'}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify({exchanges,events},null,2));sockets.forEach(s=>s.destroy());await browser.close();}

@@ -1265,3 +1265,20 @@ algorithm. Catalog metadata neither registers a target nor qualifies it. YVEX
 compat.v3 HTTP has no Source/Artifact acquisition or engine-load management API;
 the producer's local management plane requires a separate qualified connection.
 Studio displays that boundary explicitly instead of issuing remote shell commands.
+
+### Independent contextual tools
+
+Conversation, Inspector and Activity are mounted Workbench contributions. Each
+can remain docked or become a movable, resizable card inside the same WebView;
+they do not create native windows or Host clients. Closing a card hides it;
+the compact contextual launcher reopens it. Conversation retains the same
+composer and execution observation during layout changes. Inspector can pin an
+exact object while other selection changes; an explicit relation link inside
+the card replaces that pinned target. Technical metadata remains collapsible.
+
+Card arrangement, file buffers, tabs and navigation are partitioned by Case and
+Participant in the window-local session. Returning to a Case restores its
+arrangement; this is not a shared or persisted Case View. Cards are constrained
+to the viewport on resize. Their move/resize handles accept arrow keys, close
+returns focus to the Work Surface, and Focus Work Surface temporarily hides all
+contextual tools without disposing them. Reset Layout restores the docked layout.

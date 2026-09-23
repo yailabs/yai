@@ -212,6 +212,16 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    previously closed regions stay closed and region sizes return unchanged.
    Repeat at 1000×650. `npm run test:focus` checks the layout/state boundary.
 
+   Float Conversation and Inspector independently using their toolbar controls.
+   Enter an unsent draft, pin an Inspector object, then open another file. The
+   draft and pinned object must remain exact. Move/resize a card using its handle
+   (drag or arrow keys), close/reopen it from the contextual launcher, then dock
+   it again. Switch to another Case and back: each Case/Participant retains its
+   own drafts and card layout. At 1000×650 every card must stay reachable. These
+   are local interaction facts, not new Host attachments or Case mutations.
+   `npm run test:context-tools` retains the four-size fixture regression; live
+   Conversation execution is separately qualified by `test:conversation`.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

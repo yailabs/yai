@@ -108,8 +108,14 @@ try {
  assert.equal(generationRequests,baselineRequests+1);assert.equal(await composer.inputValue(),'');
  // Exact retry after lost acknowledgement and read-only recovery must not redispatch.
  dropAcknowledgement='conversation.send';await composer.fill('Second exact Studio message');await page.getByRole('button',{name:'Send',exact:true}).click();
+ await page.getByRole('button',{name:'Float Conversation',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.turn-ai > p').length===2);
  await page.waitForFunction(()=>[...document.querySelectorAll('.turn-ai > p')].every(p=>p.textContent==='Controlled provider response'));
+ const committedRefs=(await accepted('case.summary',{case_ref:caseRef})).conversation.turns.map(turn=>turn.execution_request_ref);
+ await page.getByRole('button',{name:'Close Conversation tool',exact:true}).click();
+ await page.getByRole('button',{name:'Open Conversation tool',exact:true}).click();
+ await page.getByRole('button',{name:'Dock Conversation',exact:true}).click();
+ assert.deepEqual((await accepted('case.summary',{case_ref:caseRef})).conversation.turns.map(turn=>turn.execution_request_ref),committedRefs);
  assert.equal(generationRequests,baselineRequests+2);
  const sent=exchanges.filter(x=>x.request.operation_ref==='conversation.send').at(-1);
  const retry=await accepted('conversation.send',sent.request.input);assert.equal(retry.created,false);

@@ -17,6 +17,27 @@ const { materialIdentity, validateMaterialRead, validateMaterialContent, Materia
 const { detectEditorLanguage } = require(path.join(studio, "contrib/surfaces/editorLanguage.js"));
 const { buildFileTree } = require(path.join(studio, "contrib/case/environment.js"));
 
+test('context tools retain local state within exactly one Case and Participant', () => {
+  const {WorkbenchSession}=require(path.join(studio,'workbench/kernel/session.js'));
+  const {fitTool}=require(path.join(studio,'workbench/kernel/contextTools.js'));
+  const window=new WorkbenchSession();
+  const a=window.forCase('case:a','participant:one');
+  a.contextTools.update('Inspector',{open:true,floating:true,pinnedRef:'source:a',bounds:{x:1400,y:900,width:500,height:900}});
+  for(const other of [window.forCase('case:b','participant:one'),window.forCase('case:a','participant:two')]) {
+    assert.deepEqual(other.contextTools.snapshot(),{});
+    assert.notEqual(other.buffers,a.buffers);
+    assert.notEqual(other.navigation,a.navigation);
+  }
+  assert.equal(window.forCase('case:a','participant:one'),a);
+  a.contextTools.update('Inspector',{open:false});
+  assert.equal(a.contextTools.get('Inspector').pinnedRef,'source:a');
+  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+    const box=fitTool(a.contextTools.get('Inspector').bounds,{width,height});
+    assert.ok(box.x>=12&&box.y>=72&&box.x+box.width<=width-12&&box.y+box.height<=height-32);
+  }
+  a.contextTools.reset();assert.deepEqual(a.contextTools.snapshot(),{});window.dispose();
+});
+
 test("policy routing uses declared roles without losing dual-role material or inferring filenames", () => {
   const { environmentMaterials, isPolicySource } = require(path.join(studio, "contrib/case/environment.js"));
   const { sourceInput } = require(path.join(studio, "contrib/surfaces/inputs.js"));

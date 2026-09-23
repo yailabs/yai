@@ -76,7 +76,7 @@ export const builtInContributions: readonly StudioContribution[] = [
         workbench.settings.register({ id: "general.caseContinuity", title: "Case continuity", description: "Back and Forward traverse local Studio navigation. Closing a tab or window does not close the durable Case.", section: "General", scope: "local", control: "information", available: true }),
         workbench.settings.register({ id: "appearance.reducedMotion", title: "Reduce motion", description: "Minimize nonessential Workbench transitions.", section: "Appearance", scope: "local", control: "boolean", defaultValue: false, available: true }),
         workbench.settings.register({ id: "terminal.scrollback", title: "Terminal scrollback", description: "Maximum number of lines retained by a local terminal renderer.", section: "Terminal", scope: "local", control: "number", defaultValue: 5000, available: platform.host.capabilities.terminalAvailable, unavailableReason: "Requires the desktop host" }),
-        workbench.settings.register({ id: "host.currentTopology", title: "Current YAI topology", description: "Studio attaches to the resident same-user YAI Local Host. RuntimeInstance supervision remains separate.", section: "YAI Host", scope: "host", control: "information", available: true }),
+        workbench.settings.register({ id: "host.currentTopology", title: "Current YAI topology", description: "Studio attaches to the resident same-user YAI Local Host. The Host supervises RuntimeInstance; Case continuity remains owned by YAI.", section: "YAI Host", scope: "host", control: "information", available: true }),
         workbench.settings.register({ id: "editor.localBuffers", title: "Local file buffers", description: "The text editor retains local undo, find/replace and unsaved drafts. Saving remains unavailable until YAI exposes governed file mutation.", section: "Editor", scope: "local", control: "information", available: true }),
         workbench.settings.register({ id: "security.authority", title: "Case authority", description: "Authority remains YAI-owned and cannot be changed through local Studio preferences.", section: "Security", scope: "case", control: "information", available: false, unavailableReason: "Use qualified YAI authority operations" }),
         workbench.settings.register({ id: "advanced.persistence", title: "Preference storage", description: "Versioned local preferences use browser/WebView local storage; no Case database is created.", section: "Advanced", scope: "local", control: "information", available: true }),
@@ -88,7 +88,7 @@ export const builtInContributions: readonly StudioContribution[] = [
     register({ workbench }) {
       return [
         workbench.registerAuxiliaryView({ id: "Conversation", title: "Conversation", order: 0, component: ConversationView }),
-        workbench.registerAuxiliaryView({ id: "Inspector", title: "Inspector", order: 1, component: InspectorView }),
+        workbench.registerAuxiliaryView({ id: "Inspector", title: "Inspector", order: 1, component: InspectorView, followsSelection: true }),
         workbench.registerAuxiliaryView({ id: "Activity", title: "Activity", order: 2, component: ActivityView }),
         workbench.registerInspector({ kind: "default", component: InspectorView }),
       ];

@@ -19,6 +19,7 @@ p = argparse.ArgumentParser()
 p.add_argument('--binary', type=Path, required=True)
 p.add_argument('--case', default='case:studio-live-qualification')
 p.add_argument('--evidence', type=Path, required=True)
+p.add_argument('--context-tools', action='store_true')
 a = p.parse_args()
 assert os.environ.get('YAI_HOME'), 'Explicit YAI_HOME required'
 a.evidence.mkdir(parents=True, exist_ok=True)
@@ -87,6 +88,29 @@ try:
     script('document.dispatchEvent(new KeyboardEvent("keydown",{key:"j",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')
     assert script('return document.querySelector(".kernel-status").innerText')==generation
+    if a.context_tools:
+        script('const button=[...document.querySelectorAll(".live-context .segmented button")].find(b=>b.textContent==="Conversation");button.click()')
+        wait('return document.querySelector(`textarea[aria-label="Message to the Case"]`)')
+        composer=request('POST',f'/session/{session}/element',{'using':'css selector','value':'textarea[aria-label="Message to the Case"]'})['element-6066-11e4-a52e-4f735466cecf']
+        request('POST',f'/session/{session}/element/{composer}/value',{'text':'NATIVE_UNSENT_CONTEXT_DRAFT'})
+        script('window.nativeComposer=document.querySelector(`textarea[aria-label="Message to the Case"]`);document.querySelector(`button[aria-label="Float Conversation"]`).click()')
+        wait('return document.querySelector(".context-tool-floating[data-tool=Conversation]")')
+        script('document.querySelector(`button[aria-label="Open Inspector tool"]`).click()')
+        wait('return document.querySelector(`button[aria-label="Float Inspector"]`)')
+        script('document.querySelector(`button[aria-label="Float Inspector"]`).click()')
+        for width,height in [(1600,960),(1440,900),(1280,800),(1000,650)]:
+            scale=script('return devicePixelRatio')
+            request('POST',f'/session/{session}/window/rect',{'width':round(width*scale),'height':round(height*scale)})
+            wait('return [...document.querySelectorAll(".context-tool-floating")].every(e=>{const r=e.getBoundingClientRect();return r.x>=12&&r.y>=72&&r.right<=innerWidth-11&&r.bottom<=innerHeight-31})')
+            shot(f'native-context-{width}x{height}')
+        script('document.querySelector(`button[aria-label="Close Conversation tool"]`).click()')
+        wait('return document.querySelector(".context-tool[data-tool=Conversation]").hidden')
+        script('document.querySelector(`button[aria-label="Open Conversation tool"]`).click()')
+        wait('return !document.querySelector(".context-tool[data-tool=Conversation]").hidden')
+        script('document.querySelector(`button[aria-label="Dock Conversation"]`).click()')
+        assert script('return window.nativeComposer===document.querySelector(`textarea[aria-label="Message to the Case"]`) && window.nativeComposer.value==="NATIVE_UNSENT_CONTEXT_DRAFT"')
+        assert script('return document.querySelector(".kernel-status").innerText')==generation
+        print(json.dumps({'result':'PASS','proof':'Native dock/float/close retains exact composer; two independent bounded cards; four viewport sizes; no Case generation change'}))
     print(json.dumps({'result':'PASS','case_ref':a.case,'status':generation,'driver':attached['capabilities'],'proof':['Native release WebKitGTK/Tauri Workbench','Real PTY shell output','Four CSS viewport sizes','Single-row headers','Status bar remains visible','No horizontal terminal overflow','Two shells -> conditional sidebar -> last close hides panel -> Ctrl+J recreates shell','Case generation unchanged']}))
 except Exception:
     if session:

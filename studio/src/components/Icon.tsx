@@ -19,6 +19,7 @@ const paths = {
   provider: "M7 3v4 M17 3v4 M5 7h14v4a7 7 0 0 1-14 0z M12 18v4",
   providers: "M4 4h16v6H4z M4 14h16v6H4z M7 7h.01 M7 17h.01 M11 7h6 M11 17h6",
   processor: "M6 6h12v12H6z M9 9h6v6H9z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4",
+  pin: "M9 3h6 M10 3v7l-3 4h10l-3-4V3 M12 14v7",
   left: "M3 4h18v16H3z M9 4v16",
   right: "M3 4h18v16H3z M15 4v16",
   bottom: "M3 4h18v16H3z M3 14h18",

@@ -752,3 +752,31 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .rail-preference-row { min-height: 32px; font-size: 13px; }
 .rail-preference-row small { color: var(--yai-text-muted); }
 .rail-customization > footer { justify-content: space-between; margin-top: 20px; }
+
+/* Context tools move within this WebView. Their mounted content owns no Host. */
+.context-deck[data-docked="false"] { width: 0; flex-basis: 0; overflow: visible; background: transparent; }
+.context-tool { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; background: var(--yai-panel); }
+.context-tool[hidden] { display: none; }
+.context-tool-docked { flex: 1; }
+.context-tool-floating { position: fixed; border: 1px solid var(--yai-divider); border-radius: 12px; box-shadow: 0 16px 48px #0008; }
+.context-tool-floating:focus-within { border-color: var(--yai-text-muted); }
+.context-tool-toolbar { display: flex; align-items: center; min-height: 32px; padding: 4px 8px 4px 14px; gap: 4px; border-bottom: 1px solid var(--yai-divider); }
+.context-tool-toolbar > span, .context-tool-handle { flex: 1; min-width: 0; font-size: 12px; font-weight: 550; text-align: left; }
+.context-tool-docked .context-tool-toolbar > span { color: var(--yai-text-muted); font-size: 11px; }
+.context-tool-handle { cursor: grab; touch-action: none; border: 0; background: transparent; padding: 6px 0; }
+.context-tool-handle:active { cursor: grabbing; }
+.context-tool-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.context-tool-content > * { min-height: 0; }
+.context-tool-content > .inspector > .ui-panel-header { display: none; }
+.context-tool .inspector-hero { margin: 0 4px 14px; padding: 12px 8px 14px; border-radius: 0; background: transparent; border-bottom: 1px solid var(--yai-divider); }
+.context-tool .inspector-hero > div:first-child { width: 24px; height: 24px; margin-bottom: 8px; background: transparent; }
+.context-tool .inspector-hero h2 { font-size: 16px; }
+.context-tool .inspector dl { background: transparent; padding: 0 8px; }
+.context-tool .inspector dl > div { border-bottom: 1px solid var(--yai-divider); }
+.context-tool-pinned { display: flex; justify-content: space-between; padding: 6px 14px; font-size: 10px; color: var(--yai-text-muted); border-bottom: 1px solid var(--yai-divider); }
+.context-tool-pinned button { padding: 0; border: 0; background: none; color: var(--yai-text); font-size: inherit; }
+.context-tool-resize { position: absolute; bottom: 2px; right: 2px; padding: 1px 4px; color: var(--yai-text-muted); background: transparent; border: 0; cursor: nwse-resize; touch-action: none; }
+.context-tool-launcher { position: absolute; right: 12px; top: 38px; display: flex; padding: 3px; gap: 2px; border-radius: 8px; background: var(--yai-panel); border: 1px solid var(--yai-divider); z-index: 43; }
+.context-tool-launcher button { padding: 4px 9px; border: 0; background: transparent; color: var(--yai-text-muted); font-size: 11px; border-radius: 5px; }
+.context-tool-launcher button[aria-pressed="true"] { background: var(--yai-selected); color: var(--yai-text); }
+@media(max-width:1100px) { .context-deck[data-docked="true"] { width: min(var(--right-width), 300px); flex-basis: min(var(--right-width), 300px); } }

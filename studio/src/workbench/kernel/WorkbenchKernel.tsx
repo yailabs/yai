@@ -1,3 +1,4 @@
+import { ContextTools } from "./ContextTools";
 import { RailCustomization, useRailPreference } from "./RailCustomization";
 import { SurfaceTabs } from "../surface/SurfaceTabs";
 import { OpenWith } from "../surface/OpenWith";
@@ -68,8 +69,9 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const [hostState, setHostState] = useState(platform.host.snapshot());
   const restoredBottomHeight = useRef(bottomHeight);
   const windowSession = useMemo(() => new WorkbenchSession(), []);
-  const session = windowSession.forCase(workspace.case.case_ref);
-  const { surfaces, buffers, navigation } = session;
+  const session = windowSession.forCase(workspace.case.case_ref, workspace.case.participant_ref);
+  const { surfaces, buffers, navigation, contextTools } = session;
+  const toolStates = useSyncExternalStore(useCallback(listener => contextTools.subscribe(listener).dispose, [contextTools]), contextTools.snapshot);
   const [, invalidateSurfaces] = useState(0);
   const surfaceState = surfaces.snapshot();
   const surfaceArchive = session.archive;
@@ -203,7 +205,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     command("studio.view.toggleBottomPanel", "Bottom Panel", () => toggleRegion("panel"));
     command("studio.view.focusSurface", "Focus Work Surface / Restore Workbench", toggleSurfaceFocus, when.truthy("surface.active"));
     command("studio.view.customizeRail", "Customize Activity Rail…", () => setCustomizeRail(true));
-    command("studio.view.resetLayout", "Reset Layout", () => { setSurfaceFocused(false); setLeftOpen(true); setRightOpen(true); setBottomOpen(true); platform.configuration.update("workbench.sidebar.width", 204); platform.configuration.update("workbench.auxiliary.width", 320); platform.configuration.update("workbench.panel.heightRatio", .36); setLeftWidth(204); setRightWidth(320); const height = Math.max(260, Math.floor(window.innerHeight * .36)); restoredBottomHeight.current = height; setBottomHeight(height); setBottomMaximized(false); });
+    command("studio.view.resetLayout", "Reset Layout", () => { contextTools.reset(); setSurfaceFocused(false); setLeftOpen(true); setRightOpen(true); setBottomOpen(true); platform.configuration.update("workbench.sidebar.width", 204); platform.configuration.update("workbench.auxiliary.width", 320); platform.configuration.update("workbench.panel.heightRatio", .36); setLeftWidth(204); setRightWidth(320); const height = Math.max(260, Math.floor(window.innerHeight * .36)); restoredBottomHeight.current = height; setBottomHeight(height); setBottomMaximized(false); });
     command("studio.go.back", "Back", () => applyLocation(navigation.back()), () => navigation.canBack());
     command("studio.go.forward", "Forward", () => applyLocation(navigation.forward()), () => navigation.canForward());
     const adjacentSurface = (delta: number) => {
@@ -244,7 +246,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     registrations.add(toDisposable(() => { document.removeEventListener("focusin", focus); document.removeEventListener("focusout", focus); }));
     registrations.add(platform.keybindings.attach());
     return () => registrations.dispose();
-  }, [applyLocation, closeSurface, containers, dispatchSurfaceCommand, openCaseSwitcher, openPerspective, openSettings, platform, refresh, surfaceState.activeId, surfaceState.inputs, surfaces, toggleRegion, toggleSurfaceFocus]);
+  }, [applyLocation, closeSurface, containers, contextTools, dispatchSurfaceCommand, openCaseSwitcher, openPerspective, openSettings, platform, refresh, surfaceState.activeId, surfaceState.inputs, surfaces, toggleRegion, toggleSurfaceFocus]);
 
   useEffect(() => {
     platform.context.update("studio.data.live", workspace.presentation.dataKind === "live");
@@ -285,12 +287,10 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const surfaceRenderer = activeInput ? registry.surfaceRenderer(activeInput.surfaceType) : undefined;
   const sidebarViews = registry.viewsFor(activeContainer);
   const panelViews = registry.panelViews(); const activePanel = panelViews.find((view) => view.id === panel) ?? panelViews[0];
-  const auxiliaryViews = registry.auxiliaryViews(); const activeAuxiliary = auxiliaryViews.find((view) => view.id === auxiliary) ?? auxiliaryViews[0];
-  const inspector = auxiliary === "Inspector" ? registry.inspector("default") : undefined;
+  const auxiliaryViews = registry.auxiliaryViews().map(view => view.followsSelection ? {...view, component:registry.inspector("default")?.component ?? view.component} : view);
   const renderContext = { workspace, selection, actions, platform, settings: registry.settings, readMaterial, buffers };
   const SurfaceComponent = surfaceRenderer?.component;
 
-  const AuxiliaryComponent = inspector?.component ?? activeAuxiliary?.component;
   const commandItems = (): WorkbenchSearchItem[] => platform.commands.entries().map((command) => ({ id: command.id, label: command.title, detail: platform.keybindings.shortcutFor(command.id), category: "Command", icon: "arrow", disabled: !command.enabled, run: () => void platform.commands.executeCommand(command.id) }));
   const quickItems = (): WorkbenchSearchItem[] => {
     const known = new Map<string, WorkbenchSearchItem>();
@@ -321,7 +321,8 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
         {panelVisible && <Splitter label="Resize bottom panel" axis="y" reverse value={bottomHeight} min={190} max={bottomLimit} set={(value) => { setBottomMaximized(false); restoredBottomHeight.current = value; setBottomHeight(value); platform.configuration.update("workbench.panel.heightRatio", Math.max(.2, Math.min(.72, value / window.innerHeight))); }} />}
         <section hidden={!panelVisible} className="live-bottom" id="case-tools" style={{ height: bottomHeight }} aria-label="Bottom tools"><header><div className="panel-tabs" ref={panelTabs}>{panelViews.map((view) => <button key={view.id} aria-pressed={panel === view.id} onClick={() => setPanel(view.id)}>{view.title}</button>)}</div><div className="panel-contribution-toolbar" ref={setPanelToolbarTarget} /><IconButton aria-label={bottomMaximized ? "Restore bottom panel" : "Maximize bottom panel"} onClick={() => { if (bottomMaximized) { setBottomHeight(restoredBottomHeight.current); setBottomMaximized(false); } else { restoredBottomHeight.current = bottomHeight; setBottomHeight(bottomLimit); setBottomMaximized(true); } }}><Icon name={bottomMaximized ? "restore" : "maximize"} size={14} /></IconButton><IconButton aria-label="Close bottom panel" onClick={() => setBottomOpen(false)}><Icon name="close" size={14} /></IconButton></header><div className="tool-content">{panelViews.map((view) => { const Component = view.component; const visible = panelVisible && activePanel?.id === view.id; return <div key={view.id} className="tool-pane" hidden={!visible}><Component {...renderContext} visible={visible} available={platform.host.capabilities.terminalAvailable} toolbarTarget={visible ? panelToolbarTarget : null} closePanel={() => setBottomOpen(false)} /></div>; })}</div></section>
       </section>
-      {auxiliaryVisible && <Splitter label="Resize context panel" axis="x" reverse value={rightWidth} min={290} max={470} set={value => { setRightWidth(value); platform.configuration.update("workbench.auxiliary.width", value); }} />}<aside hidden={!auxiliaryVisible} className="live-context" id="case-conversation"><header><div className="segmented">{auxiliaryViews.map((view) => <button key={view.id} aria-pressed={auxiliary === view.id} onClick={() => setAuxiliary(view.id)}>{view.title}</button>)}</div><IconButton aria-label="Close context panel" onClick={() => setRightOpen(false)}><Icon name="right" /></IconButton></header>{AuxiliaryComponent && <AuxiliaryComponent {...renderContext} />}</aside>
+      {auxiliaryVisible && !toolStates[auxiliary]?.floating && <Splitter label="Resize context panel" axis="x" reverse value={rightWidth} min={290} max={470} set={value => { setRightWidth(value); platform.configuration.update("workbench.auxiliary.width", value); }} />}
+      <ContextTools layout={contextTools} views={auxiliaryViews} context={renderContext} active={auxiliary} select={setAuxiliary} visible={auxiliaryVisible} close={() => setRightOpen(false)} />
     </div>
     <footer className="kernel-status" aria-label="Workbench status">
       <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>Generation {workspace.case.generation}</span><span>{activeInput?.title ?? activeContainer}</span></div>

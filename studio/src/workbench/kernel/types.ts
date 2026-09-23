@@ -95,6 +95,7 @@ export interface AuxiliaryViewContribution {
   title: string;
   order: number;
   component: ComponentType<AuxiliaryViewProps>;
+  followsSelection?: boolean;
 }
 
 export interface InspectorContribution {

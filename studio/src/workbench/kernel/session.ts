@@ -1,15 +1,17 @@
 import { NavigationService } from "../../platform/navigation";
 import { SurfaceBufferService } from "../surface/buffers";
 import { SurfaceGroupService, type SurfaceInput } from "../surface/model";
+import { ContextToolLayout } from "./contextTools";
 
-// Window-local interaction state, partitioned by Case. Switching attachment or
+// Window-local interaction state, partitioned by Case and Participant. Switching attachment or
 // losing the transport does not dispose drafts, tabs or navigation history.
 export class WorkbenchSession {
   private readonly cases = new Map<string, CaseWorkbenchSession>();
 
-  forCase(caseRef: string) {
-    let session = this.cases.get(caseRef);
-    if (!session) { session = new CaseWorkbenchSession(); this.cases.set(caseRef, session); }
+  forCase(caseRef: string, participantRef = "") {
+    const key = JSON.stringify([caseRef, participantRef]);
+    let session = this.cases.get(key);
+    if (!session) { session = new CaseWorkbenchSession(); this.cases.set(key, session); }
     return session;
   }
 
@@ -26,6 +28,7 @@ class CaseWorkbenchSession {
   readonly buffers = new SurfaceBufferService();
   readonly navigation = new NavigationService();
   readonly archive = new Map<string, SurfaceInput>();
+  readonly contextTools = new ContextToolLayout();
 
-  dispose() { this.surfaces.dispose(); this.buffers.dispose(); this.navigation.dispose(); this.archive.clear(); }
+  dispose() { this.surfaces.dispose(); this.buffers.dispose(); this.navigation.dispose(); this.archive.clear(); this.contextTools.dispose(); }
 }
