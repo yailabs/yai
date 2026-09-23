@@ -14,7 +14,7 @@ Counts below are inventory, never a percentage of product completion.
 | ⚪ LATER | Explicit horizon, not current implementation. |
 
 <!-- maturity-counts:start -->
-Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **17** · 🔴 OPEN **2** · ⚪ LATER **3** · **44 properties**.
+Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **17** · 🔴 OPEN **3** · ⚪ LATER **2** · **44 properties**.
 Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 <!-- maturity-counts:end -->
 
@@ -67,13 +67,15 @@ and primary model setup. These do not imply complete action coverage.
 **NOW:** enterprise Case/behavioral portfolio, Tenant Providers and Case Compute
 separation, registered rail preferences and Material/Product/Canvas composition.
 Independent docked/floating Conversation and Inspector are qualified in fixture,
-real-Host and native WebKitGTK lanes; real context-capacity execution remains open.
+real-Host and native WebKitGTK lanes. Exact serialized-request preflight and explicit
+archived context inspection now have controlled Host/UI/refusal/restart evidence;
+successful real enterprise inference remains open.
 **NEXT:** qualify the enterprise release question end to end, context closure,
 parallel/multi-client Case isolation and recovery through the actual Studio.
 **THEN:** extend the corpus and hardware matrix from observed product findings.
 **BLOCKED/OPEN CONTRACTS:** governed file Save; qualified folder intake/routing;
 policy catalog/composition projection; parent/child Case ownership; native YVEX
-remote management; complete request-capacity observation before inference.
+remote management; optional evidence refitting to observed target capacity.
 **HORIZON:** public E-state consumption, remote/mobile clients, Computer Use,
 shared declarative Case Views and public extensions. No automatic X03/X04 promotion.
 
@@ -177,7 +179,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SP02 | 🟡 PARTIAL | Models, provider adapter, deployment, qualification, trust and health kept distinct | Tenant target inventory and exposed model discovery are typed; per-Case usage aggregation and typed probe action remain open | compute-actions.mjs |
 | SP03 | 🟡 PARTIAL | Cognitive preparation distinguished from provider configuration | Primary conversation suitability and assignment are authored; auxiliary roles and exact planning/realization remain debt | Explicit Compute posture |
 | SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Live qualification passed; populated Case execution received HTTP 413 from the current 4096-token deployment | Controlled provider test is not external model evidence |
-| SY02 | ⚪ LATER | Native YVEX Source/Artifact/Profile/Engine/Session management | Versioned YVEX public management plane | No private producer coupling |
+| SY02 | 🔴 OPEN | Registered YVEX machines, LAN discovery, execution-location selection, runtime/model lifecycle and live logs/telemetry in Studio | Public authenticated remote discovery/enrollment/bootstrap/control contract required; local native CLI help and inference HTTP do not establish it | Selected Exon → DGX Spark operator requirement; no private producer coupling or fabricated telemetry |
 | SH01 | 🟢 ESTABLISHED | Resident same-user Unix Host, singleton discovery, events, auto-attach, telemetry and lifecycle | Host survives Studio; normal live mode never embeds Application | application/yai-host tests; existing native acceptance |
 | SH02 | 🟡 PARTIAL | Host supervises the existing RuntimeInstance; exact run/stop and reconnect observation | S1 lifecycle depth and ambiguous-delivery recovery remain open | effect-actions.mjs; application-execution-lifecycle characterization |
 | SI01 | 🟡 PARTIAL | Common typed Inspector for projected objects, graph edges and Journal events | Handoff inbox, execution result bodies and model catalog details require read projections | knowledge-navigation.mjs; navigation-journal.mjs |

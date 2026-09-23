@@ -25,6 +25,9 @@ export function makeConversationSend(caseRef: string, participant: string, threa
 export function conversationExecutionMessage(execution: ConversationExecution): string {
   if (execution.primary_result) return execution.primary_result.output;
   if (["admitted", "running"].includes(execution.posture)) return "Generating through YAI…";
+  if (execution.attempt_outcomes.some(outcome => outcome.failure_class === "request_capacity_refused")) {
+    return "YAI stopped this request before inference because its complete context could not be qualified against the target capacity. Inspect model context for the retained observation. Nothing was truncated or sent again.";
+  }
   if (execution.attempt_outcomes.some(outcome => outcome.response_status === 413)) {
     return "The model server rejected this request as too large (HTTP 413). The request includes Case context, even for a short message. Check the model deployment’s input limits in Compute. It has not been sent again.";
   }

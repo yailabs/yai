@@ -1,6 +1,7 @@
 import type { ProviderModelsInput, ProviderModels } from "./compute";
 import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBindingInput } from "./compute";
-import type { ConversationSendInput, ConversationSubmission, ConversationExecution } from "./conversation";
+import type { ConversationSendInput, ConversationSubmission } from "./conversation";
+import type { InspectedConversationExecution } from "./executionContext";
 import type { ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput } from "./execution";
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
@@ -174,7 +175,7 @@ export class LiveClient {
   resultHandoff(input: HandoffResultInput) { return this.call<WorkCommit>("handoff.result.record", input); }
   reconcileHandoff(input: { source_case_ref: string; handoff_ref: string }) { return this.call<WorkCommit>("handoff.reconcile", input); }
   sendConversation(input: ConversationSendInput) { return this.call<ConversationSubmission>("conversation.send", input); }
-  observeConversation(input: { case_ref: string; participant_ref: string; execution: { domain: "conversation"; submission_ref: string } | { domain: "cognitive_composition"; request_ref: string } }) { return this.call<ConversationExecution>("execution.get", input); }
+  observeConversation(input: { case_ref: string; participant_ref: string; include_context?: boolean; execution: { domain: "conversation"; submission_ref: string } | { domain: "cognitive_composition"; request_ref: string } }) { return this.call<InspectedConversationExecution>("execution.get", input); }
   attestProvider(input: SuitabilityInput) { return this.call<SemanticEvidence>("provider.suitability.record", input); }
   bindCognition(input: CognitiveBindingInput) { return this.call<CognitiveBinding>("cognitive.binding.set", input); }
   providerInventory(tenant_id: string) { return this.call<{ tenant_ref: string; targets: LiveWorkspace["compute"]["targets"]; total_visible_targets: number; omitted: number; case_usage: string }>("provider.inventory", { tenant_id }); }

@@ -282,6 +282,10 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
                 );
             }
         }
+        SemanticContextArtifact::ProviderInputObservation(observation) => {
+            println!("artifact_kind: provider_input_observation");
+            println!("{}", serde_json::to_string_pretty(&observation).map_err(|e| e.to_string())?);
+        }
     }
     Ok(())
 }
@@ -1602,6 +1606,10 @@ fn prompt_runtime_from_args_with_journal(
         ));
     }
     let transcript_enabled = transcript_retention_enabled(&journal, &case_ref, &subject_ref);
+    let extension_adapter_id = governance.as_ref().map(|governance| {
+        store.provider_posture_authorized(&authenticate_local()?, &governance.target_id)
+            .map(|(target, _, _, _)| target.extension_adapter_id)
+    }).transpose()?.flatten();
     let active_thread_id = ensure_default_thread(&journal_path, &journal, &case_ref, &subject_ref)?;
     let journal = Journal::load_jsonl(&journal_path)
         .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
@@ -1620,6 +1628,7 @@ fn prompt_runtime_from_args_with_journal(
             continuation_ref,
             governance,
             governed_locality,
+            extension_adapter_id,
         },
         active_thread_id: active_thread_id.clone(),
         legacy_status_notes: render_thread_context(&journal, &case_ref, &active_thread_id),
@@ -2953,6 +2962,7 @@ mod tests {
             continuation_ref: None,
             governance: None,
             governed_locality: None,
+            extension_adapter_id: None,
         }
     }
 

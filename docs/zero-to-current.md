@@ -1471,3 +1471,26 @@ Turn and exact execution outcome; never silently truncate Case context or
 redispatch it as a new message. The generic local endpoint currently depends
 on an operator loopback forward. Native remote model acquisition/load is not
 an exposed compat HTTP operation.
+
+### Inspect the context of a Conversation execution
+
+Open **Conversation → Execution details → Inspect model context**. This is an
+explicit `execution.get` read, not another SEND or Recall request. Compare the
+preparation generation, retained W entries/omissions, exact serialized byte count
+and digest. Expand the evidence to inspect required refs, Recall closure and the
+ContextFrame. Token capacity remains **Unknown** when no qualified public
+preflight observation exists. A compatible preflight is not a resource reservation.
+
+An opt-in `yvex.http.v1` target advertising public compat.v3 is preflighted using
+the final request bytes, including tool lowering. Incompatible input refuses
+before inference; the immutable Turn remains observable, with zero inference
+bytes and no automatic retry. No arbitrary truncation or summarization is used.
+Restart Host and reopen: the exact result/context observation remains available
+subject to current disclosure. Missing derived backing is reported, never rebuilt
+as if it were the bytes previously sent.
+
+`make test-context-capacity` exercises the typed Host dispatcher with a controlled
+local provider and a disposable profile. The optional `--studio-url` argument to
+`tests/qualification/behavioral-corpus/context_capacity.py` also qualifies the
+explicit Studio inspection at four viewport sizes. This lane is not external
+DeepSeek/YVEX inference or human acceptance.

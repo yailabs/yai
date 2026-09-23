@@ -1,0 +1,11 @@
+.execution-context { min-width: 0; padding-block: 8px; font-size: 12px; }
+.execution-context p { color: var(--text-muted, #999fa8); line-height: 1.5; margin-block: 10px; }
+.execution-context dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 7px 12px; margin-block: 14px; }
+.execution-context dt { color: var(--text-muted, #999fa8); }
+.execution-context dd { margin: 0; overflow-wrap: anywhere; }
+.execution-context details { min-width: 0; margin-block: 10px; }
+.execution-context summary { cursor: pointer; line-height: 1.5; }
+.execution-context pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+.execution-context-entry { display: grid; gap: 3px; padding-block: 9px; border-bottom: 1px solid var(--border-subtle, #24262a); }
+.execution-context-entry small { color: var(--text-muted, #999fa8); }
+.execution-context-entry code { font-size: 11px; overflow-wrap: anywhere; }

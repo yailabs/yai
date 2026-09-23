@@ -2,6 +2,8 @@
 //! Case/W and authorization remain in engine owners; no CLI arguments or global
 //! profile selection enter this reusable execution boundary.
 
+mod preflight;
+
 /// Explicit-profile credential lookup for resident application carriers.
 /// Never search the Host's working directory: it is not the client's profile.
 pub fn credential_from_profile(home: &std::path::Path, name: &str) -> Option<String> {
@@ -117,7 +119,21 @@ pub fn execute_prepared(
         InvocationOutputContract::MemoryConsolidation { .. }
             | InvocationOutputContract::WorkflowPlanPatch { .. }
     );
-    let transport = provider_chat_completion(
+    let observe = |wire: WireObservation| {
+        let observation = yai_core_engine::context::ProviderInputObservation {
+            schema: "yai.provider_input_observation.v1".into(),
+            observation_id: provider_input_observation_id(&invocation.invocation_id),
+            invocation_id: invocation.invocation_id.clone(),
+            case_id: semantic.frame.case_id.clone(), case_generation: semantic.frame.case_generation,
+            participant_id: semantic.frame.participant_id.clone(),
+            rendered_input_id: semantic.rendered.metadata.rendered_input_id.clone(),
+            target_id: config.provider_id.clone(), model_id: config.model.clone(),
+            serialized_request_digest: wire.digest, serialized_request_bytes: wire.bytes,
+            observed_at_unix_ms: crate::now_unix_ms()?, capacity: wire.capacity, refusal: wire.refusal,
+        };
+        store.put_semantic_context_artifact(&SemanticContextArtifact::ProviderInputObservation(observation))
+    };
+    let transport = provider_chat_completion_observed(
         store,
         config,
         &semantic.rendered,
@@ -125,6 +141,7 @@ pub fn execute_prepared(
         typed_parts,
         &semantic.frame.output_contract,
         Some(options.max_estimated_input_units),
+        Some(&observe),
     )?;
     let result_lineage = invocation_lineage(semantic, transport.continuation_disposition.clone());
     let result_id = record(&invocation, result_lineage, &transport.output)
@@ -244,6 +261,7 @@ pub fn governed_provider_route_for_exact_plan(
             logical_turn_id: selection.logical_turn_id.clone(), attempt_number: selection.attempt_number,
         }),
         governed_locality: Some(target.locality),
+        extension_adapter_id: target.extension_adapter_id,
     };
     Ok((config, selection))
 }
@@ -281,6 +299,16 @@ pub fn governed_attempt_outcome(
             0,
             None,
             Some("connect_failure".to_string()),
+        ),
+        Some(error) if error.starts_with("provider_not_dispatched:capacity_preflight:")
+            || matches!(error, "provider_not_dispatched:token_capacity_exceeded"
+                | "provider_not_dispatched:http_body_capacity_exceeded"
+                | "provider_not_dispatched:complete_wire_input_budget_exceeded") => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::RequestSerialized,
+            0,
+            None,
+            Some("request_capacity_refused".to_string()),
         ),
         Some(error) if error.starts_with("provider_not_dispatched:") => (
             ProviderDeliveryClass::NotDispatched,
@@ -420,7 +448,20 @@ pub struct ProviderConfig {
     pub continuation_ref: Option<ProviderContinuationReference>,
     pub governance: Option<ProviderInvocationGovernance>,
     pub governed_locality: Option<ProviderLocality>,
+    pub extension_adapter_id: Option<String>,
 }
+
+pub fn provider_input_observation_id(invocation_id: &str) -> String {
+    format!("provider-input:{}", yai_core_engine::context::stable_digest(invocation_id))
+}
+
+struct WireObservation {
+    digest: String,
+    bytes: usize,
+    capacity: Option<yai_core_engine::context::ProviderCapacityObservation>,
+    refusal: Option<String>,
+}
+type WireObserver<'a> = Option<&'a dyn Fn(WireObservation) -> Result<(), String>>;
 
 
 pub struct ProviderTransportResult {
@@ -761,13 +802,14 @@ pub fn provider_http_request(
         structured_json,
         typed_parts,
         None,
+        None,
+        None,
     )
 }
 
 struct NativeFunctionExchange<'a> {
     definitions: &'a [NativeFunctionDefinition],
     feedback: &'a [serde_json::Value],
-    max_input_units: Option<usize>,
 }
 
 /// Wire lowering, not conversation normalization. Text parts become distinct
@@ -792,6 +834,7 @@ pub fn append_openai_parts(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn provider_http_request_with_functions(
     config: &ProviderConfig,
     rendered: &RenderedInput,
@@ -799,10 +842,11 @@ fn provider_http_request_with_functions(
     structured_json: bool,
     typed_parts: Option<&[ProviderWireInputPart]>,
     native: Option<NativeFunctionExchange<'_>>,
+    max_input_units: Option<usize>,
+    observer: WireObserver<'_>,
 ) -> Result<(u16, String, usize), String> {
     let functions = native.as_ref().map(|n| n.definitions);
     let feedback = native.as_ref().map_or(&[][..], |n| n.feedback);
-    let max_input_units = native.as_ref().and_then(|n| n.max_input_units);
     let endpoint = crate::provider_transport::parse_provider_endpoint(&config.base_url)?;
     if let Some(reference) = continuation {
         if reference.provider_id != config.provider_id {
@@ -864,9 +908,19 @@ fn provider_http_request_with_functions(
     }
     let body = serde_json::to_vec(&body)
         .map_err(|error| format!("provider_request_encode_failed: {error}"))?;
-    if max_input_units.is_some_and(|limit| body.len().div_ceil(4) > limit) {
-        return Err("provider_not_dispatched:complete_wire_input_budget_exceeded".into());
+    let assessment = if max_input_units.is_some_and(|limit| body.len().div_ceil(4) > limit) {
+        Ok(preflight::Assessment {capacity: None, refusal: Some("complete_wire_input_budget_exceeded")})
+    } else { preflight::assess(config, &endpoint, &body) };
+    let (capacity, refusal) = match assessment {
+        Ok(value) => (value.capacity, value.refusal.map(str::to_string)),
+        Err(error) => (None, Some(format!("capacity_preflight:{error}"))),
+    };
+    if let Some(observe) = observer {
+        observe(WireObservation {digest: yai_core_engine::effect::digest_bytes(&body), bytes: body.len(),
+            capacity, refusal: refusal.clone()})
+            .map_err(|_| "provider_not_dispatched:input_observation_unavailable")?;
     }
+    if let Some(refusal) = refusal { return Err(format!("provider_not_dispatched:{refusal}")); }
     let response = crate::provider_transport::provider_http(
         &endpoint,
         config.governed_locality.as_ref(),
@@ -895,6 +949,21 @@ pub fn provider_chat_completion(
     typed_parts: Option<&[ProviderWireInputPart]>,
     output_contract: &InvocationOutputContract,
     max_input_units: Option<usize>,
+) -> Result<ProviderTransportResult, String> {
+    provider_chat_completion_observed(store, config, rendered, structured_json, typed_parts,
+        output_contract, max_input_units, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn provider_chat_completion_observed(
+    store: &LmdbRecordStore,
+    config: &ProviderConfig,
+    rendered: &RenderedInput,
+    structured_json: bool,
+    typed_parts: Option<&[ProviderWireInputPart]>,
+    output_contract: &InvocationOutputContract,
+    max_input_units: Option<usize>,
+    observer: WireObserver<'_>,
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
@@ -932,11 +1001,12 @@ pub fn provider_chat_completion(
             Some(NativeFunctionExchange {
                 definitions,
                 feedback: &feedback,
-                max_input_units,
             }),
+            max_input_units,
+            observer,
         )?
     } else {
-        provider_http_request(config, rendered, continuation, structured_json, typed_parts)?
+        provider_http_request_with_functions(config, rendered, continuation, structured_json, typed_parts, None, max_input_units, observer)?
     };
     let success = (200..300).contains(&status);
     let disposition = if success {

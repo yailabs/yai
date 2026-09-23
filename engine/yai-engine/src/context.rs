@@ -192,6 +192,50 @@ pub struct RenderedInput {
     pub user_content: String,
 }
 
+/// Derived observation of the complete serialized provider request. Capacity is
+/// producer-reported, time-bound evidence, never admission or a reservation.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderInputObservation {
+    pub schema: String,
+    pub observation_id: String,
+    pub invocation_id: String,
+    pub case_id: String,
+    pub case_generation: u64,
+    pub participant_id: String,
+    pub rendered_input_id: String,
+    pub target_id: String,
+    pub model_id: String,
+    pub serialized_request_digest: String,
+    pub serialized_request_bytes: usize,
+    pub observed_at_unix_ms: u64,
+    pub capacity: Option<ProviderCapacityObservation>,
+    pub refusal: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderCapacityObservation {
+    pub public_contract: String,
+    pub observation_kind: String,
+    pub model_id: String,
+    pub engine_generation: u64,
+    pub runtime_binding_identity: String,
+    pub runtime_model_identity: String,
+    pub capacity_plan_identity: String,
+    pub tokenizer_identity: Option<String>,
+    pub prompt_identity: Option<String>,
+    pub provider_request_identity: Option<String>,
+    pub http_body_limit_bytes: u64,
+    pub input_tokens: Option<u64>,
+    pub input_capacity_tokens: u64,
+    pub sequence_capacity_tokens: u64,
+    pub requested_output_tokens: Option<u64>,
+    pub effective_output_tokens: Option<u64>,
+    pub full_requested_output_fits: Option<bool>,
+    pub token_capacity_compatible: Option<bool>,
+    pub resource_reservation: bool,
+    pub execution_or_resources_qualified: bool,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "artifact_kind", content = "artifact", rename_all = "snake_case")]
 pub enum SemanticContextArtifact {
@@ -200,6 +244,7 @@ pub enum SemanticContextArtifact {
     ContextFrame(ContextFrame),
     RenderedInputMetadata(RenderedInputMetadata),
     ResidencyPlan(crate::residency::ResidencyPlan),
+    ProviderInputObservation(ProviderInputObservation),
 }
 
 impl SemanticContextArtifact {
@@ -210,6 +255,7 @@ impl SemanticContextArtifact {
             Self::ContextFrame(value) => &value.frame_id,
             Self::RenderedInputMetadata(value) => &value.rendered_input_id,
             Self::ResidencyPlan(value) => &value.plan_id,
+            Self::ProviderInputObservation(value) => &value.observation_id,
         }
     }
 
@@ -220,6 +266,7 @@ impl SemanticContextArtifact {
             Self::ContextFrame(value) => Some(&value.case_id),
             Self::RenderedInputMetadata(_) => None,
             Self::ResidencyPlan(value) => Some(&value.request.case_id),
+            Self::ProviderInputObservation(value) => Some(&value.case_id),
         }
     }
 }

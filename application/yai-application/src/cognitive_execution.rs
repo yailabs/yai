@@ -67,6 +67,87 @@ pub struct ConversationExecutionObservation {
     pub invocation_refs: Vec<String>,
     pub primary_result: Option<RecordedExecution>,
     pub attempt_outcomes: Vec<yai_core_engine::provider_governance::ProviderAttemptOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepared_context: Option<PreparedContextObservation>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PreparedContextObservation {
+    pub schema: String,
+    pub observed_generation: u64,
+    pub total_invocations: usize,
+    pub omitted_invocations: usize,
+    pub invocations: Vec<PreparedInvocationContext>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PreparedInvocationContext {
+    pub invocation_ref: String,
+    pub lineage: yai_core_engine::transition::ProviderInvocationLineage,
+    pub working_state: Option<yai_core_engine::semantic_state::SemanticWorkingState>,
+    pub projection: Option<yai_core_engine::context::Projection>,
+    pub frame: Option<yai_core_engine::context::ContextFrame>,
+    pub input_observation: Option<yai_core_engine::context::ProviderInputObservation>,
+    pub unavailable_reason: Option<String>,
+}
+
+/// Exact execution lineage, requalified under CURRENT disclosure. This is an
+/// explicit forensic read, never another compilation for dispatch or a retry.
+pub fn include_prepared_context(home: &std::path::Path, auth: &AuthenticatedPrincipal,
+    store: &LmdbRecordStore, observed: &mut ConversationExecutionObservation) -> Result<(), String> {
+    use yai_core_engine::context::{SemanticContextArtifact as Artifact, build_context_frame};
+    let before = authorized_conversation_case(auth, store, &observed.case_ref, &observed.participant_ref)?;
+    if before.generation != observed.observed_generation { return Err("conversation_execution_observation_stale".into()); }
+    let content = ConversationContentStore::open_existing(home).ok();
+    let history = store.list_case_transitions(&observed.case_ref)?;
+    let mut entries = Vec::new();
+    for id in observed.invocation_refs.iter().take(16) {
+        let (lineage, target, model) = history.iter().find_map(|t| match &t.payload {
+            TransitionPayload::ProviderInvocationStarted {invocation_id, participant_id, provider_id, model_id, semantic_lineage:Some(lineage), ..}
+                if invocation_id == id && participant_id == &observed.participant_ref => Some((lineage,provider_id,model_id)),
+            _ => None,
+        }).ok_or("execution_context_not_visible")?;
+        let mut entry = PreparedInvocationContext {invocation_ref:id.clone(),lineage:lineage.clone(),working_state:None,
+            projection:None,frame:None,input_observation:None,unavailable_reason:Some("derived_backing_unavailable".into())};
+        let Some(Artifact::Projection(projection)) = store.get_semantic_context_artifact(&lineage.projection_id)? else { entries.push(entry); continue };
+        let Some(Artifact::ContextFrame(frame)) = store.get_semantic_context_artifact(&lineage.context_frame_id)? else { entries.push(entry); continue };
+        let working_id = projection.bounds.working_state_id.as_deref().ok_or("execution_context_not_visible")?;
+        let Some(Artifact::WorkingState(working)) = store.get_semantic_context_artifact(working_id)? else { entries.push(entry); continue };
+        if working.case_id() != observed.case_ref || working.request().scope.participant_id != observed.participant_ref
+            || working.id() != working_id || working.generation() != lineage.case_generation
+            || projection.case_id != observed.case_ref || projection.participant_id != observed.participant_ref
+            || projection.projection_id != lineage.projection_id || projection.case_generation != lineage.case_generation
+            || projection.entries != working.entries()
+            || frame.frame_id != lineage.context_frame_id || frame.projection_id != projection.projection_id {
+            return Err("execution_context_not_visible".into());
+        }
+        store.validate_archived_working_state_authorized(auth, &working, content.as_ref())
+            .map_err(|_| "execution_context_not_visible")?;
+        if build_context_frame(&projection, &frame.task, frame.output_contract.clone())? != frame {
+            return Err("execution_context_not_visible".into());
+        }
+        let observation_id = provider::provider_input_observation_id(id);
+        if let Some(artifact) = store.get_semantic_context_artifact(&observation_id)? {
+            let Artifact::ProviderInputObservation(input) = artifact else { return Err("execution_context_not_visible".into()) };
+            if input.schema != "yai.provider_input_observation.v1"
+                || input.observation_id != observation_id || input.invocation_id != *id
+                || input.case_id != observed.case_ref || input.participant_id != observed.participant_ref
+                || input.case_generation != lineage.case_generation || input.rendered_input_id != lineage.rendered_input_id
+                || &input.target_id != target || &input.model_id != model
+                || input.capacity.as_ref().is_some_and(|capacity| &capacity.model_id != model) {
+                return Err("execution_context_not_visible".into());
+            }
+            entry.input_observation = Some(input);
+        }
+        entry.working_state = Some(working); entry.projection = Some(projection); entry.frame = Some(frame);
+        entry.unavailable_reason = None; entries.push(entry);
+    }
+    let after = authorized_conversation_case(auth, store, &observed.case_ref, &observed.participant_ref)?;
+    if before.generation != after.generation { return Err("conversation_execution_observation_stale".into()); }
+    observed.prepared_context = Some(PreparedContextObservation {schema:"yai.execution_context_observation.v1".into(),
+        observed_generation:after.generation,total_invocations:observed.invocation_refs.len(),
+        omitted_invocations:observed.invocation_refs.len().saturating_sub(entries.len()),invocations:entries});
+    Ok(())
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -120,7 +201,7 @@ pub fn submit_composition(home: &std::path::Path, auth: &AuthenticatedPrincipal,
         participant_ref: input.participant_ref, submission_ref: request.request_id.clone(),
         turn_ref: turn.turn_id.clone(), request_ref: request.request_id.clone(),
         observed_generation: state.generation + 1, posture: ConversationExecutionPosture::Admitted,
-        invocation_refs: vec![], primary_result: None, attempt_outcomes: vec![],
+        invocation_refs: vec![], primary_result: None, attempt_outcomes: vec![], prepared_context: None,
     };
     let home = home.to_path_buf();
     let auth = auth.clone();
@@ -425,7 +506,7 @@ fn observe_execution(home: &std::path::Path, auth: &AuthenticatedPrincipal, stor
     if latest.generation != state.generation { return Err("conversation_execution_observation_stale".into()); }
     Ok(ConversationExecutionObservation { schema: "yai.conversation_execution_observation.v1".into(), case_ref: case.into(),
         participant_ref: participant.into(), submission_ref: submission.into(), turn_ref: turn.turn_id.clone(),
-        request_ref: request.request_id.clone(), observed_generation: state.generation, posture, invocation_refs, primary_result, attempt_outcomes })
+        request_ref: request.request_id.clone(), observed_generation: state.generation, posture, invocation_refs, primary_result, attempt_outcomes, prepared_context: None })
 }
 
 /// Acknowledgement follows the atomic Turn + intent commit. Only its creator
@@ -482,7 +563,7 @@ pub fn submit_conversation(home: &std::path::Path, auth: &AuthenticatedPrincipal
         case_ref: input.case_ref, participant_ref: input.participant_ref, submission_ref: input.submission_ref,
         turn_ref: committed.turn.turn_id.clone(), request_ref: request.request_id.clone(),
         observed_generation: committed.generation, posture: ConversationExecutionPosture::Admitted,
-        invocation_refs: vec![], primary_result: None, attempt_outcomes: vec![] };
+        invocation_refs: vec![], primary_result: None, attempt_outcomes: vec![], prepared_context: None };
     let home = home.to_path_buf();
     let auth = auth.clone();
     // Carrier loss does not authorize redispatch. The observer distinguishes

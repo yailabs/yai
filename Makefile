@@ -977,6 +977,11 @@ test-topology:
 	@python3 tests/characterization/test_validation_topology.py
 
 .PHONY: test-behavioral-corpus
+.PHONY: test-context-capacity
+test-context-capacity: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@context_evidence=$$(mktemp -d); python3 tests/qualification/behavioral-corpus/context_capacity.py --yai $(YAI_BIN) --output "$$context_evidence/observations.jsonl"
+
 test-behavioral-corpus:
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/qualification/behavioral-corpus/test_runner.py

@@ -155,15 +155,34 @@ External Golden is a separate characterization/qualification axis, not a
 default gate on YAI implementation or publication. A live-provider property
 gates only a wave that explicitly selects it. Historical failures below remain
 external findings; they neither block unrelated semantic/security work nor
-qualify a PASS. Exact-target capacity integration remains separate future work.
+qualify a PASS. Exact-request preflight is bounded producer evidence, not general
+target qualification or execution acceptance.
 
 Mechanical shape qualification does **not** qualify a general executable
-request envelope. Current YAI qualification does not integrate exact target
-HTTP-body/tokenizer/context capacity or automatic preflight. `minimum_context_units` explicitly fails
+request envelope. An explicitly configured `yvex.http.v1` extension can consume
+the public `yvex.openai.compat.v3` catalog and same-origin preflight contract.
+After final wire lowering (including tools/feedback), YAI checks advertised body
+bytes and submits exactly those bytes to preflight. Exact model/deployment and
+capacity identities must agree; incompatible input refuses before inference.
+Compatible input is sent unchanged. Generic providers and older public contracts
+retain unknown token capacity; no token count is guessed from bytes.
+`minimum_context_units` explicitly fails
 closed when required; it must not be inferred from a model name. The capability
 work-loop `max_input_units` check over the complete serialized body is an
 application work bound (byte-derived units), not a model token count or an
-attestation of the remote HTTP/token envelope.
+attestation of the remote HTTP/token envelope. This bound now covers ordinary
+text requests as well as capability work-loop requests.
+
+`execution.get` accepts optional `include_context` for Conversation/composition
+observations. It resolves canonical invocation lineage, validates archived W
+against current disclosure, and returns exact retained W/Projection/ContextFrame
+plus a derived serialized-request digest/byte count and capacity observation.
+Missing retained backing stays unavailable. Reads do not dispatch, retry, or
+claim that a preflight reserves resources. Studio exposes this explicit read
+under Conversation → Execution details → Inspect model context; CLI can inspect
+the corresponding retained artifact through `context inspect --id`.
+Optional evidence refitting remains open: this boundary refuses rather than
+truncating content or synthesizing a summary. Working State W is not YVEX E.
 
 The [external Golden forensic evidence](../labs/external-runtime/external-golden-closure/REPORT.md)
 shows why these contracts cannot be conflated: YVEX accepts a 40,277-byte
@@ -186,11 +205,10 @@ postmortem preflight. New identities change tokenization despite equal byte size
 Both bodies omit `max_tokens` (reported requested output 0); no zero-output
 budget was inserted. Compatible preflight still says
 `execution_or_resources_qualified=false`: it is neither execution nor a resource
-reservation, and cannot turn that failed lifecycle into PASS. Production
-automatic preflight is not implemented by this diagnostic resume.
-A future exact-target admission contract
-must distinguish body bytes, input/tokenization capacity, context and output
-budget, and account for native tool/schema lowering. Unknown remains unknown.
+reservation, and cannot turn that failed lifecycle into PASS. That historical
+diagnostic resume did not implement automatic preflight; the current bounded
+consumer above does not retroactively qualify that run. Body bytes, input tokens,
+sequence capacity and output allowance remain distinct. Unknown remains unknown.
 
 Historical `ProviderAttached` Cases retain their exact pinned path and do not
 gain an approval/qualification requirement. New governed Cases use

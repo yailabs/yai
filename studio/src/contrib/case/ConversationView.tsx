@@ -4,6 +4,7 @@ import { Badge, Button } from "../../components/primitives";
 import { Icon } from "../../components/Icon";
 import { conversationExecutionMessage, conversationStorageKey, makeConversationSend, type ConversationExecution, type ConversationSendInput } from "../../clients/conversation";
 import { useApplicationAvailability } from "./applicationActions";
+import { ExecutionContext } from "./ExecutionContext";
 
 export function ConversationView(props: AuxiliaryViewProps) {
   return <Conversation key={`${props.workspace.case.case_ref}:${props.workspace.case.participant_ref}`} {...props} />;
@@ -122,7 +123,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
         <article className="real-turn turn-human"><header><strong>{turn.participant_ref === participant ? "You" : turn.participant_ref}</strong><small title={`Committed at generation ${turn.generation}`}>Committed</small></header>{turn.parts.map((part, index) => <p key={index}>{part.text ?? `[${part.modality} · ${part.media_type}]`}</p>)}</article>
         {execution && <article className="real-turn turn-ai"><header><strong>Model</strong>{!execution.primary_result && <Badge tone={ ["admitted", "running"].includes(execution.posture) ? "info" : "warning"}>{execution.posture.replaceAll("_", " ")}</Badge>}</header>
           <p>{conversationExecutionMessage(execution)}</p>
-          <details><summary>Execution details</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}{execution.attempt_outcomes.map((outcome, index) => <pre key={index}>{JSON.stringify(outcome, null, 2)}</pre>)}</details>
+          <details><summary>Execution details</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}{execution.attempt_outcomes.map((outcome, index) => <pre key={index}>{JSON.stringify(outcome, null, 2)}</pre>)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
         </article>}
       </div>; })}
     </div>

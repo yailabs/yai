@@ -504,7 +504,27 @@ Case continuity nor evidence of a successful external effect.
 
 ### Management plane
 
-Studio may later expose additional public YVEX product capabilities: installed
+The selected product requirement is a Studio-owned operator experience over
+public YVEX device and management contracts: discover eligible machines on the
+LAN, explicitly enroll a device, retain its verified identity across launches,
+select its execution location, start/stop the runtime, load/unload a model and
+observe supported status, memory accounting and bounded followable logs.
+For example, Studio on Exon selects the registered DGX Spark; execution and
+telemetry belong to Spark, not to the UI machine. An address or display name is
+not a durable device identity, and discovery does not grant trust or authority.
+
+YVEX owns device discovery/identity and its runtime management semantics; Studio
+consumes published contracts through the typed YAI boundary. Registration must
+preserve an authenticated association and distinguish a known offline device
+from an unknown peer or changed identity. Starting a stopped remote runtime
+requires a reachable authenticated management/bootstrap carrier on that machine;
+the stopped inference listener cannot provide its own startup mechanism.
+Transport, enrollment/revocation and lifecycle contracts must be qualified before
+this interaction can be implemented. Do not infer them from CLI help, a local
+Unix socket path, or generic OpenAI-compatible HTTP. No shell/SSH command runner
+in Studio substitutes for that contract.
+
+Additional public YVEX product capabilities may include installed
 and admitted models, engines, load/unload, deployment, compilation,
 memory/residency, sessions, runtime evidence, device state and authoritative
 telemetry. Runtime sessions here belong to YVEX, not a new YAI Case Session.

@@ -317,6 +317,8 @@ pub struct ExecutionGetInput {
     pub case_ref: String,
     pub participant_ref: String,
     pub execution: ExecutionReference,
+    #[serde(default)]
+    pub include_context: bool,
 }
 
 /// Domain-specific projections retain their own schema and lifecycle instead
@@ -1156,6 +1158,10 @@ impl LocalApplication {
             }
             "execution.get" => {
                 let input: ExecutionGetInput = decode_input(request)?;
+                if input.include_context && !matches!(&input.execution,
+                    ExecutionReference::Conversation {..} | ExecutionReference::CognitiveComposition {..}) {
+                    return Err("execution_context_domain_not_supported".into());
+                }
                 match input.execution {
                     ExecutionReference::ControlledEffect { operation_ref } => {
                         encode_result("execution_get", ExecutionObservation::ControlledEffect(
@@ -1184,14 +1190,16 @@ impl LocalApplication {
                                 &input.case_ref, &input.participant_ref, &plan_ref)?))
                     }
                     ExecutionReference::CognitiveComposition { request_ref } => {
-                        encode_result("execution_get", ExecutionObservation::Conversation(
-                            cognitive_execution::observe_cognitive_request(&self.home_path, &auth, &store,
-                                &input.case_ref, &input.participant_ref, &request_ref)?))
+                        let mut observed = cognitive_execution::observe_cognitive_request(&self.home_path, &auth, &store,
+                            &input.case_ref, &input.participant_ref, &request_ref)?;
+                        if input.include_context { cognitive_execution::include_prepared_context(&self.home_path, &auth, &store, &mut observed)?; }
+                        encode_result("execution_get", ExecutionObservation::Conversation(observed))
                     }
                     ExecutionReference::Conversation { submission_ref } => {
-                        encode_result("execution_get", ExecutionObservation::Conversation(
-                            cognitive_execution::observe_submission(&self.home_path, &auth, &store,
-                                &input.case_ref, &input.participant_ref, &submission_ref)?))
+                        let mut observed = cognitive_execution::observe_submission(&self.home_path, &auth, &store,
+                            &input.case_ref, &input.participant_ref, &submission_ref)?;
+                        if input.include_context { cognitive_execution::include_prepared_context(&self.home_path, &auth, &store, &mut observed)?; }
+                        encode_result("execution_get", ExecutionObservation::Conversation(observed))
                     }
                     ExecutionReference::RuntimeWork { submission_ref } => {
                         let item = store.observe_runtime_submission_authorized(
