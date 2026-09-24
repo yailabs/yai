@@ -22,7 +22,7 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
         error: target ? undefined : result.error?.safe_message ?? "This target is not available in the bounded Tenant inventory."});
     }).catch(() => { if (active) setRead({tenant, selection, catalog: availability.catalog, error: "Target details unavailable. Reconnect to YAI."}); });
     return () => { active = false; };
-  }, [application, availability.catalog, tenant, selection]);
+  }, [application, availability.catalog, tenant, selection, workspace]);
   const current = read?.tenant === tenant && read?.selection === selection && read?.catalog === availability.catalog
     && availability.state === "available" ? read : undefined;
   const target = current?.target;

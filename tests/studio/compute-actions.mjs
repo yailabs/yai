@@ -110,6 +110,19 @@ try {
  await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
  await page.locator('.inspector-view').getByRole('heading',{name:'unbound-inventory-target',exact:true}).waitFor();
  await page.locator('.inspector-view').getByText('Not bound',{exact:true}).waitFor();
+ // Tenant state can change without a Case generation change: toolbar refresh
+ // must invalidate both the inventory Surface and the selected Inspector.
+ const unbound=inventory.targets.find(item=>item.provider_key==='unbound-inventory-target');
+ const unchangedGeneration=(await accepted('case.summary',{case_ref:caseRef})).case.generation;
+ await accepted('provider.trust.set',{target_ref:unbound.id,posture:'denied'});
+ const inventoryReads=exchanges.filter(x=>x.request.operation_ref==='provider.inventory').length;
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await page.locator('.compute-target').filter({hasText:'unbound-inventory-target'}).getByText('denied',{exact:true}).waitFor();
+ await page.locator('.inspector-view').getByText('denied',{exact:true}).waitFor();
+ assert.ok(exchanges.filter(x=>x.request.operation_ref==='provider.inventory').length>=inventoryReads+2);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,unchangedGeneration);
+ assert.ok(await page.locator('.kernel-status .provider-status').innerText());
+
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
    await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/providers-${width}x${height}.png`});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -132,7 +145,7 @@ try {
    const restored=new ConfigurationService({'workbench.rail.hidden':[],'workbench.rail.order':[]});
    return restored.get('workbench.rail.order');
  });
- assert.deepEqual(retainedRail,['Qualification Tool B','Qualification Tool A']);
+ assert.deepEqual(retainedRail,['Telemetry','Qualification Tool B','Qualification Tool A']);
  await railDialog.getByRole('button',{name:'Restore rail defaults',exact:true}).click();
  assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
  await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});

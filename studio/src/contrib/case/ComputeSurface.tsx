@@ -29,7 +29,7 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
       } else { setInventory(undefined); setInventoryError(result.error?.safe_message ?? "Provider inventory unavailable."); }
     }).catch(() => { if (current) { setInventory(undefined); setInventoryError("Provider inventory connection unavailable."); } });
     return () => { current = false; };
-  }, [application, availability.catalog, tenant, scope, revision]);
+  }, [application, availability.catalog, tenant, scope, revision, workspace]);
   const currentInventory = inventory && inventory.tenant === tenant && inventory.catalog === availability.catalog && availability.state === "available" ? inventory : undefined;
   const targets = scope === "case" ? workspace.compute.targets : (currentInventory?.targets ?? []).filter(target => scope !== "yvex" || target.extension_adapter_id === "yvex.http.v1");
   const [yvexSetup, setYvexSetup] = useState(false);

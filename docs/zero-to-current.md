@@ -1736,3 +1736,10 @@ settings, the model entry for Compute, or Telemetry for current qualified
 observations. A model assignment is not a live reachability claim. Case stream
 reconnection/unavailability remains separately visible; fixture data stays
 explicit. The status bar does not expose the internal Case generation counter.
+
+Global **Refresh Case** also rereads the Tenant provider inventory and provider
+Inspector, including health/trust changes that do not advance Case generation.
+The status bar shows the bound provider's recorded health and its observation
+time in the tooltip, separately from Host connectivity and model assignment.
+It does not claim continuously observed model residency. No provider probe or
+inference runs merely because the operator refreshes the view.

@@ -823,3 +823,8 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .kernel-status .model-status[data-assigned="false"] { color: var(--yai-warning); }
 .kernel-status .status-connections button:hover { background: var(--yai-raised); }
 .kernel-status .status-connections button:focus-visible { outline: 1px solid var(--yai-focus); outline-offset: -1px; }
+
+.kernel-status .provider-status { max-width: 22vw; }
+.kernel-status .provider-status[data-state="healthy"] { color: var(--yai-success); }
+.kernel-status .provider-status[data-state="unavailable"] { color: var(--yai-error); }
+.kernel-status .provider-status[data-state="degraded"] { color: var(--yai-warning); }
