@@ -47,7 +47,12 @@ try {
  await page.getByRole('searchbox',{name:'Search Units',exact:true}).fill('');
  await page.getByRole('button',{name:'Open graph',exact:true}).click();
  await page.locator('.graph-viewport').waitFor();
- assert.ok(await page.locator('.graph-node').count() <= 20);
+ assert.equal(await page.locator('.graph-node').count(), Math.min(48, facts.nodes));
+ const budget = page.getByRole('combobox',{name:'Visible graph object budget'});
+ for (const count of [96,24,48]) {
+  await budget.selectOption(String(count));
+  assert.equal(await page.locator('.graph-node').count(), Math.min(count,facts.nodes));
+ }
  assert.match(await page.locator('.graph-summary').innerText(), new RegExp(`of ${facts.relations} relations`));
  const canvas=page.getByRole('group',{name:'Graph objects and directed relations'});
  const surface=await page.locator('.live-surface').boundingBox();const frame=await canvas.boundingBox();assert.ok(frame.height>surface.height*.65,'Graph must occupy the Surface, not a small inner widget');
@@ -59,10 +64,12 @@ try {
  await page.getByRole('button',{name:'Show related',exact:true}).click();
  await page.getByRole('button',{name:'Fit',exact:true}).click();
  const node = page.locator('.graph-node').first();
- const before = await node.boundingBox();
+ const before = await node.locator('rect').boundingBox();
  await page.mouse.move(before.x+before.width/2, before.y+before.height/2); await page.mouse.down(); await page.mouse.move(before.x+before.width/2+40,before.y+before.height/2+30,{steps:5}); await page.mouse.up();
- const after = await node.boundingBox(); console.log(JSON.stringify({dragBefore:before,dragAfter:after})); assert.ok(Math.abs(after.x-before.x-40)<3); assert.ok(Math.abs(after.y-before.y-30)<3);
+ const after = await node.locator('rect').boundingBox(); console.log(JSON.stringify({dragBefore:before,dragAfter:after})); assert.ok(Math.abs(after.x-before.x-40)<3); assert.ok(Math.abs(after.y-before.y-30)<3);
+ const draggedPosition = await node.getAttribute('transform');
  await page.getByRole('button',{name:'Fit',exact:true}).click();
+ assert.equal(await node.getAttribute('transform'), draggedPosition, 'Fit must preserve manual node placement');
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
   await page.setViewportSize({width,height});
   assert.ok(await page.locator('.kernel-status').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight));
@@ -79,5 +86,5 @@ try {
   await page.screenshot({path:`${evidence}/knowledge-${width}x${height}.png`});
  }
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',qualification:capture?'recorded Host projection replay':'authored deterministic Case projection',generation:facts.generation,units:facts.units,nodes:facts.nodes,relations:facts.relations,proof:['full-set search','bounded DOM','exact Inspector content','endpoint completeness','keyboard selection','drag in SVG coordinates','fit','full Surface canvas','wheel zoom','relation filtering and edge Inspector','four viewport sizes'],consoleErrors:0}));
+ console.log(JSON.stringify({result:'PASS',qualification:capture?'recorded Host projection replay':'authored deterministic Case projection',generation:facts.generation,units:facts.units,nodes:facts.nodes,relations:facts.relations,proof:['full-set search','bounded DOM','exact Inspector content','endpoint completeness','keyboard selection','drag in SVG coordinates','fit preserves dragged positions','24/48/96 object budgets','full Surface canvas','wheel zoom','relation filtering and edge Inspector','four viewport sizes'],consoleErrors:0}));
 } finally { await browser.close(); }

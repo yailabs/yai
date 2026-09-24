@@ -874,3 +874,10 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .platform-contracts span { color: var(--yai-text-secondary); }
 .deployment-idle { margin: auto; padding: 20px; text-align: center; color: var(--yai-text-muted); }
 @media(max-width:1280px) { .provider-workspace-toolbar { flex-wrap: wrap; padding: 8px 12px; }.provider-workspace-toolbar .ui-button { font-size: 11px; }.provider-workspace-status span { display:none; }.deployment-content { padding:12px; }.deployment-heading { padding:10px 12px; }.deployment-heading h2 { font-size:16px; } }
+
+/* Dense graph overview keeps spatial structure and accessible objects, not tiny text. */
+.graph-viewport .edge line { vector-effect: non-scaling-stroke; }
+.graph-viewport .graph-node.overview rect { fill: transparent; stroke: transparent; vector-effect: non-scaling-stroke; }
+.graph-viewport .graph-node.overview:hover rect, .graph-viewport .graph-node.overview:focus-visible rect, .graph-viewport .graph-node.overview.selected rect { stroke: var(--yai-accent); }
+.graph-viewport .graph-node.overview .node-label { opacity: 0; paint-order: stroke; stroke: var(--yai-inset); stroke-width: 4px; stroke-linejoin: round; }
+.graph-viewport .graph-node.overview:hover .node-label, .graph-viewport .graph-node.overview:focus-visible .node-label, .graph-viewport .graph-node.overview.selected .node-label { opacity: 1; }

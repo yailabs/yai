@@ -555,6 +555,9 @@ Check these additional UI behaviors at 1600×960, 1440×900, 1280×800 and 1000�
    the same navigation history. A new destination invalidates Forward.
 3. Open Knowledge Graph. Pan, wheel-zoom, drag a node, Fit, filter node/relation
    kinds, select an edge with the keyboard and inspect its exact endpoints.
+   Fit must retain dragged node positions. Choose 24, 48 or 96 visible objects;
+   these are pages of the current projection, not additional backend retrieval.
+   At overview zoom, focus/hover/selection reveals labels; zoom in for detail.
    Unresolved references stay explicit; Focus Work Surface restores the layout.
 4. In Memory run Recall with an explicit task and cut. Check the exact text,
    refs, reasons and limitations. Compile Working State only after explicitly

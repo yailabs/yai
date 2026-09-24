@@ -95,3 +95,14 @@ export function graphSlice(graph: CaseGraph, query: string, focus: string | unde
   const visible = new Set(nodes.map(node => node.id));
   return { nodes, edges: graph.edges.filter(edge => visible.has(edge.from) && visible.has(edge.to)), matches: matches.length, pages, page: current };
 }
+
+/** Camera geometry only; fitting must never rewrite dragged node positions. */
+export function graphBounds(nodes: Array<{ x: number; y: number }>) {
+  return { left: Math.min(0, ...nodes.map(node => node.x - 105)), top: Math.min(0, ...nodes.map(node => node.y - 40)), right: Math.max(210, ...nodes.map(node => node.x + 105)), bottom: Math.max(130, ...nodes.map(node => node.y + 50)) };
+}
+export function fitGraphCamera(nodes: Array<{ x: number; y: number }>, initial: Array<{ x: number; y: number }>, size: { width: number; height: number }) {
+  const bounds = graphBounds(nodes), basis = graphBounds(initial);
+  const fittedScale = (b: ReturnType<typeof graphBounds>) => Math.max(.001, Math.min(1, (size.width - 32) / (b.right - b.left), (size.height - 32) / (b.bottom - b.top)));
+  const scale = fittedScale(bounds), base = fittedScale(basis);
+  return { zoom: scale / base, x: ((basis.right + basis.left) - (bounds.right + bounds.left)) * scale / 2, y: ((basis.bottom + basis.top) - (bounds.bottom + bounds.top)) * scale / 2 };
+}

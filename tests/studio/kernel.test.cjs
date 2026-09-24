@@ -472,3 +472,30 @@ test('local preferences reject corrupt or unsafe values and retain bounded chang
     assert.deepEqual(new ConfigurationService({'workbench.rail.order':[]}).get('workbench.rail.order'),['B','A']);
   }finally{global.window=previous;}
 });
+
+test("graph fit changes camera without changing positions and bounds dragged objects", () => {
+ const {graphBounds,fitGraphCamera,completeGraph,graphSlice}=require(path.join(studio,"contrib/case/graph.js"));
+ const initial=[{x:100,y:100},{x:350,y:250}];
+ const moved=[{x:-900,y:1700},{x:350,y:250}];
+ const retained=JSON.stringify(moved);
+ for(const size of [{width:900,height:650},{width:300,height:250}]) {
+  const camera=fitGraphCamera(moved,initial,size), base=graphBounds(initial), actual=graphBounds(moved);
+  const scale=Math.min(1,(size.width-32)/(base.right-base.left),(size.height-32)/(base.bottom-base.top))*camera.zoom;
+  const x=(size.width-(base.left+base.right)*scale)/2+camera.x;
+  const y=(size.height-(base.top+base.bottom)*scale)/2+camera.y;
+  assert.ok(actual.left*scale+x>=15.99 && actual.right*scale+x<=size.width-15.99);
+  assert.ok(actual.top*scale+y>=15.99 && actual.bottom*scale+y<=size.height-15.99);
+ }
+ assert.equal(JSON.stringify(moved),retained);
+ const graph=completeGraph(Array.from({length:205},(_,i)=>({id:String(i),label:String(i)})),Array.from({length:204},(_,i)=>({id:'e'+i,from:'0',to:String(i+1),kind:'contains'})));
+ for(const budget of [24,48,96]) {
+  const ids=new Set(), edges=new Set();
+  for(let page=0;page<graphSlice(graph,'','0',0,budget).pages;page++) {
+   const slice=graphSlice(graph,'','0',page,budget);
+   assert.ok(slice.nodes.length<=budget);
+   assert.equal(slice.nodes[0].id,'0');
+   slice.nodes.forEach(node=>ids.add(node.id));slice.edges.forEach(edge=>edges.add(edge.id));
+  }
+  assert.equal(ids.size,205);assert.equal(edges.size,204);
+ }
+});
