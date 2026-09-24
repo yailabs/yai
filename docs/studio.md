@@ -522,25 +522,25 @@ unload another Case's shared deployment automatically.
 
 The reviewed public cuts are YVEX `main` at
 `3f4a1c182d35e5a0e163adb81008ae7a366efcc6` (local protocol 20) and `models2` at
-`9f64194814a6d65e8a30e99b584dec300cd52a4a` (local protocol 21, HTTP compatibility
-v3). The latter matches the operator-reported protocol version; this does not
-prove the running executable has that exact source SHA. Review the pinned
-[operation registry](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/config/operator/registry.json),
-[command ownership](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/architecture/commands.md),
-[compiler architecture](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/architecture/compilation.md),
-[local protocol](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/contracts/local-protocol.md),
-[telemetry contract](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/contracts/events-telemetry.md)
-and [HTTP profile](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/openai-compatibility.md).
+`dabbc09dacf500684b60a3ae8675956a016436b9` (local protocol 22, HTTP compatibility
+v3). This published source cut does not prove that the running deployment has
+been upgraded or reloaded. Review the pinned
+[operation registry](https://github.com/yailabs/yvex/blob/dabbc09dacf500684b60a3ae8675956a016436b9/config/operator/registry.json),
+[command ownership](https://github.com/yailabs/yvex/blob/dabbc09dacf500684b60a3ae8675956a016436b9/docs/architecture/commands.md),
+[compiler architecture](https://github.com/yailabs/yvex/blob/dabbc09dacf500684b60a3ae8675956a016436b9/docs/architecture/compilation.md),
+[local protocol](https://github.com/yailabs/yvex/blob/dabbc09dacf500684b60a3ae8675956a016436b9/docs/contracts/local-protocol.md),
+[telemetry contract](https://github.com/yailabs/yvex/blob/dabbc09dacf500684b60a3ae8675956a016436b9/docs/contracts/events-telemetry.md)
+and [HTTP profile](https://github.com/yailabs/yvex/blob/dabbc09dacf500684b60a3ae8675956a016436b9/docs/openai-compatibility.md).
 
 | Producer boundary | Executable scope at the reviewed cut | Studio integration posture |
 |---|---|---|
 | Finite offline owners / installed ABI | Search, HF/local acquisition, resume/stop, verification, preparation, artifacts, profiles, quantization and inspection | Selected product/advanced flows; no current shared YAI typed management carrier. Do not parse CLI output or link compiler ownership into React. |
-| Private local protocol v21 | Host status/memory/logs/stop, engine lifecycle, leases, sessions, generation, cancellation, events and preflight | Producer functionality exists. Versioned UID-local transport is explicitly private, not an authenticated remote SDK; a qualified management boundary is required. |
+| Private local protocol v22 | Host status/memory/logs/stop, engine lifecycle, leases, sessions, generation, cancellation, events and preflight | Producer functionality exists. Versioned UID-local transport is explicitly private, not an authenticated remote SDK; a qualified management boundary is required. |
 | HTTP compatibility v3 | Health, loaded-model discovery, exact model/capacity identities, preflight, Chat Completions and Responses subset | Generic governed inference and exact preflight already have YAI consumers. Raw producer data availability does not imply full Studio projection. |
 | Native media generation | Typed directional capabilities and admitted media-engine results/progress | Do not promise HTTP multimedia parity: the reviewed compatibility profile refuses multimodal input and image/audio endpoint families. Case output/evidence admission and a typed media route must be qualified. |
 | Remote machines | Local host/runtime facts do not establish network identity or remote trust | Enrollment, discovery, bootstrap, authenticated management and revocation remain shared YAI/producer contract work. |
 
-A subsequent public delta at YVEX
+The earlier public delta at YVEX
 [`671a5befa0c20f6e07248b0223fad4ec531c15bd`](https://github.com/yailabs/yvex/blob/671a5befa0c20f6e07248b0223fad4ec531c15bd/docs/contracts/remote-management.md)
 adds `device.describe` and `host.status` through a dedicated restricted SSH
 bootstrap. It requires independently approved host-key pinning, enrolled peer
@@ -549,6 +549,19 @@ administration or remote lifecycle/log/model controls. Shared YAI consumption
 and Studio interaction remain unqualified; producer availability is recorded
 separately from client coverage.
 
+The current `dabbc09` delta adds `model load MODEL --ctx N` and advanced
+`engine load PROFILE --ctx N`, backed by local protocol v22's
+`load_context_capacity`. Zero retains the registered default; a positive value
+requests a new text-engine generation subject to compiled model limits and
+resource admission. Existing loaded aliases are not resized or silently unloaded;
+media engines refuse the override. Protocol v21 clients are refused explicitly.
+This is published producer capability, **partially consumable**: generic YAI
+preflight can observe an admitted capacity, but Studio cannot issue native loads
+until shared management is qualified. The restricted remote bootstrap still
+exposes only identity/status. Operator-requested 4K qualification continues
+without reloading; successful small-Case inference does not qualify the full
+infrastructure Case or a larger deployment.
+
 Compilation has coordinated computation and parameter/package lanes. Package
 lineage joins executable specialization before an engine is loaded. A future
 pipeline UI must preserve this structure rather than draw a fictitious universal
@@ -556,9 +569,9 @@ linear “tensor → GGUF → generation” compiler for every family.
 
 Coverage means supported semantic actions with authored interactions and tests,
 not all registry rows turned into buttons. At the reviewed cut the registry has
-167 entries: 14 removed, 33 product-default, 60 product-advanced, 54 engineering
-and 6 API-only. These are producer inventory categories, not a Studio coverage
-percentage or 153 independent UI requirements. REPL-local, protocol, duplicated
+172 entries: 14 removed, 33 product-default, 64 product-advanced, 54 engineering,
+6 API-only and 1 automation. These are producer inventory categories, not a Studio coverage
+percentage or 158 independent UI requirements. REPL-local, protocol, duplicated
 porcelain/plumbing and diagnostic actions require explicit dispositions. No
 “90% required” or “90% integrated” claim is qualified. Regenerate the inventory
 from the pinned producer registry on the next delta check; do not maintain a

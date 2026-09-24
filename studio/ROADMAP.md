@@ -54,11 +54,11 @@ producer qualification leaves real-model reasoning quality unassessed. PERFORMS
 records measurements separately. Natural-language quality never
 substitutes for deterministic authority, identity and effect assertions.
 
-The YVEX contract reconciliation at `models2@9f64194814a6d65e8a30e99b584dec300cd52a4a`
-finds local protocol v21 and HTTP compatibility v3; public `main@3f4a1c1` is older
+The YVEX contract reconciliation at `models2@dabbc09dacf500684b60a3ae8675956a016436b9`
+finds local protocol v22 and HTTP compatibility v3; public `main@3f4a1c1` is older
 (protocol v20). [Studio doctrine](../docs/studio.md#published-producer-reconciliation)
 records pinned sources, process-role boundaries and the consumption matrix.
-The registry's 153 non-removed entries include engineering, protocol and local
+The registry's 158 non-removed entries include engineering, protocol and local
 REPL operations: no percentage of desired UI coverage has been established.
 The next delivery must distinguish producer support, transport availability,
 YAI Application/CLI coverage and tested Studio interaction for each selected action.
@@ -186,6 +186,16 @@ regenerate its human matrix. Never infer authority from discoverability.
 
 ### Latest YVEX public contract delta
 
+Current published `models2@dabbc09dacf500684b60a3ae8675956a016436b9`
+adds load-only text context selection (`--ctx`, native `load_context_capacity`)
+with protocol v22. Compiled model/resource admission remains YVEX-owned; this
+neither resizes an existing generation nor expands remote management. Posture:
+**partially consumable** through existing generic capacity observation, native
+load control still blocked on the shared management contract. Running 4K evidence
+is not relabeled as a larger-context result. The registry now has 172 entries,
+158 non-removed, including the remote bootstrap additions; this is inventory,
+not a UI-completion measure.
+
 YVEX `models2` at `671a5befa0c20f6e07248b0223fad4ec531c15bd`
 adds a restricted remote identity/status bootstrap beyond the earlier producer
 cut below. Its public management contract admits `device.describe` and
@@ -281,7 +291,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SY02 | 🔴 OPEN | Studio consumption of YAI-owned machine registration, LAN discovery, execution-location selection and runtime/model observations | YAI owns typed lifecycle/discovery contracts shared by CLI and Studio; YVEX management requires its qualified public boundary. Concurrent backend work is consumed only after publication; no Studio-private launcher or discovery | Selected Exon → DGX Spark operator requirement; no private producer coupling or fabricated telemetry |
 | SY03 | 🔴 OPEN | Models and acquisition: catalog, HF/local pull, exact revision, progress, resume/stop and storage | Offline YVEX owners exist; qualified shared management operations and authored Studio flow remain | Published registry/command contract; no UI qualification yet |
 | SY04 | 🔴 OPEN | Preparation and artifacts: verification, coordinated compilation lanes, representations, profiles, lineage and explicit calibration choices | Preserve YVEX ownership and family-specific admission; offline ABI is not a remote management service | Published compiler/artifact contracts; no UI qualification yet |
-| SY05 | 🔴 OPEN | Runtime operations: exact engines, load/unload, leases, memory and device placement | Producer protocol v21 implements local operations; qualified consumer/remote boundary remains open | Published local protocol; existing health page is not engine control |
+| SY05 | 🔴 OPEN | Runtime operations: exact engines, load/unload, leases, memory and device placement | Producer protocol v22 implements local operations, including load-only text context; qualified consumer/remote boundary remains open | Published local protocol; existing health page is not engine control |
 | SY06 | 🔴 OPEN | Sessions and generation: text/media capabilities, cancellation and exact result identity | Case execution stays governed; native media is not OpenAI HTTP multimodal support; YVEX sessions are not Cases | Published runtime/HTTP contracts; current text SEND remains SC01 |
 | SY07 | 🔴 OPEN | Observability: retained/live events, server logs, owner-authored progress and resource accounting | Native telemetry exists; current provider.inventory only supplies dated YAI observations | Published event contract; no server-log UI qualification yet |
 | SY08 | ⚪ LATER | Advanced engineering diagnostics and calibration experiments beyond ordinary platform operation | Classify each producer action; no indiscriminate UI for kernel probes, no automatic tuning or capability promotion | Producer engineering inventory; explicit selection and resource budget required |
