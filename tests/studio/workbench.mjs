@@ -59,6 +59,8 @@ try {
   report("One Workbench renders registered Activity Bar, Sidebar, Panel and browser host posture");
   await screenshot("fixture-overview");
   await page.locator(".live-rail button[aria-label='Telemetry']").click();
+  await page.getByRole("tab", { name: "Shells", exact: true }).click();
+  if (await page.getByRole("tab", { name: "Shells", exact: true }).getAttribute("aria-selected") !== "true") throw new Error("Telemetry shell navigation did not select its panel");
   await page.locator("#telemetry-shells").getByText("Desktop shell observations are available in native Studio.").waitFor();
   if (await page.locator(".telemetry-shell").count()) throw new Error("Browser invented native shell observations");
   report("Browser Telemetry withholds native shell facts without starting a Host");
