@@ -118,3 +118,34 @@ with the ordinary runner, explicit `--profile`, `--home` and fresh `--output`.
 No `--allow-mutations` is needed. A successful retained receipt is distinct from
 current authority to perform the action again. Wrong expected receipt identity
 must fail; language/model competence remains `NOT_ASSESSED`.
+
+## Governed question corpus
+
+`conversation.json` is the reusable effectful question lane. It uses ordinary
+`conversation.send`, bounded `execution.get` observation, exact disclosed context
+and explicit idempotent retry. A profile must supply `case_ref`, `participant_ref`,
+`target_ref`, exact `model_id`, new `thread_ref`/`submission_ref`, `question` and its
+exact `question_utf8` byte array. The profile is input, not authority. Select the
+operator's configured primary model; the suite never registers or trusts a target.
+It requires explicit `--allow-mutations`, appends real Conversation history and
+must not be run against Golden or a canary as disposable setup.
+
+The suite requires a successful answer: a truthful refusal does not pass this
+positive lane. Pending observation ends `INCOMPLETE`; uncertain delivery is not
+retried by the transport. It checks exact Case/Participant/target/model identity,
+committed question text, nonempty candidate answer, W/projection/frame/input
+observation, matching result identity between ordinary and contextual reads,
+hidden-Participant refusal, and unchanged state after exact SEND retry. It does
+not assume an unknown target's capacity is known or score prose by exact spelling.
+Use separate negative capacity and authority suites for refusal properties.
+
+`context_capacity.py` runs this exact corpus against its isolated controlled
+producer in addition to exact-byte preflight/refusal/restart checks. Controlled
+PASS qualifies the pipeline, not DeepSeek or language reasoning. The same corpus
+can run against an operator-selected real target with a new profile; assess the
+answer separately against Case-specific independently selected refs and questions.
+For the infrastructure Case, ask what blocks service readiness, which Sources
+support the conclusion, what remains unmeasured and which changes require approval.
+`REASONS` names the evaluation pressure; `language_quality=NOT_ASSESSED` remains
+explicit until a separate reviewer supplies a grounded verdict. The typed catalog
+is unchanged: this is a qualification consumer of existing operations.

@@ -1685,3 +1685,13 @@ The controlled `effect-actions.mjs` lane tests continuation with remaining budge
 Both retain the previous run, exact retry and restart observation, and assert
 that the already-applied filesystem effect is not repeated. Other checkpoint
 postures are still not authored in this bounded UI.
+
+### Reproducible governed questions
+
+The behavioral `conversation.json` suite now submits and observes an exact
+operator-authored question, inspects retained W/context/input identity, exercises
+hidden-Participant refusal and repeats the original SEND without duplicate state.
+Its profile pins the expected target/model; it does not configure a provider.
+The controlled context-capacity lane runs the same suite used for future real
+model evidence. Structural success and natural-language quality are separate:
+`language_quality=NOT_ASSESSED` is not human or external YVEX acceptance.

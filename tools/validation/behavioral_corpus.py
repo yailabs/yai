@@ -163,8 +163,8 @@ def assert_result(assertion, bindings):
     actual = pointer(bindings, assertion["path"])
     expected = resolve(assertion["value"], bindings)
     op = assertion["op"]
-    if op == "equal":
-        passed = exact(actual, expected)
+    if op in {"equal", "not_equal"}:
+        passed = exact(actual, expected) if op == "equal" else not exact(actual, expected)
     elif op == "contains":
         passed = any(exact(item, expected) for item in actual) if isinstance(actual, list) else expected in actual
     elif op == "excludes":
@@ -225,7 +225,7 @@ def evaluate(test, variant, profile, host, impacts, allow_mutations, emit):
             if type(observe["interval_ms"]) is not int or not 0 <= observe["interval_ms"] <= 1000:
                 raise ValueError("Observation interval must be bounded to 0..1000 ms")
     for assertion in [*test["assertions"], *(a for step in steps for a in step.get("assertions", []))]:
-        if assertion.get("op") not in {"equal", "contains", "excludes", "some"} or "value" not in assertion or not isinstance(assertion.get("path"), str):
+        if assertion.get("op") not in {"equal", "not_equal", "contains", "excludes", "some"} or "value" not in assertion or not isinstance(assertion.get("path"), str):
             raise ValueError("Malformed semantic assertion")
     for index, step in enumerate(steps):
         operation = step["operation"]

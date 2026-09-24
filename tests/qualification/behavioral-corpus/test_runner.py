@@ -20,6 +20,57 @@ class Client:
 
 
 class CorpusTest(unittest.TestCase):
+    def test_not_equal_is_structural_and_type_strict(self):
+        corpus.assert_result(dict(path="/value",op="not_equal",value=True),dict(value=1))
+        corpus.assert_result(dict(path="/value",op="not_equal",value=None),dict(value={"id":"retained"}))
+        for value in [None, "", {"id":"same"}]:
+            with self.subTest(value=value), self.assertRaises(AssertionError):
+                corpus.assert_result(dict(path="/value",op="not_equal",value=value),dict(value=value))
+
+    def test_governed_question_corpus_rejects_content_or_identity_substitution(self):
+        suite = json.loads((Path(__file__).parent / "conversation.json").read_text())
+        test = suite['evaluations'][0]
+        profile = dict(case_ref='case:A', participant_ref='participant:A', target_ref='target:A',
+            model_id='model:A', thread_ref='thread:A', submission_ref='submission:A',
+            question='Question A', question_utf8=list(b'Question A'))
+        observation = dict(case_id='case:A',participant_id='participant:A',target_id='target:A',model_id='model:A',refusal=None)
+        context = dict(omitted_invocations=0, invocations=[dict(unavailable_reason=None,
+            working_state={'id':'W'},projection={'id':'P'},frame={'id':'F'},input_observation=observation)])
+        execution = dict(case_ref='case:A',participant_ref='participant:A',turn_ref='turn:A',request_ref='request:A',
+            posture='completed',primary_result=dict(output='Candidate answer',selection=dict(selected_target_id='target:A')))
+        class Replay:
+            def __init__(self, alter=None): self.sends=0; self.alter=alter
+            def call(self, operation, inputs, correlation):
+                if operation == 'case.summary':
+                    data=dict(case=dict(case_ref='case:A',generation=1),conversation=dict(turns=[dict(id='turn:A',parts=[dict(text='Question A')])]))
+                elif operation == 'conversation.send':
+                    self.sends+=1;data=dict(created=self.sends==1,execution=copy.deepcopy(execution))
+                elif inputs['participant_ref'] != 'participant:A': return dict(result_state='unauthorized')
+                else:
+                    data=copy.deepcopy(execution)
+                    if inputs.get('include_context'): data['prepared_context']=copy.deepcopy(context)
+                response=dict(result_state='success',data=data)
+                if self.alter:self.alter(operation,inputs,response)
+                return response
+        impacts={'case.summary':'read','execution.get':'read','conversation.send':'external_effect'}
+        self.assertEqual(corpus.evaluate(test,{},profile,Replay(),impacts,True,lambda _:None),'PASS')
+        def change(path, value):
+            def alter(operation,inputs,response):
+                if operation!='execution.get' or not inputs.get('include_context'):return
+                target=response['data']
+                for key in path[:-1]:target=target[key]
+                target[path[-1]]=value
+            return alter
+        for path,value in [(['case_ref'],'case:B'),(['primary_result','output'],''),
+            (['primary_result','selection','selected_target_id'],'target:B'),
+            (['prepared_context','invocations',0,'working_state'],None),
+            (['prepared_context','invocations',0,'input_observation','model_id'],'model:B')]:
+            with self.subTest(path=path),self.assertRaises(AssertionError):
+                corpus.evaluate(test,{},profile,Replay(change(path,value)),impacts,True,lambda _:None)
+        host=Replay()
+        with self.assertRaises(ValueError):corpus.evaluate(test,{},profile,host,impacts,False,lambda _:None)
+        self.assertEqual(host.sends,0)
+
     def retained_action(self):
         suite = json.loads((Path(__file__).parent / "retained-action.json").read_text())
         profile = dict(case_ref="case:A", participant_ref="participant:A", submission_ref="request:A",

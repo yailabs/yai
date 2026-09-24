@@ -205,8 +205,29 @@ def main():
         assert reopened["prepared_context"]["invocations"][0]["input_observation"] == wire
         assert call("conversation.send", inputs)["created"] is False
         assert len(dispatches) == 2 and len(preflights) == 2, "Restart duplicated inference"
+        # The same authored corpus used for a real operator target must execute
+        # through the actual Host; this controlled producer only qualifies wiring.
+        compatible = True
+        question = "EXACT_CORPUS_QUESTION: Explain the evidence limits of this Case."
+        profile = args.output.with_suffix(".conversation-profile.json")
+        profile.write_text(json.dumps(dict(case_ref=case, participant_ref=participant,
+            target_ref=target, model_id=model, thread_ref="thread:behavioral-conversation",
+            submission_ref="submission:behavioral-conversation", question=question,
+            question_utf8=list(question.encode("utf-8")))))
+        corpus_output = args.output.with_suffix(".conversation.jsonl")
+        command = [sys.executable, str(ROOT / "tools/validation/behavioral_corpus.py"),
+            str(Path(__file__).with_name("conversation.json")), "--profile", str(profile),
+            "--home", str(home), "--output", str(corpus_output), "--allow-mutations"]
+        result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=90)
+        emit(command=command, cwd=str(ROOT), exit=result.returncode, stdout=result.stdout, stderr=result.stderr)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        corpus_records = [json.loads(line) for line in corpus_output.read_text().splitlines()]
+        assert corpus_records[-1]["result"] == "PASS"
+        assert corpus_records[-1]["language_quality"] == "NOT_ASSESSED"
+        assert len(dispatches) == 3 and len(preflights) == 3, "Corpus observation/retry duplicated inference"
+        assert question in dispatches[-1].decode(), "Corpus question absent from actual provider request"
         cli("case", "verify", case)
-        emit(result="PASS", inference_dispatches=1, capacity_refusals=1, observation_retry_dispatches=0)
+        emit(result="PASS", inference_dispatches=2, capacity_refusals=1, observation_retry_dispatches=0)
         print(json.dumps(dict(result="PASS", run_id=run, evidence=str(args.output))))
     finally:
         server.shutdown()

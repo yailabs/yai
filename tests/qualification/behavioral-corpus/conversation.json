@@ -1,0 +1,445 @@
+{
+  "schema": "yai.behavioral_corpus.v1",
+  "evaluations": [
+    {
+      "id": "conversation.governed_question",
+      "dimensions": [
+        "SEES",
+        "REASONS",
+        "RECOVERS",
+        "ISOLATES"
+      ],
+      "mode": "governed_model",
+      "meaning": "Retain a real governed question, exact target/result and context, then retry without duplicate state. Structural PASS does not assess the reasoning quality of the answer.",
+      "preconditions": [
+        "Operator-selected Case has an admitted model view and governed primary binding to the exact profile target/model",
+        "Profile supplies a new durable submission identity and the question as text plus exact UTF-8 bytes; do not reuse the profile for a new logical question"
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        },
+        {
+          "$ref": "/profile/participant_ref"
+        },
+        {
+          "$ref": "/profile/target_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "conversation.send",
+        "execution.get"
+      ],
+      "forbidden_actions": [
+        "case.cancel",
+        "case.close",
+        "resource.request"
+      ],
+      "expected_consequences": [
+        "One committed question and exact governed execution; repeated SEND retains its original identity",
+        "W, projection, ContextFrame and serialized request observation are disclosed by current authority",
+        "Natural-language grounding is reviewed separately against the retained context and Case-specific evidence rubric"
+      ],
+      "repeatability": "Explicit mutation opt-in. Retry within this sequence reuses exact bytes and expected version. Use retained result inspection after the run, not a newly generated SEND identity.",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          },
+          "assertions": [
+            {
+              "path": "/results/before/result_state",
+              "op": "equal",
+              "value": "success"
+            }
+          ]
+        },
+        {
+          "id": "send",
+          "operation": "conversation.send",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "thread_ref": {
+              "$ref": "/profile/thread_ref"
+            },
+            "submission_ref": {
+              "$ref": "/profile/submission_ref"
+            },
+            "expected_generation": {
+              "$ref": "/results/before/data/case/generation"
+            },
+            "parts": [
+              {
+                "modality": "text",
+                "media_type": "text/plain",
+                "bytes": {
+                  "$ref": "/profile/question_utf8"
+                }
+              }
+            ]
+          },
+          "assertions": [
+            {
+              "path": "/results/send/result_state",
+              "op": "equal",
+              "value": "success"
+            },
+            {
+              "path": "/results/send/data/created",
+              "op": "equal",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "completed",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "conversation",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            }
+          },
+          "observe": {
+            "path": "/data/posture",
+            "while": [
+              "admitted",
+              "running",
+              "unresolved"
+            ],
+            "max_observations": 600,
+            "interval_ms": 1000
+          },
+          "assertions": [
+            {
+              "path": "/results/completed/result_state",
+              "op": "equal",
+              "value": "success"
+            },
+            {
+              "path": "/results/completed/data/posture",
+              "op": "equal",
+              "value": "completed"
+            },
+            {
+              "path": "/results/completed/data/primary_result",
+              "op": "not_equal",
+              "value": null
+            }
+          ]
+        },
+        {
+          "id": "context",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "conversation",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            },
+            "include_context": true
+          },
+          "assertions": [
+            {
+              "path": "/results/context/result_state",
+              "op": "equal",
+              "value": "success"
+            }
+          ]
+        },
+        {
+          "id": "settled",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          },
+          "assertions": [
+            {
+              "path": "/results/settled/result_state",
+              "op": "equal",
+              "value": "success"
+            }
+          ]
+        },
+        {
+          "id": "retry",
+          "operation": "conversation.send",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "thread_ref": {
+              "$ref": "/profile/thread_ref"
+            },
+            "submission_ref": {
+              "$ref": "/profile/submission_ref"
+            },
+            "expected_generation": {
+              "$ref": "/results/before/data/case/generation"
+            },
+            "parts": [
+              {
+                "modality": "text",
+                "media_type": "text/plain",
+                "bytes": {
+                  "$ref": "/profile/question_utf8"
+                }
+              }
+            ]
+          },
+          "assertions": [
+            {
+              "path": "/results/retry/result_state",
+              "op": "equal",
+              "value": "success"
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": "participant:behavioral-unlinked",
+            "execution": {
+              "domain": "conversation",
+              "submission_ref": {
+                "$ref": "/profile/submission_ref"
+              }
+            },
+            "include_context": true
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          },
+          "assertions": [
+            {
+              "path": "/results/after/result_state",
+              "op": "equal",
+              "value": "success"
+            }
+          ]
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/completed/data/case_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/case_ref"
+          }
+        },
+        {
+          "path": "/results/completed/data/participant_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/participant_ref"
+          }
+        },
+        {
+          "path": "/results/completed/data/primary_result/output",
+          "op": "not_equal",
+          "value": ""
+        },
+        {
+          "path": "/results/completed/data/primary_result/selection/selected_target_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/target_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/prepared_context/omitted_invocations",
+          "op": "equal",
+          "value": 0
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/unavailable_reason",
+          "op": "equal",
+          "value": null
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/working_state",
+          "op": "not_equal",
+          "value": null
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/projection",
+          "op": "not_equal",
+          "value": null
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/frame",
+          "op": "not_equal",
+          "value": null
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/input_observation",
+          "op": "not_equal",
+          "value": null
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/input_observation/case_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/case_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/input_observation/participant_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/participant_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/input_observation/target_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/target_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/input_observation/model_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/model_id"
+          }
+        },
+        {
+          "path": "/results/context/data/prepared_context/invocations/0/input_observation/refusal",
+          "op": "equal",
+          "value": null
+        },
+        {
+          "path": "/results/settled/data/conversation/turns",
+          "op": "some",
+          "value": {
+            "id": {
+              "$ref": "/results/send/data/execution/turn_ref"
+            },
+            "/parts/0/text": {
+              "$ref": "/profile/question"
+            }
+          }
+        },
+        {
+          "path": "/results/retry/data/created",
+          "op": "equal",
+          "value": false
+        },
+        {
+          "path": "/results/retry/data/execution/request_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/send/data/execution/request_ref"
+          }
+        },
+        {
+          "path": "/results/hidden/result_state",
+          "op": "equal",
+          "value": "unauthorized"
+        },
+        {
+          "path": "/results/hidden",
+          "op": "excludes",
+          "value": "data"
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/settled/data"
+          }
+        },
+        {
+          "path": "/results/context/data/case_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/completed/data/case_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/participant_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/completed/data/participant_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/primary_result",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/completed/data/primary_result"
+          }
+        },
+        {
+          "path": "/results/context/data/request_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/completed/data/request_ref"
+          }
+        },
+        {
+          "path": "/results/context/data/turn_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/completed/data/turn_ref"
+          }
+        },
+        {
+          "path": "/results/completed/data/request_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/send/data/execution/request_ref"
+          }
+        },
+        {
+          "path": "/results/completed/data/turn_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/send/data/execution/turn_ref"
+          }
+        }
+      ]
+    }
+  ]
+}
