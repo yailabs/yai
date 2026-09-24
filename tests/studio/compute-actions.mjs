@@ -16,7 +16,7 @@ const home = await mkdtemp(path.join(os.tmpdir(), 'yai-studio-compute-'));
 const evidence = process.env.STUDIO_EVIDENCE_DIR ?? '/tmp/yai-studio-compute';
 await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
-let telemetry, serial=0, browser, provider, dropAcknowledgement;
+let telemetry, serial=0, browser, provider, dropAcknowledgement, holdModelResponse=false, heldModelResponse;
 const exchanges = [];
 function rpc(request) {
  return new Promise((resolve,reject) => {
@@ -29,7 +29,7 @@ function rpc(request) {
    while((end=buffer.indexOf('\n'))>=0) {
     const message=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);
     if(!handshaken) { if(message.kind!=='handshake') {socket.destroy();reject(new Error(JSON.stringify(message)));return;} handshaken=true;socket.write(JSON.stringify({kind:'application_request',request})+'\n'); }
-    else if(message.kind==='application_response') { exchanges.push({order:exchanges.length+1,request,result:message.result}); socket.end(); if(dropAcknowledgement===request.operation_ref){dropAcknowledgement=undefined;reject(new Error('Injected acknowledgement loss after real Host commit'));}else resolve(message.result); }
+    else if(message.kind==='application_response') { exchanges.push({order:exchanges.length+1,request,result:message.result}); socket.end(); if(dropAcknowledgement===request.operation_ref){dropAcknowledgement=undefined;reject(new Error('Injected acknowledgement loss after real Host commit'));}else if(holdModelResponse && request.operation_ref==='provider.models'){holdModelResponse=false;heldModelResponse=()=>resolve(message.result);}else resolve(message.result); }
     else if(message.kind==='error') {socket.destroy();reject(new Error(JSON.stringify(message)));}
    }
   });
@@ -68,7 +68,23 @@ try {
 
  await page.getByRole('button',{name:'Register provider target',exact:true}).click();
  let form=page.getByRole('dialog',{name:'Register provider target'});
- await form.getByLabel('Provider / runtime label').fill('controlled-provider');await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);await form.getByLabel('Exact model identity').fill('controlled-text-model');
+ await form.getByLabel('Provider / runtime label').fill('controlled-provider');await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();await form.getByLabel('Exposed model').selectOption('controlled-text-model');
+
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/connect-${width}x${height}.png`});}
+ await page.setViewportSize({width:1440,height:900});
+ // Changing endpoint invalidates both the selected model and a late catalog.
+ holdModelResponse=true;
+ await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();
+ for(let attempt=0;!heldModelResponse && attempt<100;attempt++)await new Promise(resolve=>setTimeout(resolve,20));
+ assert.ok(heldModelResponse,'Host response held for overlap regression');
+ await form.getByLabel('Endpoint',{exact:true}).fill(endpoint+'/other');
+ heldModelResponse();heldModelResponse=undefined;
+ await page.waitForTimeout(100);
+ assert.equal(await form.getByLabel('Exposed model').inputValue(),'');
+ assert.equal(await form.getByLabel('Exposed model').locator('option').count(),1,'Old catalog cannot populate new endpoint');
+ await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);
+ await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();
+ await form.getByLabel('Exposed model').selectOption('controlled-text-model');
  await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
  let response=exchanges.findLast(item=>item.request.operation_ref==='provider.register').result;assert.equal(response.result_state,'success',JSON.stringify(response));const target=response.data;assert.equal(target.model_id,'controlled-text-model');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,0,'Registration must not silently bind');
@@ -99,7 +115,7 @@ try {
  form=page.getByRole('dialog',{name:'Register provider target'});
  await form.getByLabel('Provider / runtime label').fill('unbound-inventory-target');
  await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);
- await form.getByLabel('Exact model identity').fill('controlled-text-model');
+ await form.getByLabel('Enter an exact model ID manually').check();await form.getByLabel('Exact model identity').fill('controlled-text-model');
  await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
  await page.getByRole('button',{name:'Refresh inventory',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===2);

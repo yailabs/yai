@@ -1,3 +1,4 @@
+import { ProviderRegistrationFields } from "./ProviderRegistrationFields";
 import { ProviderWorkspace } from "./ProviderWorkspace";
 import { ConversationModelSetup } from "./ConversationModelSetup";
 import { useEffect, useState } from "react";
@@ -47,9 +48,6 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
   const [yvexSetup, setYvexSetup] = useState(false);
   const [action, setAction] = useState<Action>();
   const [candidate, setCandidate] = useState<ProviderTarget>();
-  const [modelsFound, setModelsFound] = useState<string[]>([]);
-  const [discovering, setDiscovering] = useState(false);
-  const [discoveryError, setDiscoveryError] = useState<string>();
   const [target, setTarget] = useState("");
   const [qualification, setQualification] = useState<ProviderQualification>();
   const [evidence, setEvidence] = useState<ProviderProbeEvidence>();
@@ -57,7 +55,7 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
   const [trustReceipt, setTrustReceipt] = useState<{ target: string; posture: string }>();
   const operation = (name: Action) => ({ register: "provider.register", qualify: "provider.qualify", trust: "provider.trust.set", bind: "provider.case.bind" })[name];
   const refresh = () => platform.commands.executeCommand("studio.case.refresh").then(() => { setRevision(value => value + 1); });
-  const begin = (name: Action, ref?: string) => { if (ref) setTarget(ref); setEvidence(undefined); setFileError(undefined); setModelsFound([]); setDiscoveryError(undefined); setAction(name); };
+  const begin = (name: Action, ref?: string) => { if (ref) setTarget(ref); setEvidence(undefined); setFileError(undefined); setAction(name); };
   const controls = (ref?: string) => <div className="object-action-row">{(["qualify", "trust", "bind"] as const).map(name => <Button key={name} disabled={!application?.supports(operation(name))} onClick={() => begin(name, ref)}>{titles[name]}</Button>)}</div>;
   const models = [...new Set(targets.map(item => item.model_id))];
   return <article className={scope === "case" ? "live-page compute-surface" : "compute-surface platform-surface"} data-surface-type={scope === "case" ? "case.compute" : scope === "tenant" ? "platform.providers" : "platform.yvex"}>
@@ -87,12 +85,7 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
         if (action === "trust") { const posture = String(form.get("posture")) as "approved" | "denied"; const result = await application.trustProvider({ target_ref: target.trim(), posture }); if (result.result_state === "success") setTrustReceipt({ target: target.trim(), posture }); return result; }
         return application.bindProvider({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, ordered_target_refs: [target.trim()], failover_policy: "none", max_attempts_per_turn: 1 });
       }} committed={refresh} resync={refresh}>
-      {action === "register" ? <><label>Provider / runtime label<input autoFocus required name="key" placeholder="local-inference" /></label><label>Endpoint<input required type="url" name="endpoint" placeholder="http://127.0.0.1:8080" /></label><Button type="button" disabled={discovering || !application.supports("provider.models")} onClick={async event => {
-        const form = event.currentTarget.closest("form"); if (!form) return;
-        const values = new FormData(form); setDiscovering(true); setDiscoveryError(undefined); setModelsFound([]);
-        const result = await application.discoverProviderModels({ tenant_id: workspace.case.tenant_ref!, endpoint: String(values.get("endpoint")).trim(), locality: String(values.get("locality")) as ProviderTarget["locality"], credential_ref: String(values.get("credential")).trim() });
-        setDiscovering(false); if (result.result_state === "success" && result.data) setModelsFound(result.data.models); else setDiscoveryError(result.error?.safe_message ?? "Model discovery unavailable.");
-      }}>{discovering ? "Discovering…" : "Discover exposed models"}</Button>{discoveryError && <p role="alert">{discoveryError}</p>}<label>Exact model identity<input required name="model" list="provider-discovered-models" placeholder="Model ID exposed by the server" /><datalist id="provider-discovered-models">{modelsFound.map(model => <option key={model} value={model} />)}</datalist></label>{modelsFound.length > 0 && <p role="status">{modelsFound.length} exposed model(s). Discovery does not qualify inference.</p>}<label>Locality<select name="locality"><option value="loopback">Loopback</option><option value="private_network">Private network</option><option value="remote">Remote</option></select></label><label>Credential reference<input required name="credential" defaultValue="none" /></label><label>Compatibility extension<select name="extension" defaultValue={yvexSetup ? "yvex.http.v1" : ""}><option value="">None</option><option value="yvex.http.v1">yvex.http.v1</option></select></label></> : scope === "case" ? <label>Exact target reference<input autoFocus required value={target} onChange={event => setTarget(event.target.value)} /></label> : <p>Selected deployment: {targets.find(item => item.id === target)?.provider_key ?? target}</p>}
+      {action === "register" ? <ProviderRegistrationFields application={application} tenant={tenant!} yvex={yvexSetup} /> : scope === "case" ? <label>Exact target reference<input autoFocus required value={target} onChange={event => setTarget(event.target.value)} /></label> : <p>Selected deployment: {targets.find(item => item.id === target)?.provider_key ?? target}</p>}
       {action === "qualify" && <><label>Measured evidence file<input type="file" accept="application/json,.json" required onChange={async event => { setEvidence(undefined); setFileError(undefined); const file = event.target.files?.[0]; if (!file) return; if (file.size > 65536) { setFileError("Evidence must be at most 64 KiB."); return; } try { const value = readProbeEvidence(JSON.parse(await file.text())); if (!value) throw new Error(); setEvidence(value); } catch { setFileError("This is not a valid ProviderProbeEvidence record."); } }} /></label><label>Qualification suite reference<input required name="suite" placeholder="Exact suite reference associated with the probe" /></label>{fileError && <p role="alert">{fileError}</p>}{evidence && <p>Run {evidence.run_id} · {evidence.failure_codes.length} reported failures{evidence.target_id !== target.trim() && " · target mismatch: not submitted"}</p>}</>}
       {action === "trust" && <label>Trust decision<select name="posture"><option value="approved">Approve</option><option value="denied">Deny</option></select></label>}
       {action === "bind" && <p>Participant: {workspace.case.participant_ref}. One target, no failover, one attempt. Existing ordered bindings will be replaced.</p>}

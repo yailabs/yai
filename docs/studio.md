@@ -1411,3 +1411,13 @@ native management boundary without manufacturing compiler, residency or log
 telemetry. Existing `provider.inspect` and `provider.governance` catalog ownership
 and operation identities remain exact; this presentation change adds no operation
 or backend maturity claim. CLI and Studio still consume the same provider owners.
+
+
+Provider registration presents catalog discovery and an explicit model selector.
+The contribution fences asynchronous catalog responses by connection edit/request
+identity and invalidates model selection on endpoint/locality/credential changes.
+An explicit manual identity alternative preserves generic providers without model
+catalog support. Existing `provider.models` and `provider.register` contracts and
+`provider.inspect`/`provider.governance` capability identities remain exact; this
+change adds no backend operation. Compute and Conversation interaction suites
+exercise the real Host boundary, including delayed-catalog rejection.

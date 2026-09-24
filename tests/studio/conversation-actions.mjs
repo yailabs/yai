@@ -75,7 +75,7 @@ try {
 
  await page.getByRole('button',{name:'Register provider target',exact:true}).click();
  let form=page.getByRole('dialog',{name:'Register provider target'});
- await form.getByLabel('Provider / runtime label').fill('controlled-provider');await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();await form.getByText('1 exposed model(s). Discovery does not qualify inference.').waitFor();assert.deepEqual(exchanges.findLast(x=>x.request.operation_ref==='provider.models').result.data.models,['controlled-text-model']);await form.getByLabel('Exact model identity').fill('controlled-text-model');
+ await form.getByLabel('Provider / runtime label').fill('controlled-provider');await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();await form.getByText('1 exposed model(s). Discovery does not qualify inference.').waitFor();assert.deepEqual(exchanges.findLast(x=>x.request.operation_ref==='provider.models').result.data.models,['controlled-text-model']);await form.getByLabel('Exposed model').selectOption('controlled-text-model');
  await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
  let response=exchanges.findLast(item=>item.request.operation_ref==='provider.register').result;assert.equal(response.result_state,'success',JSON.stringify(response));const target=response.data;assert.equal(target.model_id,'controlled-text-model');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,0,'Registration must not silently bind');
@@ -102,7 +102,7 @@ try {
  await form.getByRole('checkbox').check();await form.getByRole('button',{name:'Record my attestation'}).click();await form.waitFor({state:'hidden'});
  const attested=exchanges.findLast(x=>x.request.operation_ref==='provider.suitability.record').result;
  assert.equal(attested.result_state,'success');assert.equal(attested.data.posture,'operator_attested');
- await page.getByRole('button',{name:'Assign conversation model',exact:true}).click();form=page.getByRole('dialog',{name:'Assign conversation model'});
+ await page.getByRole('main').getByRole('button',{name:'Assign conversation model',exact:true}).click();form=page.getByRole('dialog',{name:'Assign conversation model'});
  await form.getByRole('button',{name:'Assign model',exact:true}).click();await form.waitFor({state:'hidden'});
  let snapshot=await accepted('case.summary',{case_ref:caseRef});assert.equal(snapshot.compute.cognitive_bindings[0].target_id,target.target_id);
  assert.equal(snapshot.compute.targets[0].semantic_evidence[0].evidence_id,attested.data.evidence_id);

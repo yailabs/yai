@@ -1779,3 +1779,12 @@ working pull, compiler, load/unload, device or server-log controls.
 Acceptance of each future slice must cover the exact target machine, identity,
 progress/failure, authority and retained outcome, with CLI/Studio equivalence and
 Case continuity. Producer protocol/ABI availability alone is not acceptance.
+
+
+Provider registration now discovers exposed models before ordinary selection.
+A single returned model is selected; multiple models require an explicit choice.
+Changing endpoint, locality or credential reference clears both the selection and
+pending discovery identity, so a late catalog cannot populate another connection.
+Manual exact identity remains an explicit alternative for endpoints without a
+catalog. Credential references and compatibility settings are advanced options;
+no secret is entered. Discovery retains no target, binding or qualification.
