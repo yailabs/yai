@@ -5,6 +5,16 @@ export type ExecutionReference = { domain: "runtime_work" | "resource_request"; 
   | { domain: "cognitive_realization"; plan_ref: string }
   | { domain: "source_acquisition"; source_ref: string; attempt: number };
 export interface ExecutionGetInput { case_ref: string; participant_ref: string; execution: ExecutionReference }
+export interface EffectProposeInput { case_ref: string; participant_ref: string; resource_ref: string; candidate_ref: string; expected_generation: number }
+export interface EffectSubmitInput { case_ref: string; participant_ref: string; operation_ref: string; expected_generation: number }
+export interface ControlledOperation {
+  schema: string; operation_id: string; operation_digest: string; case_id: string; participant_id: string;
+  kind: "filesystem_write" | "process_signal"; resource_attachment_id: string; expected_case_generation: number;
+  origin: { kind: string; provider_result_id?: string };
+  filesystem_write: { relative_path: string; content: string; content_digest: string; content_bytes: number };
+  process_signal?: { action: string; target_identity_digest: string } | null;
+}
+export type EffectProposal = { posture: "recorded"; operation: ControlledOperation } | { posture: "normalization_refused"; failure: { code: string; detail: string } };
 export interface SourceAcquireInput { case_ref: string; participant_ref: string; source_ref: string; attempt: number; expected_generation: number }
 export interface SourceResumeInput extends SourceAcquireInput { previous_progress_ref: string }
 export interface ExecutionObservation {

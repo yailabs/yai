@@ -3,7 +3,7 @@ import { providerCatalogKey, type ProviderCatalogObservation, type ProviderModel
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
 import type { CognitivePrepareInput, CognitiveRealizeInput } from "./cognitive";
-import type { ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
+import type { EffectProposeInput, EffectSubmitInput, ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderQualificationInput, ProviderBindingInput } from "./compute";
@@ -114,6 +114,8 @@ export class ApplicationAccess implements Disposable {
   private invoke<T>(operation: string, action: () => Promise<OperationResult<T>>) {
     return this.supports(operation) ? action() : Promise.resolve(this.unavailable<T>(operation));
   }
+  proposeEffect(input: EffectProposeInput) { return this.invoke("effect.propose", () => this.client.proposeEffect(input)); }
+  submitEffect(input: EffectSubmitInput) { return this.invoke("effect.submit", () => this.client.submitEffect(input)); }
   acquireSource(input: SourceAcquireInput) { return this.invoke("source.acquire", () => this.client.acquireSource(input)); }
   resumeSource(input: SourceResumeInput) { return this.invoke("source.resume", () => this.client.resumeSource(input)); }
   execution(input: ExecutionGetInput) { return this.invoke("execution.get", () => this.client.execution(input)); }

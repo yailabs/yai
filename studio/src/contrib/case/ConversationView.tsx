@@ -6,6 +6,7 @@ import { conversationExecutionMessage, conversationStorageKey, makeConversationS
 import { useApplicationAvailability } from "./applicationActions";
 import { ExecutionContext } from "./ExecutionContext";
 import { ConversationAttempt } from "./ConversationAttempt";
+import { CandidateEffectAction } from "./CandidateEffectAction";
 
 const NarrativeText = lazy(() => import("./NarrativeText"));
 
@@ -149,7 +150,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
         {execution && <article className="real-turn turn-ai"><header><strong>Model</strong>{!execution.primary_result && <Badge tone={ ["admitted", "running"].includes(execution.posture) ? "info" : "warning"}>{execution.posture.replaceAll("_", " ")}</Badge>}</header>
           {execution.primary_result ? <div className="conversation-answer" data-result-ref={execution.primary_result.result_id}><Suspense fallback={<p>{execution.primary_result.output}</p>}><NarrativeText text={execution.primary_result.output} inspect={ref => actions.inspect(ref)} references={[caseRef, ...workspace.environment.sources.map(item => item.id), ...workspace.environment.resources.map(item => item.id), ...workspace.environment.files.map(item => item.id), ...workspace.knowledge.units.map(item => item.id), ...workspace.authority.policies.map(item => item.id), ...workspace.work.nodes.map(item => item.node_id), ...workspace.memory.timeline.map(item => item.id)]} /></Suspense></div> : <p>{conversationExecutionMessage(execution)}</p>}
           {execution.posture === "unresolved" && <Button type="button" onClick={() => setTick(value => value + 1)}>Check status</Button>}
-          <details><summary>Execution details</summary><details><summary>Execution identities</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}</details>{execution.primary_result && <><details><summary>Original response</summary><pre className="conversation-response-source">{execution.primary_result.output}</pre></details></>}{execution.attempt_outcomes.map((outcome, index) => <ConversationAttempt key={outcome.outcome_id ?? index} outcome={outcome} />)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
+          <details><summary>Execution details</summary>{execution.primary_result && <CandidateEffectAction workspace={workspace} platform={platform} candidateRef={execution.primary_result.result_id} />}<details><summary>Execution identities</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}</details>{execution.primary_result && <><details><summary>Original response</summary><pre className="conversation-response-source">{execution.primary_result.output}</pre></details></>}{execution.attempt_outcomes.map((outcome, index) => <ConversationAttempt key={outcome.outcome_id ?? index} outcome={outcome} />)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
         </article>}
       </div>; })}
     </div>

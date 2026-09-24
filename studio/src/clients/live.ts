@@ -4,7 +4,7 @@ import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBin
 import type { ConversationSendInput, ConversationSubmission } from "./conversation";
 import type { InspectedConversationExecution } from "./executionContext";
 import type { CognitivePrepareInput, CognitiveRealizeInput, CognitivePlan } from "./cognitive";
-import type { ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
+import type { EffectProposeInput, EffectSubmitInput, EffectProposal, ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
@@ -156,6 +156,8 @@ export class LiveClient {
     }
   }
 
+  proposeEffect(input: EffectProposeInput) { return this.call<EffectProposal>("effect.propose", input); }
+  submitEffect(input: EffectSubmitInput) { return this.call<ExecutionObservation>("effect.submit", input); }
   acquireSource(input: SourceAcquireInput) { return this.call<ExecutionSubmission>("source.acquire", input); }
   resumeSource(input: SourceResumeInput) { return this.call<ExecutionSubmission>("source.resume", input); }
   execution(input: ExecutionGetInput) { return this.call<ExecutionObservation>("execution.get", input); }

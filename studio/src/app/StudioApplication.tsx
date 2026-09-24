@@ -30,7 +30,8 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
   const workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
   const opening = useRef(0);
-  const refreshing = useRef(false);
+  const refreshing = useRef<Promise<void> | undefined>(undefined);
+  const refreshAgain = useRef(false);
   const [pendingCase, setPendingCase] = useState<string>();
   const [connectionError, setConnectionError] = useState<string>();
   const [openFailure, setOpenFailure] = useState<OperationResult<unknown>>();
@@ -65,25 +66,36 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
     } catch (error) { if (request === opening.current) setConnectionError(String(error)); }
     finally { if (request === opening.current) setPendingCase(undefined); }
   }, [dataSource]);
-  const refresh = useCallback(async (expectedGeneration?: number) => {
-    const before = workspaceRef.current?.data;
-    if (!before || refreshing.current) return;
-    const epoch = opening.current;
-    refreshing.current = true;
-    try {
-      let result = await dataSource.caseSummary(before.case.case_ref, expectedGeneration);
-      if (result.result_state === "stale") result = await dataSource.caseSummary(before.case.case_ref);
-      if (epoch !== opening.current) return;
-      if (result.result_state === "success" && result.data) {
-        setWorkspace((current) => current?.data && current.data.case.generation > result.data!.case.generation ? current : result);
-        setConnectionError(undefined);
-        setStream(dataSource.kind === "live" ? "live" : "fixture");
-      } else {
-        setConnectionError(result.error?.safe_message ?? `Refresh ${result.result_state}. Showing the last snapshot.`);
-        setStream("unavailable");
+  const refresh = useCallback((expectedGeneration?: number): Promise<void> => {
+    if (!workspaceRef.current?.data) return Promise.resolve();
+    refreshAgain.current = true;
+    if (refreshing.current) return refreshing.current;
+    // A mutation/event arriving during a read requires a subsequent snapshot.
+    // All waiting callers complete only after that queued read has settled.
+    const drain = async () => {
+      while (refreshAgain.current) {
+        refreshAgain.current = false;
+        const before = workspaceRef.current?.data;
+        if (!before) return;
+        const epoch = opening.current;
+        try {
+          let result = await dataSource.caseSummary(before.case.case_ref, expectedGeneration);
+          expectedGeneration = undefined;
+          if (result.result_state === "stale") result = await dataSource.caseSummary(before.case.case_ref);
+          if (epoch !== opening.current) continue;
+          if (result.result_state === "success" && result.data) {
+            setWorkspace((current) => current?.data && current.data.case.generation > result.data!.case.generation ? current : result);
+            setConnectionError(undefined);
+            setStream(dataSource.kind === "live" ? "live" : "fixture");
+          } else {
+            setConnectionError(result.error?.safe_message ?? `Refresh ${result.result_state}. Showing the last snapshot.`);
+            setStream("unavailable");
+          }
+        } catch (error) { if (epoch === opening.current) { setConnectionError(String(error)); setStream("unavailable"); } }
       }
-    } catch (error) { if (epoch === opening.current) { setConnectionError(String(error)); setStream("unavailable"); } }
-    finally { refreshing.current = false; }
+    };
+    refreshing.current = drain().finally(() => { refreshing.current = undefined; });
+    return refreshing.current;
   }, [dataSource]);
   const reattach = useCallback(async () => {
     const caseRef = workspaceRef.current?.data?.case.case_ref;

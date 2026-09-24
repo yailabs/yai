@@ -365,8 +365,30 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    this window's Executions; refresh is read-only. `tests/studio/effect-actions.mjs`
    proves this navigation against a real controlled filesystem write, with no
    new dispatch or canonical mutation and hidden/unknown-reference refusals.
-   This extends `execution.get` consumption; the catalog's effect family remains
-   Application-ready with proposal, submission and reconciliation authoring debt.
+   Conversation **Execution details → Prepare Resource action** uses the exact
+   retained result and a selected bound filesystem/process Resource. YAI alone
+   normalizes it into an Operation or a recorded refusal. The operator can
+   inspect exact content/action and explicitly submit the Operation. Proposal
+   never executes; waiting for Review is not permission. Lost proposal confirmation
+   can be recovered explicitly using the same candidate/Resource input. Before
+   submission the Operation reference is retained for read-only Work observation.
+   `tests/studio/conversation-actions.mjs` proves exact file bytes, unchanged inode
+   and Case on retry, process suspension without repeated signal after a test-owned
+   resume, hidden/stale refusal, prose normalization refusal and a Review gate
+   leaving the file absent. Terminate/resume action variants and reconciliation
+   authoring remain unqualified; the whole effect family is not promoted.
+   A real owner-level limitation remains: a new proposal from an older retained
+   result can pass the store history lookup but fail Transition's latest-result
+   lineage fence (`normalization_failure_result_mismatch` or
+   `operation_provider_lineage_mismatch`). Studio explains the refusal and does
+   not reconstruct or alter the candidate. The regression preserves this finding;
+   supporting arbitrary historical candidates requires an engine-owned resolution.
+   Dialogs render in the shared document overlay so chat typography/headers cannot
+   compress action titles or hide controls. Case refreshes coalesce concurrent
+   requests but retain a follow-up read: a mutation arriving during an older
+   snapshot read must not lose its refresh. The Conversation product regression
+   holds an old Host response, commits a role change, requests another refresh,
+   then requires the later authoritative snapshot before callers complete.
    Newer Operations must not hide an older completed receipt. Source carrier loss
    does not authorize reacquisition, and absent dispatch evidence stays unresolved.
    These are bounded contracts, not arbitrary carrier recovery or human/External

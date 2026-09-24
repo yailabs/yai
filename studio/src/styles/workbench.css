@@ -3101,6 +3101,8 @@ summary {
 .cognitive-plan > header { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
 .cognitive-plan pre, .cognitive-result { max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cognitive-recent { margin-top: 20px; }
+.candidate-effect { min-width: 0; margin-block: 10px; overflow-wrap: anywhere; }
+.candidate-effect pre { max-height: 240px; overflow: auto; white-space: pre-wrap; }
 .conversation-operational details code { display: block; margin-top: 8px; }
 .conversation-composer { position: relative; flex: none; padding: 12px; margin: 0 12px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
 .conversation-composer textarea:focus-visible { outline: none; box-shadow: none; }
