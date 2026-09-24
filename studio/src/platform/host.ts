@@ -53,11 +53,18 @@ export interface HostConnectionState {
   resync_required: boolean;
 }
 
+export interface DesktopTerminalSnapshot {
+  studio_pid: number;
+  observed_at_unix_ms: number;
+  terminals: Array<{ terminal_id: string; shell: string; pid?: number | null; created_at_unix_ms: number }>;
+}
+
 export interface HostServices extends Disposable {
   capabilities: HostCapabilities;
   snapshot(): HostConnectionState;
   subscribe(listener: (state: HostConnectionState) => void): Disposable;
   status(): Promise<HostTelemetry | undefined>;
+  terminalSnapshot?(): Promise<DesktopTerminalSnapshot | undefined>;
   start(): Promise<HostTelemetry>;
   stop(): Promise<HostTelemetry>;
   restart(): Promise<HostTelemetry>;
@@ -106,6 +113,11 @@ class DesktopHostServices implements HostServices {
       this.publish({ state: "unavailable", reason: String(error), resync_required: false });
       return undefined;
     }
+  }
+
+  async terminalSnapshot() {
+    if (!window.__TAURI__) return undefined;
+    return window.__TAURI__.core.invoke<DesktopTerminalSnapshot>("terminal_snapshot");
   }
 
   start() { return this.lifecycle("studio_host_start", "starting"); }

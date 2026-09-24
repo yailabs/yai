@@ -1602,6 +1602,16 @@ belong in this operational telemetry. Retained lifecycle and gated-provider test
 verify exact scheduler identity, active work, stop/restart and no duplicate dispatch.
 
 
+### Desktop shell observations
+
+In native Studio, open **Telemetry → Shells** with Terminal visible. Creating a
+second terminal must add a second shell PID; killing each terminal removes only
+that session. The Studio PID and observation time distinguish these local shell
+sessions from YAI Host workers and Case process Resources. Browser mode reports
+that desktop observations are unavailable. No command output is read or parsed.
+`tests/studio/native-pty.py` exercises these changes through the actual native UI,
+including empty-after-close, and checks that the Case state remains unchanged.
+
 ### Native Case portfolio and bounded storage
 
 `tests/studio/native-portfolio.py` is the opt-in native two-client lane. Supply an

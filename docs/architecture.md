@@ -347,7 +347,10 @@ renders bytes, Tauri creates/resizes/writes/kills `portable-pty` processes, and
 window teardown disposes them. This is local terminal mechanics only. It accepts
 no arbitrary command specification from Case data, supplies no application
 result, parses no CLI output and owns no Case, Workflow, effect or authority
-meaning. Browser mode has no PTY.
+meaning. Its read-only `terminal_snapshot` exposes only this desktop's owned shell
+sessions, shell PID/creation time and dated Studio PID. Telemetry polls this local
+adapter while visible; it neither starts a YAI Host nor scans OS processes.
+Exited sessions disappear through the existing PTY lifecycle. Browser mode has no PTY.
 
 ### Current process topology
 

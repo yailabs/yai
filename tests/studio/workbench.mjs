@@ -58,6 +58,11 @@ try {
   await page.getByText("Terminal requires desktop host").waitFor();
   report("One Workbench renders registered Activity Bar, Sidebar, Panel and browser host posture");
   await screenshot("fixture-overview");
+  await page.locator(".live-rail button[aria-label='Telemetry']").click();
+  await page.locator("#telemetry-shells").getByText("Desktop shell observations are available in native Studio.").waitFor();
+  if (await page.locator(".telemetry-shell").count()) throw new Error("Browser invented native shell observations");
+  report("Browser Telemetry withholds native shell facts without starting a Host");
+  await page.locator(".live-rail button[aria-label='Overview']").click();
 
   const environment = page.locator(".live-rail button[aria-label='Environment']");
   await environment.hover();

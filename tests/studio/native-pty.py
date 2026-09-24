@@ -101,12 +101,26 @@ try:
         assert script('const e=document.querySelector(".xterm-viewport");return e && e.scrollWidth<=e.clientWidth+1'), 'Native horizontal terminal overflow'
         assert script('return [...document.querySelectorAll(".panel-tabs > button, .desktop-menu-trigger")].every(e=>e.getBoundingClientRect().height<=40)'), 'Compact header labels must remain on one row'
         shot(f'native-{width}x{height}')
+    # Telemetry uses the real desktop PTY owner, independently of YAI Host data.
+    script('document.querySelector(`.live-rail button[aria-label="Telemetry"]`).click()')
+    wait('return document.querySelectorAll(".telemetry-shell").length===1')
+    assert script('return [...document.querySelectorAll("#telemetry-shells dl > div")].some(row=>row.querySelector("dt")?.textContent==="Studio PID" && /^[0-9]+$/.test(row.querySelector("dd")?.textContent))')
+    first_shell = script('return document.querySelector(".telemetry-shell").dataset.terminalId')
+    assert script('return /^PID [0-9]+$/.test(document.querySelector(".telemetry-shell > span").textContent)')
     script("document.querySelector('button[aria-label=\"New terminal\"]').click()")
     wait('return document.querySelectorAll(".terminal-instance-pane [role=tab]").length===2')
+    wait('return document.querySelectorAll(".telemetry-shell").length===2')
+    script('document.querySelector(`.telemetry-sidebar-link[href="#telemetry-shells"]`).click()')
+    wait('const r=document.querySelector("#telemetry-shells")?.getBoundingClientRect();return r && r.top>=0 && r.top<innerHeight/2')
+    shot('native-shell-telemetry')
     script("document.querySelector('.terminal-instance-pane button[title=\"Kill Terminal\"]').click()")
     wait('return !document.querySelector(".terminal-instance-pane")')
+    wait('return document.querySelectorAll(".telemetry-shell").length===1 && document.querySelector(".telemetry-shell").dataset.terminalId!==arguments[0]', first_shell)
     script("document.querySelector('button[aria-label=\"Kill active terminal\"]').click()")
     wait('return document.querySelector(".live-bottom")?.hidden')
+    wait('return document.querySelectorAll(".telemetry-shell").length===0')
+    script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
+    wait('return document.querySelector(".case-overview")')
     script('document.dispatchEvent(new KeyboardEvent("keydown",{key:"j",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')
     assert script('return document.querySelector(".kernel-status").innerText')==generation

@@ -1,7 +1,13 @@
-.telemetry-surface { max-width:1180px; margin:0 auto; }
-.telemetry-nav { display:flex; flex-wrap:wrap; gap:20px; padding:16px 0; border-bottom:1px solid var(--border); }
+.telemetry-surface { max-width:1180px; margin:0 auto; padding:20px clamp(16px,2vw,28px) 40px; }
+.telemetry-surface > .operational-heading { margin-bottom:12px; flex-wrap:wrap; }
+.telemetry-surface > .operational-heading h1 { font-size:24px; margin:2px 0 4px; }
+.telemetry-surface > .operational-heading p { margin:0; font-size:12px; }
+.telemetry-surface > .operational-heading button { flex-shrink:0; white-space:nowrap; }
+.telemetry-surface > .surface-note { margin:8px 0; font-size:11px; }
+
+.telemetry-nav { display:flex; flex-wrap:wrap; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
 .telemetry-nav a { color:var(--text-secondary); font-size:12px; text-decoration:none; }
-.telemetry-surface > section { padding:24px 0; border-bottom:1px solid var(--border); scroll-margin-top:12px; }
+.telemetry-surface > section { padding:16px 0; border-bottom:1px solid var(--border); scroll-margin-top:12px; }
 .telemetry-surface section > header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .telemetry-surface h2 { font-size:16px; }
 .telemetry-surface dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:18px; padding:12px 0; }

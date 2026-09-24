@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_runtime::ResizeDirection;
-use terminal::{PtyHost, TerminalCreated, TerminalEvents, TerminalExit, TerminalOutput};
+use terminal::{PtyHost, TerminalCreated, TerminalEvents, TerminalExit, TerminalOutput, TerminalSnapshot};
 use yai_application::{OperationError, OperationRequest, OperationResult, ResultState};
 use yai_host::{ClientKind, HostClient, HostEvent, HostTelemetry};
 
@@ -127,6 +127,11 @@ impl TerminalEvents for TauriTerminalEvents {
     fn exited(&self, payload: TerminalExit) {
         let _ = self.0.emit("yai://terminal-exit", payload);
     }
+}
+
+#[tauri::command]
+fn terminal_snapshot(host: State<'_, PtyHost>) -> Result<TerminalSnapshot, String> {
+    host.snapshot()
 }
 
 #[tauri::command]
@@ -414,6 +419,7 @@ fn main() {
             studio_host_stop,
             studio_host_restart,
             terminal_create,
+            terminal_snapshot,
             terminal_write,
             terminal_resize,
             terminal_kill,

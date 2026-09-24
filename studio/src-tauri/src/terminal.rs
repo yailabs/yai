@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const MIN_COLS: u16 = 2;
@@ -15,6 +16,20 @@ pub struct TerminalCreated {
     pub terminal_id: String,
     pub shell: String,
     pub cwd: String,
+    pub pid: Option<u32>,
+    pub created_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct TerminalSnapshot {
+    pub studio_pid: u32,
+    pub observed_at_unix_ms: u64,
+    pub terminals: Vec<TerminalCreated>,
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64).unwrap_or(0)
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -36,6 +51,7 @@ pub trait TerminalEvents: Send + Sync + 'static {
 }
 
 struct TerminalSession {
+    metadata: TerminalCreated,
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     killer: Box<dyn ChildKiller + Send + Sync>,
@@ -91,6 +107,13 @@ impl PtyHost {
             "terminal:{}",
             self.next_id.fetch_add(1, Ordering::Relaxed) + 1
         );
+        let metadata = TerminalCreated {
+            terminal_id: terminal_id.clone(),
+            shell: shell_name,
+            cwd: cwd.to_string_lossy().into_owned(),
+            pid: child.process_id(),
+            created_at_unix_ms: now_ms(),
+        };
 
         self.sessions
             .lock()
@@ -98,6 +121,7 @@ impl PtyHost {
             .insert(
                 terminal_id.clone(),
                 TerminalSession {
+                    metadata: metadata.clone(),
                     master: pair.master,
                     writer,
                     killer,
@@ -137,10 +161,16 @@ impl PtyHost {
             });
         });
 
-        Ok(TerminalCreated {
-            terminal_id,
-            shell: shell_name,
-            cwd: cwd.to_string_lossy().into_owned(),
+        Ok(metadata)
+    }
+
+    /// Only PTYs owned by this desktop process. No OS scan or Case projection.
+    pub fn snapshot(&self) -> Result<TerminalSnapshot, String> {
+        let sessions = self.sessions.lock().map_err(|_| "terminal_host_poisoned".to_string())?;
+        Ok(TerminalSnapshot {
+            studio_pid: std::process::id(),
+            observed_at_unix_ms: now_ms(),
+            terminals: sessions.values().map(|session| session.metadata.clone()).collect(),
         })
     }
 
@@ -334,15 +364,28 @@ mod tests {
         let first = host.create(24, 80, events.clone()).expect("first terminal");
         let second = host.create(24, 80, events).expect("second terminal");
         assert_eq!(host.count(), 2);
+        let snapshot = host.snapshot().expect("shell snapshot");
+        assert_eq!(snapshot.studio_pid, std::process::id());
+        assert_eq!(snapshot.terminals.len(), 2);
+        assert!(first.pid.is_some());
+        assert_ne!(first.pid, second.pid);
+        assert!(first.created_at_unix_ms > 0);
+        assert!(snapshot.observed_at_unix_ms >= second.created_at_unix_ms);
+        assert!(snapshot.terminals.iter().any(|item|
+            item.terminal_id == first.terminal_id && item.pid == first.pid));
         host.kill(&first.terminal_id).expect("kill first");
         let _ = exit
             .recv_timeout(Duration::from_secs(5))
             .expect("first exit");
+        let remaining = host.snapshot().expect("snapshot after exit");
+        assert_eq!(remaining.terminals.len(), 1);
+        assert_eq!(remaining.terminals[0].terminal_id, second.terminal_id);
         host.kill_all();
         let _ = exit
             .recv_timeout(Duration::from_secs(5))
             .expect("second exit");
         assert_eq!(host.count(), 0);
+        assert!(host.snapshot().unwrap().terminals.is_empty());
         assert_ne!(first.terminal_id, second.terminal_id);
     }
 

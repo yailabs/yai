@@ -92,7 +92,9 @@ Existing provider health is consumed as a dated observation with circuit/failure
 facts, separately from current availability. Host runtime observations now show
 scheduler PID/identity, lifecycle, heartbeat and worker capacity; live supervised
 worker assignment is distinct from unknown worker activity in an attached external
-scheduler. This is not an all-process inventory or DB health probe.
+scheduler. Native Desktop shells separately expose the current Studio PID and
+owned shell PIDs with observation/creation times through the existing PTY owner;
+create/exit update the list. This is not an all-process inventory or DB health probe.
 Product tabs now have an overflow selector and distinct geometry; contextual tool
 launchers occupy their own rail rather than covering tabs. Default bottom-panel
 height is reduced while existing local preferences remain intact.
