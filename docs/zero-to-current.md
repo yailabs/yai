@@ -553,6 +553,10 @@ Check these additional UI behaviors at 1600×960, 1440×900, 1280×800 and 1000�
 2. Open a Source, navigate to its File, select a Knowledge unit, then use
    Alt+Left/Right and the titlebar controls. The Surface and Inspector must follow
    the same navigation history. A new destination invalidates Forward.
+   On a Case/Participant change, renderer-local results and action dialogs are
+   discarded; a delayed response from the previous context cannot populate the
+   active Surface. Paused Journal history is likewise fenced to the exact
+   Case/Participant. Same-context refresh and scoped file drafts remain intact.
 3. Open Knowledge Graph. Pan, wheel-zoom, drag a node, Fit, filter node/relation
    kinds, select an edge with the keyboard and inspect its exact endpoints.
    Fit must retain dragged node positions. Choose 24, 48 or 96 visible objects;

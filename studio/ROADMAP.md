@@ -265,7 +265,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SW02 | 🟢 ESTABLISHED | Universal Surface registry, Material/Product/Canvas archetypes, preview/pin/close and singleton Settings | Multiple visible groups later | kernel.test.cjs; workbench.mjs |
 | SW03 | 🟢 ESTABLISHED | Back/Forward across perspectives, objects, Surface activation and Settings; new navigation invalidates Forward | Preserve Case-local lifetime | navigation-journal.mjs |
 | SW04 | 🟢 ESTABLISHED | Command Palette, projected-object Quick Open, renderer-owned Find, top command center | Semantic Case Search needs an owner | workbench.mjs; navigation-journal.mjs |
-| SW05 | 🟢 ESTABLISHED | Reversible Surface focus, region resizing, independent contextual cards and Case/Participant-local draft/tab/navigation retention | Shared/persisted Case Views later | focus-layout.mjs; reliability.mjs; context-tools.mjs; native-pty.py |
+| SW05 | 🟢 ESTABLISHED | Reversible Surface focus, region resizing, independent contextual cards and Case/Participant-local draft/tab/navigation retention | Renderer-local results reset at Case/Participant boundaries; shared/persisted Case Views later | surface-context.mjs; focus-layout.mjs; reliability.mjs; context-tools.mjs; native-pty.py |
 | SF01 | 🟢 ESTABLISHED | Exact material identity/bytes fencing through resident Host | No direct filesystem read | material-lifecycle.mjs |
 | SF02 | 🟢 ESTABLISHED | Lazy CodeMirror, syntax modes, find/replace, dirty/revert, Open With | Language servers not selected | editing.mjs; workbench.mjs |
 | SF03 | 🟢 ESTABLISHED | Markdown, inert SVG/images, PDF, table, audio/video and unknown fallback | Rich editing not implied | media-surfaces.mjs; desktop-csp.mjs |

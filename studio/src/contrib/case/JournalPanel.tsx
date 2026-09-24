@@ -5,15 +5,16 @@ import type { PanelViewProps } from "../../workbench/kernel/types";
 import { timelineInput } from "../surfaces/inputs";
 
 export function JournalPanel({ workspace, actions, selection, toolbarTarget, visible }: PanelViewProps) {
+  const context = JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref]);
   const [paused, setPaused] = useState(false);
-  const [retained, setRetained] = useState({ caseRef: workspace.case.case_ref, events: workspace.memory.timeline });
-  const snapshot = retained.caseRef === workspace.case.case_ref ? retained.events : workspace.memory.timeline;
+  const [retained, setRetained] = useState({ context, events: workspace.memory.timeline });
+  const snapshot = retained.context === context ? retained.events : workspace.memory.timeline;
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
   const [component, setComponent] = useState("");
   const list = useRef<HTMLDivElement>(null);
-  useEffect(() => { setPaused(false); setQuery(""); setKind(""); setComponent(""); }, [workspace.case.case_ref]);
-  useEffect(() => { if (!paused) setRetained({ caseRef: workspace.case.case_ref, events: workspace.memory.timeline }); }, [paused, workspace.memory.timeline, workspace.case.case_ref]);
+  useEffect(() => { setPaused(false); setQuery(""); setKind(""); setComponent(""); }, [context]);
+  useEffect(() => { if (!paused) setRetained({ context, events: workspace.memory.timeline }); }, [paused, workspace.memory.timeline, context]);
   const rows = useMemo(() => snapshot.filter(event => (!kind || event.kind === kind) && (!component || event.component === component) && `${event.kind} ${event.summary ?? ""} ${event.component} ${event.participant_ref ?? ""} ${event.causal_refs.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [snapshot, query, kind, component]);
   useEffect(() => { if (!paused && visible && list.current) list.current.scrollTop = list.current.scrollHeight; }, [rows, paused, visible]);
   const latest = workspace.memory.timeline.at(-1)?.sequence;
