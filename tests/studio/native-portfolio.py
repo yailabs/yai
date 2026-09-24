@@ -161,6 +161,19 @@ try:
   assert first.js('return Boolean(document.querySelector(".conversation-answer"))'), 'No retained result rendered'
   first.js('document.querySelector(".conversation-attempt")?.scrollIntoView({block:"center"})')
   first.shot('native-retained-details.png')
+  # Native preparation reads the owner plan; it must not submit inference.
+  plan_input=dict(case_ref=a.cases[0],participant_ref=case['case']['participant_ref'],source_turn_ref=turns[0]['id'],source_part_refs=[],capability='primary_conversation')
+  expected_plan=call('cognitive.realization.prepare',plan_input)
+  first.js('document.querySelector(`.live-rail button[aria-label="Compute"]`).click()')
+  first.wait('return document.querySelector(`select[aria-label="Committed Turn"]`)')
+  first.js('const select=document.querySelector(`select[aria-label="Committed Turn"]`);select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}))',turns[0]['id'])
+  first.js('[...document.querySelectorAll(".cognitive-execution button")].find(n=>n.textContent==="Prepare execution plan").click()')
+  first.wait('return document.querySelector(".cognitive-plan pre")')
+  actual_plan=first.js('return JSON.parse(document.querySelector(".cognitive-plan pre").textContent)')
+  assert actual_plan==expected_plan, 'Native prepared plan differs from typed Host result'
+  first.js('document.querySelector(".cognitive-plan").scrollIntoView({block:"center"})')
+  first.shot('native-cognitive-plan.png')
+  emit(dict(proof='Native Compute prepares exact retained input without submitting inference',plan_ref=actual_plan['plan_id'],route=actual_plan['route']))
  if a.fresh_profile:
   second.open(a.cases[0],labels[a.cases[0]]);assert second.draft()=='';second.type('UNSENT_SECOND_ALPHA')
   for client in clients:

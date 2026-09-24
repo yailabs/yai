@@ -3094,6 +3094,13 @@ summary {
 .conversation-attempt > dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 7px 12px; }
 .conversation-attempt dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 .conversation-attempt pre { max-height: 220px; overflow: auto; }
+.cognitive-execution { min-width: 0; overflow-wrap: anywhere; }
+.cognitive-plan-fields { display: grid; gap: 10px; max-width: 620px; }
+.cognitive-plan-fields label { display: grid; gap: 5px; }
+.cognitive-plan-fields select { min-width: 0; width: 100%; min-height: 32px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.cognitive-plan > header { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.cognitive-plan pre, .cognitive-result { max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cognitive-recent { margin-top: 20px; }
 .conversation-operational details code { display: block; margin-top: 8px; }
 .conversation-composer { position: relative; flex: none; padding: 12px; margin: 0 12px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
 .conversation-composer textarea:focus-visible { outline: none; box-shadow: none; }

@@ -338,6 +338,22 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    submission. Never replace an unknown outcome with a fresh submission identity.
    `cognitive.realization.prepare` supplies the exact plan before dispatch;
    `cognitive.realize` binds its acknowledgement to canonical selection.
+   Studio Compute exposes this as **Execute retained input**: select a committed
+   Turn, prepare without inference, inspect the selected route, then explicitly
+   confirm execution. All original parts are resolved by the owner. A changed
+   Case/input withholds the old plan. The plan reference is retained before
+   submission; recent receipts and Work can observe it after a lost acknowledgement
+   without redispatch. `tests/studio/conversation-actions.mjs` qualifies text
+   completion, exact retry without another invocation or Turn, stale plans,
+   incompatible speech input, hidden observation and withdrawn target trust.
+   This does not qualify successful audio/image execution or composition authoring.
+   The read-only native portfolio lane with `--inspect-retained-conversation`
+   also prepares that Case's retained input in Compute and compares the complete
+   displayed plan with a typed Host read, preserving both Case generations and
+   Conversation history. It does not click Execute or load/reconfigure YVEX.
+   The code-owned `cognitive.bindings_and_realization` catalog entry remains exact:
+   its broader family is Application-ready, not wholly Studio-consumed; CLI and
+   Studio use the same cognitive/provider owners.
    `effect.propose` normalizes an exact retained candidate without executing;
    `effect.submit` crosses normal admission, and `effect.reconcile` permits only
    the existing domain's recovery. A process signal is never blindly repeated.

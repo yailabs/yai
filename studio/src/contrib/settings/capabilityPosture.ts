@@ -3,8 +3,8 @@
 export interface StudioOperationPosture { state: "integrated" | "alternative" | "debt"; detail: string; proof?: string }
 export const studioOperationPostures: Readonly<Record<string, StudioOperationPosture>> = {
   "case.resume": { state: "integrated", detail: "Explicit operator-stopped checkpoint continuation, retained identity and total budgets; lost ACK observation, exact retry and stale/hidden refusal", proof: "tests/studio/effect-actions.mjs" },
-  "cognitive.realization.prepare": { state: "debt", detail: "Application prepares an exact plan from retained Turn parts; authored selection and inspection remain unconnected." },
-  "cognitive.realize": { state: "debt", detail: "Reconnect-safe exact-plan submission is available; Studio must retain the plan reference and observe instead of redispatching." },
+  "cognitive.realization.prepare": { state: "integrated", detail: "Compute selects a retained Turn and inspects the current exact plan without inference; text-positive, incompatible audio, stale and hidden refusals qualified. Multimedia success remains unqualified.", proof: "tests/studio/conversation-actions.mjs" },
+  "cognitive.realize": { state: "integrated", detail: "Explicit confirmed text realization retains the exact plan before submission; lost ACK observation and exact retry preserve one dispatch/result. Hidden observation and withdrawn trust refuse.", proof: "tests/studio/conversation-actions.mjs" },
   "cognitive.compose": { state: "debt", detail: "Application admits one explicit composition intent; source-part and prerequisite selection need an authored interaction." },
   "conversation.send": { state: "integrated", detail: "Committed text SEND, exact lost-ack retry, canonical result observation and reconnect recovery", proof: "tests/studio/conversation-actions.mjs" },
   "effect.propose": { state: "debt", detail: "Exact retained candidate normalization is available; Studio must not construct an authoritative Operation or imply permission." },

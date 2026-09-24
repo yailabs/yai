@@ -1,6 +1,7 @@
 import { ProviderRegistrationFields } from "./ProviderRegistrationFields";
 import { ProviderWorkspace } from "./ProviderWorkspace";
 import { ConversationModelSetup } from "./ConversationModelSetup";
+import { CognitiveExecution } from "./CognitiveExecution";
 import { useEffect, useState } from "react";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
 import type { ProviderProbeEvidence, ProviderQualification, ProviderTarget } from "../../clients/compute";
@@ -74,6 +75,7 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
     {trustReceipt && <p className="operation-receipt" role="status">Trust {trustReceipt.posture} recorded for {trustReceipt.target}. Binding and effect-time admission are separate.</p>}
     <section className="compute-section"><h2>Existing target</h2><p>Use an exact target reference returned by YAI. Providers lists the Tenant inventory. Binding here applies to the current Case only.</p>{controls()}</section>
     {scope === "case" && <ConversationModelSetup workspace={workspace} platform={platform} />}
+    <CognitiveExecution workspace={workspace} platform={platform} />
     {scope === "case" && <section className="compute-section"><h2>Models & cognition</h2><p>{models.length ? `Models in this Case's bound targets: ${models.join(", ")}.` : "No bound model identity is exposed."} A model name is distinct from its provider/runtime and exact deployment.</p><p>Provider binding does not establish a cognitive-role binding. Work offers bounded execution and exact submission observation when advertised by the connected Host. Conversation sends committed text through the current primary cognitive assignment. Interrupted delivery is observed without automatic redispatch.</p></section>}
     </>}
     {action && application && <ApplicationActionDialog key={action} title={titles[action]} description={action === "register" ? "Register an immutable target in the current Tenant. Enter a credential reference only, never a token. YAI validates the endpoint and ownership." : action === "qualify" ? "Import a measured ProviderProbeEvidence record from a real YAI probe. This records evidence; it does not run a network test. The current Application operation does not execute the probe." : action === "trust" ? "Set owner-authenticated trust for this exact target. Trust does not imply capability qualification or permission to execute." : "Bind one exact governed target to the current Participant. YAI checks Tenant ownership, Participant and exact target identity. Qualification and trust are checked again when execution is admitted. This replaces the Case provider envelope; it does not send a prompt."}

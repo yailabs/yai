@@ -265,9 +265,92 @@ try {
  await page.locator('.live-rail button[aria-label="Overview"]').click();
  await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
  // Revoked current trust refuses a new model assignment (no bypass in React).
+ // Explicit retained-input plan and execution: no frontend hashes or hidden SEND.
+ await page.locator('.live-rail button[aria-label="Compute"]').click();
+ const cognition=page.getByRole('region',{name:'Cognitive execution',exact:true});
+ const planBefore=await accepted('case.summary',{case_ref:caseRef});
+ const sourceTurn=planBefore.conversation.turns[0].id;
+ await cognition.getByLabel('Committed Turn',{exact:true}).selectOption(sourceTurn);
+ const planDispatches=generationRequests;
+ await cognition.getByLabel('Cognitive capability',{exact:true}).selectOption('speech_to_text');
+ await cognition.getByRole('button',{name:'Prepare execution plan',exact:true}).click();
+ await cognition.getByRole('alert').waitFor();
+ assert.equal(await cognition.getByRole('region',{name:'Prepared execution plan'}).count(),0,'Text input must not produce a fake audio plan');
+ assert.equal(generationRequests,planDispatches);
+ await cognition.getByLabel('Cognitive capability',{exact:true}).selectOption('primary_conversation');
+ await cognition.getByRole('button',{name:'Prepare execution plan',exact:true}).click();
+ await cognition.getByRole('region',{name:'Prepared execution plan'}).waitFor();
+ const oldPlanExchange=exchanges.findLast(x=>x.request.operation_ref==='cognitive.realization.prepare');
+ assert.equal(oldPlanExchange.result.data.selected_target_id,target.target_id);
+ assert.deepEqual(oldPlanExchange.request.input.source_part_refs,[],'The owner resolves all exact original Turn parts');
+ assert.equal(generationRequests,planDispatches,'Preparation must not invoke the model');
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,planBefore.case.generation);
+ await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'plan-staleness-check'});
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ await cognition.getByText('The input or Case changed. Prepare a fresh plan before executing.',{exact:true}).waitFor();
+ assert.equal(await cognition.getByRole('button',{name:'Execute prepared plan…',exact:true}).count(),0);
+ const stalePlan=await call('cognitive.realize',{...oldPlanExchange.request.input,plan_ref:oldPlanExchange.result.data.plan_id});
+ assert.notEqual(stalePlan.result_state,'success');assert.equal(generationRequests,planDispatches);
+ await cognition.getByRole('button',{name:'Prepare execution plan',exact:true}).click();
+ await cognition.getByRole('region',{name:'Prepared execution plan'}).waitFor();
+ const planExchange=exchanges.findLast(x=>x.request.operation_ref==='cognitive.realization.prepare');
+ assert.notEqual(planExchange.result.data.plan_id,oldPlanExchange.result.data.plan_id);
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+  await page.setViewportSize({width,height});await cognition.scrollIntoViewIfNeeded();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:`${evidence}/cognitive-plan-${width}x${height}.png`});
+ }
+ await page.setViewportSize({width:1440,height:900});
+ holdResponse=true;dropAcknowledgement='cognitive.realize';
+ await cognition.getByRole('button',{name:'Execute prepared plan…',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Execute prepared input',exact:true});
+ await form.getByRole('button',{name:'Submit exact plan',exact:true}).click();
+ await form.getByText('Confirmation was lost',{exact:true}).waitFor();
+ const realizeExchange=exchanges.findLast(x=>x.request.operation_ref==='cognitive.realize');
+ assert.equal(realizeExchange.request.input.plan_ref,planExchange.result.data.plan_id);
+ const planDeadline=Date.now()+10000;
+ while(!releaseResponse) { assert.ok(Date.now()<planDeadline,'Explicit realization never reached controlled provider');await new Promise(resolve=>setTimeout(resolve,20)); }
+ await form.getByRole('button',{name:'Close and inspect state'}).click();
+ const realizationRef={domain:'cognitive_realization',plan_ref:planExchange.result.data.plan_id};
+ const runningPlan=await accepted('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:realizationRef});
+ assert.equal(runningPlan.posture,'running');assert.equal(generationRequests,planDispatches+1);
+ holdResponse=false;releaseResponse();releaseResponse=undefined;
+ const resultDeadline=Date.now()+10000;
+ let realizedObservation;
+ while(true) {const value=await accepted('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:realizationRef});if(value.provider_result){realizedObservation=value;break;}assert.ok(Date.now()<resultDeadline);await new Promise(resolve=>setTimeout(resolve,50));}
+ assert.equal(realizedObservation.provider_result.selection.selected_target_id,target.target_id);
+ assert.equal(realizedObservation.invocation_refs.length,1);
+ await cognition.getByRole('button',{name:'Refresh observation',exact:true}).click();
+ await cognition.locator('.cognitive-result').getByText('Controlled provider response',{exact:true}).waitFor();
+ const beforeExactRepeat=await accepted('case.summary',{case_ref:caseRef});
+ const exactRepeat=await accepted('cognitive.realize',realizeExchange.request.input);
+ assert.equal(exactRepeat.plan_ref,realizationRef.plan_ref);assert.equal(generationRequests,planDispatches+1);
+ assert.equal(exactRepeat.provider_result.result_id,realizedObservation.provider_result.result_id);
+ const afterExactRepeat=await accepted('case.summary',{case_ref:caseRef});
+ assert.equal(afterExactRepeat.case.generation,beforeExactRepeat.case.generation,'Exact retry creates no extra canonical consequence');
+ assert.equal(afterExactRepeat.conversation.turns.length,planBefore.conversation.turns.length,'Realization must not manufacture a new conversation Turn');
+ await page.locator('.live-rail button[aria-label="Memory"]').click();
+ await page.locator('.live-rail button[aria-label="Compute"]').click();
+ await cognition.locator('.cognitive-result').getByText('Controlled provider response',{exact:true}).waitFor();
+ assert.equal(generationRequests,planDispatches+1,'Reopening only observes retained plan identity');
+ for(const operation of ['cognitive.realization.prepare','cognitive.realize']) {
+  const refused=await call(operation,{...(operation==='cognitive.realize'?realizeExchange.request.input:planExchange.request.input),participant_ref:'participant:hidden'});
+  assert.notEqual(refused.result_state,'success');assert.equal(refused.data,undefined);
+ }
+ const hiddenPlan=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:realizationRef});
+ assert.notEqual(hiddenPlan.result_state,'success');assert.equal(hiddenPlan.data,undefined);
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
  await accepted('provider.trust.set',{target_ref:target.target_id,posture:'denied'});
  const rejected=await call('cognitive.binding.set',{case_ref:caseRef,participant_ref:'participant:operator',role:'primary',capability:'primary_conversation',candidates:[{target_ref:target.target_id,semantic_evidence_ref:attested.data.evidence_id}],replace:true});
  assert.notEqual(rejected.result_state,'success');
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ await page.locator('.live-rail button[aria-label="Compute"]').click();
+ await cognition.getByLabel('Committed Turn',{exact:true}).selectOption(sourceTurn);
+ await cognition.getByRole('button',{name:'Prepare execution plan',exact:true}).click();
+ await cognition.getByText('unresolved',{exact:true}).waitFor();
+ assert.equal(await cognition.getByRole('button',{name:'Execute prepared plan…',exact:true}).isDisabled(),true);
+ assert.match(await cognition.getByRole('region',{name:'Prepared execution plan'}).innerText(),/trust not approved/);
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
  const beforeRefusal=generationRequests;
  await narrative.getByRole('button',{name:'Generate a new explanation',exact:true}).click();
  await page.waitForFunction(()=>{const n=document.querySelector('.overview-narrative');return n && (n.querySelector('[role="alert"]') || n.querySelector('.narrative-text')?.textContent.includes('No completed response'));});
@@ -276,6 +359,6 @@ try {
 
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID','Retained Turn plan preparation without inference','Explicit exact-plan realization and lost ACK recovery','Stale plan and incompatible input refusal','Current trust excludes model route','Reopen observes without redispatch']}));
 } finally {
  releaseResponse?.();await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

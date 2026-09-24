@@ -4,12 +4,13 @@ import type { ExecutionObservation, ExecutionReference, ResourceAction } from ".
 import { executionKey, readExecutionRefs, rememberExecution } from "../../clients/execution";
 import { ApplicationActionDialog } from "../../components/ApplicationActionDialog";
 import { Badge, Button } from "../../components/primitives";
+import { ConversationAttempt } from "./ConversationAttempt";
 import { useApplicationAvailability } from "./applicationActions";
 
 type Context = Pick<SurfaceRendererProps, "workspace" | "platform">;
 const refresh = (platform: Context["platform"]) => platform.commands.executeCommand("studio.case.refresh").then(() => undefined);
 const keyFor = (workspace: Context["workspace"]) => executionKey(workspace.case.case_ref, workspace.case.participant_ref);
-const label = (ref: ExecutionReference) => ref.domain === "source_acquisition" ? `${ref.source_ref} · attempt ${ref.attempt}` : ref.submission_ref;
+const label = (ref: ExecutionReference) => ref.domain === "source_acquisition" ? `${ref.source_ref} · attempt ${ref.attempt}` : ref.domain === "cognitive_realization" ? ref.plan_ref : ref.submission_ref;
 
 export function ExecutionHistory({ workspace, platform }: Context) {
   const key = keyFor(workspace);
@@ -18,12 +19,12 @@ export function ExecutionHistory({ workspace, platform }: Context) {
   const [domain, setDomain] = useState<ExecutionReference["domain"]>("runtime_work");
   useEffect(() => { setRefs(readExecutionRefs(key)); const update = () => setRefs(readExecutionRefs(key)); window.addEventListener("yai:execution-reference", update); return () => window.removeEventListener("yai:execution-reference", update); }, [key]);
   return <section className="work-section execution-history"><h2>Executions</h2><p>Exact submission references retained in this window. Observation rechecks current YAI authority and never dispatches work. This is not a complete execution catalog.</p><Button onClick={() => setManual(!manual)}>Observe exact execution…</Button>
-    {manual && <form className="execution-observe-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); rememberExecution(key, domain === "source_acquisition" ? { domain, source_ref: String(form.get("reference")).trim(), attempt: Number(form.get("attempt")) } : { domain, submission_ref: String(form.get("reference")).trim() }); setManual(false); }}><label>Execution family<select value={domain} onChange={event => setDomain(event.target.value as ExecutionReference["domain"])}><option value="runtime_work">Runtime work</option><option value="source_acquisition">Source acquisition</option><option value="resource_request">Resource request</option></select></label><label>Exact reference<input name="reference" required /></label>{domain === "source_acquisition" && <label>Attempt<input name="attempt" type="number" min={1} defaultValue={1} required /></label>}<Button type="submit">Observe reference</Button></form>}
+    {manual && <form className="execution-observe-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); rememberExecution(key, domain === "source_acquisition" ? { domain, source_ref: String(form.get("reference")).trim(), attempt: Number(form.get("attempt")) } : domain === "cognitive_realization" ? { domain, plan_ref: String(form.get("reference")).trim() } : { domain, submission_ref: String(form.get("reference")).trim() }); setManual(false); }}><label>Execution family<select value={domain} onChange={event => setDomain(event.target.value as ExecutionReference["domain"])}><option value="runtime_work">Runtime work</option><option value="cognitive_realization">Cognitive realization</option><option value="source_acquisition">Source acquisition</option><option value="resource_request">Resource request</option></select></label><label>Exact reference<input name="reference" required /></label>{domain === "source_acquisition" && <label>Attempt<input name="attempt" type="number" min={1} defaultValue={1} required /></label>}<Button type="submit">Observe reference</Button></form>}
     {refs.slice().reverse().map(ref => <ExecutionReceipt key={JSON.stringify(ref)} workspace={workspace} platform={platform} reference={ref} />)}
   </section>;
 }
 
-function ExecutionReceipt({ workspace, platform, reference, compact = false }: Context & { reference: ExecutionReference; compact?: boolean }) {
+export function ExecutionReceipt({ workspace, platform, reference, compact = false }: Context & { reference: ExecutionReference; compact?: boolean }) {
   const application = platform.application; const availability = useApplicationAvailability(application);
   const identity = JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref, workspace.case.generation, reference]);
   const current = useRef(identity); current.current = identity; const sequence = useRef(0);
@@ -34,7 +35,7 @@ function ExecutionReceipt({ workspace, platform, reference, compact = false }: C
     if (!application) return; const stamp = identity; const request = ++sequence.current; setBusy(true); setError(undefined);
     try { const response = await application.execution({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, execution: reference });
       if (stamp !== current.current || request !== sequence.current) return;
-      if (response.result_state === "success" && response.data?.case_ref === workspace.case.case_ref && response.data.participant_ref === workspace.case.participant_ref) setObservation({ identity: stamp, value: response.data });
+      if (response.result_state === "success" && response.data?.case_ref === workspace.case.case_ref && response.data.participant_ref === workspace.case.participant_ref && (reference.domain !== "cognitive_realization" || response.data.plan_ref === reference.plan_ref)) setObservation({ identity: stamp, value: response.data });
       else { setObservation(undefined); setError(response.error?.safe_message ?? "No currently authorized observation for this exact reference."); }
     } finally { if (request === sequence.current) setBusy(false); }
   };
@@ -42,11 +43,15 @@ function ExecutionReceipt({ workspace, platform, reference, compact = false }: C
   useEffect(() => { void observe(); }, [application, availability, identity]);
   const posture = result?.state ?? (typeof result?.posture === "string" ? result.posture : result?.posture?.state);
   const detail = typeof result?.posture === "object" ? result.posture : undefined;
-  return <article className="execution-receipt"><header><strong>{compact && reference.domain === "source_acquisition" ? `Acquisition · attempt ${reference.attempt}` : reference.domain.replaceAll("_", " ")}</strong>{posture && <Badge tone={/refused|denied|failed/.test(posture) ? "error" : /indeterminate|unresolved|waiting|inaccessible/.test(posture) ? "warning" : /completed|acquired/.test(posture) ? "success" : "info"}>{posture.replaceAll("_", " ")}</Badge>}<Button disabled={busy || !application?.supports("execution.get")} onClick={() => void observe()}>{busy ? "Observing…" : "Refresh observation"}</Button></header>{compact ? <details><summary>Exact attempt</summary><code>{label(reference)}</code>{result?.progress_ref && <code>{result.progress_ref}</code>}</details> : <code>{label(reference)}</code>}
+  return <article className="execution-receipt"><header><strong>{compact && reference.domain === "source_acquisition" ? `Acquisition · attempt ${reference.attempt}` : reference.domain.replaceAll("_", " ")}</strong>{posture && <Badge tone={/refused|denied|failed/.test(posture) ? "error" : /indeterminate|unresolved|waiting|inaccessible/.test(posture) ? "warning" : /completed|acquired|provider_result_recorded/.test(posture) ? "success" : "info"}>{posture.replaceAll("_", " ")}</Badge>}<Button disabled={busy || !application?.supports("execution.get")} onClick={() => void observe()}>{busy ? "Observing…" : "Refresh observation"}</Button></header>{compact ? <details><summary>Exact attempt</summary><code>{label(reference)}</code>{result?.progress_ref && <code>{result.progress_ref}</code>}</details> : <code>{label(reference)}</code>}
     {posture === "delivery_indeterminate" && <p role="status">The recorded attempt has no confirmed result and its execution is no longer observed as active. Refresh only checks retained evidence; it does not restart the attempt.</p>}
     {posture === "unresolved" && <p role="status">YAI cannot establish whether this attempt is still active. Its retained phase is not proof of a running process. No new attempt is sent.</p>}
     {error && <p role="alert">{error} No new submission was sent.</p>}
     {result && <dl className="object-facts">{Object.entries({ Execution: compact ? undefined : result.execution_ref ?? result.operation_ref ?? result.progress_ref, "Runner posture": result.runner?.posture, "Stop requested": result.runner ? String(result.runner.stop_requested) : undefined, "Current Source phase": result.current_source_phase, "Effect outcome": detail?.outcome, "Effect started": detail?.external_execution_started == null ? undefined : String(detail.external_execution_started), Result: detail?.result_ref, Receipt: detail?.receipt_ref, Review: detail?.review_ref }).filter(([, value]) => value != null).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}
+    {reference.domain === "cognitive_realization" && result && <>
+      {result.provider_result && <section aria-label="Retained cognitive result"><p>Recorded model output · candidate material</p><pre className="cognitive-result">{result.provider_result.output}</pre><details><summary>Result identity</summary><code>{result.provider_result.result_id}</code></details></section>}
+      {result.attempt_outcomes?.map((outcome, index) => <ConversationAttempt key={outcome.outcome_id ?? index} outcome={outcome} />)}
+    </>}
     {reference.domain === "runtime_work" && result?.runner && <Button disabled={!application?.supports("case.stop") || result.runner.stop_requested || result.runner.posture !== "running"} onClick={() => setStop(true)}>Stop this run…</Button>}
     {reference.domain === "runtime_work" && result?.runner?.posture === "operator_stopped" && <Button disabled={busy || !application?.supports("case.resume") || !result.runner.checkpoint_digest} onClick={() => setResume({ identity, submission: `request:studio:${crypto.randomUUID()}`, run: result.runner!.run_ref, digest: result.runner!.checkpoint_digest })}>Resume stopped work…</Button>}
     {resume && application && reference.domain === "runtime_work" && <ApplicationActionDialog title="Resume stopped work" description="Continue the exact observed run under new total limits. Previously consumed budgets and delivery history remain; this does not restart the task or replay an uncertain provider request. YAI rechecks the checkpoint and current authority." submitLabel="Submit continuation" close={() => setResume(undefined)} enabled={resume.identity === identity} submit={form => {
