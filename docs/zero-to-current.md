@@ -1707,3 +1707,25 @@ model is invoked or scored. The absent System Model producer remains explicit.
 After W4 paging, use **Refresh exact task** first: current backend requalification
 rejects the page-history-bearing W until explicit refresh. Changed Case state also
 requires refresh; refusal does not disclose a newly qualified choice list.
+
+### Owner-resolved Resource configuration
+
+The typed `resource.import` Application operation accepts the existing
+`yai.resource_definition.v1` plus an exact Case reference. It shares the CLI
+import owner: YAI authenticates current ownership before resolving filesystem
+roots and computes native configuration digests itself. The client does not
+create a carrier identity. Repeating the exact attachment is unchanged; changed
+configuration under the same attachment identity refuses. Importing a binding
+neither queries a database nor contacts an endpoint or grants execution authority.
+In Environment, **Attach Resource…** authors filesystem reads, directory discovery,
+SQLite named queries, HTTP named paths and MCP catalog bindings. Roots are on the
+YAI Host, not the browser machine. The form binds the current Participant and
+records the Review requirement; YAI applies the checks appropriate to each operation.
+For discovery, explicitly select admission and reading of retained Case content
+to enable Source acquisition and exact material reading. This configures request
+scope, not an authorization grant.
+`tests/studio/resource-setup.mjs` exercises all five forms through the real Host,
+including lost acknowledgement, exact retry, conflicting configuration, hidden
+Case refusal, declaration/acquisition of a real Source, exact editor bytes,
+CLI retry of the same definitions without new state and canonical replay. Process-runner executable identity and write bounds
+remain outside this bounded form.

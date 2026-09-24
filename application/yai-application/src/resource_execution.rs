@@ -20,7 +20,7 @@ use yai_core_engine::security::AuthenticatedPrincipal;
 
 /// Bootstrap/application input, not a new durable configuration authority.
 /// Physical roots and configuration digests are observed by YAI at import.
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResourceDefinition {
     schema: String,
@@ -41,7 +41,7 @@ pub struct ResourceDefinition {
     review_requirement: ReviewRequirement,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum ResourceAddressInput {
     Filesystem {
@@ -74,6 +74,17 @@ pub fn import_definition(
     case_id: &str,
     definition: ResourceDefinition,
 ) -> Result<CaseState, String> {
+    import_definition_result(store, authenticated, case_id, definition).map(|result| result.state)
+}
+
+/// Typed clients share CLI import resolution; callers never fabricate native
+/// root identities or configuration digests. Exact attachment retry is owned by attach.
+pub fn import_definition_result(
+    store: &LmdbRecordStore,
+    authenticated: &AuthenticatedPrincipal,
+    case_id: &str,
+    definition: ResourceDefinition,
+) -> Result<CaseStateMutationResult, String> {
     use yai_core_engine::effect::access::{
         ResourceAddress, LOCAL_ACCESS_BINDING_SCHEMA, RESOURCE_ACCESS_SCHEMA,
     };
@@ -85,7 +96,7 @@ pub fn import_definition(
     // Resolve authority before inspecting any administrator-supplied root.
     let state = store.get_case_state_authorized(authenticated, case_id)?;
     store
-        .resolve_security_context(authenticated, state.tenant_id.as_deref().unwrap())?
+        .resolve_security_context(authenticated, state.tenant_id.as_deref().ok_or("resource_attachment_requires_tenant")?)?
         .require_owner()?;
     let root = |path: &Path| LocalFilesystemBinding::new(case_id, &definition.attachment_id, path);
     let address = match definition.address {
@@ -144,7 +155,6 @@ pub fn import_definition(
             .zip(definition.max_write_bytes),
         definition.review_requirement,
     )
-    .map(|result| result.state)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

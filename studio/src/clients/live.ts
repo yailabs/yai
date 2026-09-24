@@ -7,7 +7,7 @@ import type { ExecutionGetInput, ExecutionObservation, ExecutionSubmission, Sour
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
-import type { CaseCapabilityView, ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
+import type { ResourceImportInput, CaseCapabilityView, ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
 import type { PolicyIngestResult, PolicyLifecycleAction, PolicyLifecycleInput, PolicyLifecycleResult } from "./policy";
 import type { IdentityPresentation } from "./application";
 import type { RecallRequest, RecallResult, WorkingStateRequest, WorkingStateResult, WorkingState, WorkingRefreshRequest, PageRequest, FastSearchPreparation, FrontierResult, DecisionPrepareInput, DecisionPreparation } from "./memory";
@@ -159,6 +159,7 @@ export class LiveClient {
   resumeSource(input: SourceResumeInput) { return this.call<ExecutionSubmission>("source.resume", input); }
   execution(input: ExecutionGetInput) { return this.call<ExecutionObservation>("execution.get", input); }
   requestResource(input: ResourceRequestInput) { return this.call<ExecutionSubmission>("resource.request", input); }
+  importResource(input: ResourceImportInput) { return this.call<unknown>("resource.import", input); }
   attachProcess(input: ProcessAttachmentInput) { return this.call<unknown>("resource.attach_process", input); }
   resumeCase(input: CaseResumeInput) { return this.call<ExecutionSubmission>("case.resume", input); }
   runCase(input: CaseRunInput) { return this.call<ExecutionSubmission>("case.run", input); }

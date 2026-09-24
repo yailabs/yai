@@ -34,6 +34,19 @@ export interface SourceDeclarationInput {
   action: { action: "discover"; path: string } | { action: "database_query" | "http_fetch"; name: string };
   bootstrap_policy: boolean; media_type: string;
 }
+export interface ResourceImportInput {
+  case_ref: string;
+  definition: {
+    schema: "yai.resource_definition.v1"; attachment_id: string; policy_owner: string;
+    participant_ids: string[]; operations: string[]; read_prefixes: string[]; names: string[];
+    max_output_bytes: number; max_items: number; review_requirement: "require_review";
+    address: { kind: "filesystem" | "discovery"; root: string }
+      | { kind: "sqlite"; root: string; path: string; queries: Record<string, string> }
+      | { kind: "http_service"; endpoint: NetworkResourceInput; paths: Record<string, string> }
+      | { kind: "mcp"; endpoint: NetworkResourceInput };
+  };
+}
+interface NetworkResourceInput { endpoint: string; allowed_ip_addresses: string[]; credential_ref: string | null }
 export interface CasePolicyBindingInput { case_ref: string; artifact_ref: string; expected_generation: number; reason: string }
 export interface CasePolicyReplacementInput extends CasePolicyBindingInput { prior_binding_ref: string }
 export interface CasePolicyUnbindingInput { case_ref: string; binding_ref: string; expected_generation: number; reason: string }
@@ -103,6 +116,7 @@ export class ApplicationAccess implements Disposable {
   resumeSource(input: SourceResumeInput) { return this.invoke("source.resume", () => this.client.resumeSource(input)); }
   execution(input: ExecutionGetInput) { return this.invoke("execution.get", () => this.client.execution(input)); }
   requestResource(input: ResourceRequestInput) { return this.invoke("resource.request", () => this.client.requestResource(input)); }
+  importResource(input: ResourceImportInput) { return this.invoke("resource.import", () => this.client.importResource(input)); }
   attachProcess(input: ProcessAttachmentInput) { return this.invoke("resource.attach_process", () => this.client.attachProcess(input)); }
   resumeCase(input: CaseResumeInput) { return this.invoke("case.resume", () => this.client.resumeCase(input)); }
   runCase(input: CaseRunInput) { return this.invoke("case.run", () => this.client.runCase(input)); }

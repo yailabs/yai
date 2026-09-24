@@ -1320,3 +1320,61 @@ fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_c
     assert_eq!(f.generation(),generation);
     assert!(f.success("case.summary",json!({"case_ref":"case:audit"}))["compute"]["targets"].as_array().unwrap().is_empty());
 }
+
+
+#[test]
+fn resource_definition_import_resolves_native_identity_and_retries_without_duplication() {
+    let f = Fixture::new("resource-definition-import");
+    let root = f.home.join("materials"); fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("evidence.txt"), "retained material, not an executed operation").unwrap();
+    let endpoint = json!({"endpoint":"http://127.0.0.1:1/service", "allowed_ip_addresses":["127.0.0.1"], "credential_ref":null});
+    let cases = vec![
+        ("filesystem", json!({"kind":"filesystem","root":root}), json!(["filesystem_read"]), json!([])),
+        ("discovery", json!({"kind":"discovery","root":root}), json!(["discover","admit_content"]), json!([])),
+        ("database", json!({"kind":"sqlite","root":root,"path":"evidence.sqlite","queries":{"status":"SELECT 1"}}), json!(["database_query"]), json!(["status"])),
+        ("http_service", json!({"kind":"http_service","endpoint":endpoint,"paths":{"status":"status"}}), json!(["http_fetch"]), json!(["status"])),
+        ("mcp", json!({"kind":"mcp","endpoint":endpoint}), json!(["mcp_catalog"]), json!([])),
+    ];
+    for (kind, address, operations, names) in cases {
+        let id = format!("resource:import-{kind}");
+        let definition = json!({"schema":"yai.resource_definition.v1", "attachment_id":id,
+            "policy_owner":"participant:operator","participant_ids":["participant:operator"],
+            "operations":operations,"read_prefixes":["evidence.txt"],"names":names,
+            "max_output_bytes":4096,"max_items":16,"address":address});
+        let input = json!({"case_ref":"case:audit", "definition":definition});
+        let before = f.generation();
+        // Deliberately discard the successful acknowledgement and reconnect.
+        let admitted = f.success("resource.import", input.clone());
+        assert_eq!(admitted["changed"], true);
+        assert_eq!(f.generation(), before + 1);
+        let state = admitted["state"].clone();
+        let resource = state["resources"].as_array().unwrap().iter().find(|r| r["attachment_id"] == id).unwrap();
+        assert_eq!(resource["kind"], kind);
+        assert!(resource["access"]["configuration_digest"].as_str().unwrap().starts_with("sha256:"));
+        let reopened = LocalApplication::from_yai_home(&f.home);
+        let retry = reopened.call(OperationRequest { protocol:APPLICATION_PROTOCOL.into(),
+            operation_ref:"resource.import".into(), correlation_ref:"test:reconnected-import".into(), input:input.clone() });
+        assert_eq!(retry.result_state, ResultState::Success, "{retry:?}");
+        let retry = retry.data.unwrap();
+        assert_eq!(retry["changed"], false); assert_eq!(retry["state"], state);
+        assert_eq!(f.generation(), before + 1);
+        let mut conflict = input.clone(); conflict["definition"]["max_items"] = json!(17);
+        let refused = f.call("resource.import", conflict);
+        assert_ne!(refused.result_state, ResultState::Success); assert!(refused.data.is_none());
+        assert_eq!(f.generation(), before + 1);
+        let hidden = f.call("resource.import", json!({"case_ref":"case:hidden","definition":definition}));
+        assert_eq!(hidden.result_state, ResultState::Unauthorized); assert!(hidden.data.is_none());
+        assert_eq!(f.generation(), before + 1);
+    }
+    assert_eq!(fs::read_to_string(root.join("evidence.txt")).unwrap(), "retained material, not an executed operation");
+    assert!(!root.join("evidence.sqlite").exists(), "Import must not open or create a database");
+    let before_invalid = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    let invalid = f.call("resource.import", json!({"case_ref":"case:audit", "definition":{
+        "schema":"yai.resource_definition.v1","attachment_id":"resource:unsafe",
+        "policy_owner":"participant:operator","participant_ids":["participant:operator"],
+        "operations":["filesystem_read"],"read_prefixes":["../escape"],"names":[],
+        "max_output_bytes":4096,"max_items":16,"address":{"kind":"filesystem","root":root}}}));
+    assert_ne!(invalid.result_state, ResultState::Success);
+    assert!(invalid.data.is_none());
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), before_invalid);
+}

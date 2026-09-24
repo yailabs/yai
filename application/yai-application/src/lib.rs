@@ -741,6 +741,13 @@ pub struct CognitivePlanInput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ResourceImportInput {
+    pub case_ref: String,
+    pub definition: resource_execution::ResourceDefinition,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ResourceAttachInput {
     pub binding: LocalAccessBinding,
     pub access: ResourceAccessContract,
@@ -1964,6 +1971,12 @@ impl LocalApplication {
                         input.max_attempts_per_turn,
                     )?,
                 )
+            }
+            "resource.import" => {
+                let input: ResourceImportInput = decode_input(request)?;
+                encode_result("resource_import", resource_execution::import_definition_result(
+                    &store, &auth, &input.case_ref, input.definition,
+                )?)
             }
             "resource.attach" => {
                 let input: ResourceAttachInput = decode_input(request)?;
@@ -3514,6 +3527,7 @@ mod tests {
         typed::<CognitiveBindInput>();
         typed::<CognitiveTargetReference>();
         typed::<CognitivePlanInput>();
+        typed::<ResourceImportInput>();
         typed::<ResourceAttachInput>();
         typed::<ResourceAttachProcessInput>();
         typed::<SourceDeclareInput>();
