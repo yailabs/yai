@@ -75,6 +75,7 @@ try {
   assert.equal(await page.locator('.prepared-input-entry').count(),selected.length);
   const prepared=page.locator('.prepared-input-entry').first();
   assert.equal(await prepared.locator(':scope > summary').evaluate(node=>getComputedStyle(node).display),'grid','Kind and posture need separate readable rows');
+  assert.equal(await prepared.locator(':scope > summary').evaluate(node=>node.querySelector('small').getBoundingClientRect().bottom<=node.getBoundingClientRect().bottom),true,'The posture must fit within its row, above the divider');
   await prepared.locator(':scope > summary').click();
   assert.deepEqual(JSON.parse(await prepared.getByLabel('Exact prepared value').textContent()),selected[0].value.value);
   await prepared.getByText('Provenance',{exact:true}).click();
