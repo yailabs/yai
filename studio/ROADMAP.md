@@ -35,9 +35,9 @@ unverified, never inferred from private producer internals. The code-owned
 Application catalog and Studio consumer map remain the operation inventories.
 
 Baseline `21647b0` includes published Conversation SEND/model setup and the
-three historical Decision trajectory operations. The latter are explicitly
-Studio interaction debt; the historical evaluator is structural, not a model
-quality score. Prior catalog counts below describe earlier reconciliation cuts.
+three historical Decision trajectory operations. Work now consumes their bounded
+corpus, exact inspection and structural evaluation; these are not model-quality
+scores. Prior catalog counts below describe earlier reconciliation cuts.
 
 The operating assets have separate responsibilities: `case:tech-infra-inference-service`
 is the operator-selected internal infrastructure service change on Exon/Spark;
@@ -99,8 +99,10 @@ Product tabs now have an overflow selector and distinct geometry; contextual too
 launchers occupy their own rail rather than covering tabs. Default bottom-panel
 height is reduced while existing local preferences remain intact.
 
-**NEXT:** qualify the internal service readiness question end to end, context closure,
-parallel/multi-client Case isolation and recovery through the actual Studio.
+**NEXT:** qualify the internal service readiness question end to end and context
+closure against the real model. Controlled native two-client mutation fanout,
+parallel Case isolation and restart recovery are established separately; they do
+not substitute for real-provider evidence.
 **THEN:** extend the corpus and hardware matrix from observed product findings.
 **BLOCKED/OPEN CONTRACTS:** governed file Save; qualified folder intake/routing;
 policy catalog/composition projection; parent/child Case ownership; native YVEX

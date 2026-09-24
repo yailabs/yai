@@ -13,7 +13,7 @@ export function OutputPanel({ workspace }: PanelViewProps) {
 export function ExecutionPanel({ workspace, actions, selection, platform }: PanelViewProps) {
   const events = workspace.memory.timeline.filter(event => /execution|effect|attempt/.test(event.kind));
   return <section className="operational-panel"><Suspense fallback={<p>Loading execution observation…</p>}><ExecutionHistory workspace={workspace} platform={platform} /></Suspense><p className="surface-note">Committed execution/effect history from the latest bounded projection. History remains distinct from the exact operational observations above.</p>
-    {events.slice().reverse().map(event => <button className={`fact-row${selection === event.id ? " selected" : ""}`} key={event.id} onClick={() => actions.inspect(event.id)}><span><strong>{event.kind.replaceAll("_", " ")}</strong><small>{event.component} · generation {event.sequence}</small></span></button>)}
+    {events.slice().reverse().map(event => <button className={`fact-row${selection === event.id ? " selected" : ""}`} key={event.id} onClick={() => actions.inspect(event.id)}><span><strong>{event.kind.replaceAll("_", " ")}</strong><small>{event.component}</small></span></button>)}
     {!events.length && <EmptyState title="No projected execution events" body="Studio has not invented an execution from a Workflow node or a configured provider." />}
   </section>;
 }

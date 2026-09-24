@@ -94,7 +94,7 @@ export function PerspectiveSurface({ workspace, input, actions, selection, platf
 }
 
 export function TimelineSurface({ workspace, actions }: SurfaceRendererProps) {
-  return <div className="live-page memory-page" data-surface-type="case.timeline"><SurfaceHeader workspace={workspace} title="Case Timeline" body="A temporal presentation of committed Case history. Chronology does not imply causality." /><ol className="real-timeline">{workspace.memory.timeline.slice().reverse().map((entry) => <li key={entry.id}><time>{formatTime(entry.committed_at_unix_ms)}</time><button onClick={() => actions.inspect(entry.id)}><i /><span><strong>{humanize(entry.kind)}</strong><small>{entry.component} · generation {entry.sequence}</small></span></button></li>)}</ol>{!workspace.memory.timeline.length && <EmptyState title="No committed activity" body="No history is exposed for the current Case projection." />}</div>;
+  return <div className="live-page memory-page" data-surface-type="case.timeline"><SurfaceHeader workspace={workspace} title="Case Timeline" body="A temporal presentation of committed Case history. Chronology does not imply causality." /><ol className="real-timeline">{workspace.memory.timeline.slice().reverse().map((entry) => <li key={entry.id}><time>{formatTime(entry.committed_at_unix_ms)}</time><button onClick={() => actions.inspect(entry.id)}><i /><span><strong>{humanize(entry.kind)}</strong><small>{entry.component}</small></span></button></li>)}</ol>{!workspace.memory.timeline.length && <EmptyState title="No committed activity" body="No history is exposed for the current Case projection." />}</div>;
 }
 
 export function GraphSurface({ workspace, input, actions }: SurfaceRendererProps) {
@@ -123,7 +123,7 @@ export function searchTimelineSurface({ workspace }: Pick<SurfaceRendererProps, 
   if (!needle) return [];
   return workspace.memory.timeline
     .filter((entry) => `${entry.kind} ${entry.component} ${entry.summary ?? ""} ${entry.sequence}`.toLocaleLowerCase().includes(needle))
-    .map((entry) => ({ id: entry.id, label: humanize(entry.kind), detail: `${entry.component} · generation ${entry.sequence}`, objectRef: entry.id }));
+    .map((entry) => ({ id: entry.id, label: humanize(entry.kind), detail: `${entry.component}`, objectRef: entry.id }));
 }
 
 export function searchGraphSurface({ workspace }: Pick<SurfaceRendererProps, "workspace">, input: SurfaceRendererProps["input"], query: string): readonly SurfaceSearchResult[] {
@@ -138,7 +138,7 @@ export function searchGraphSurface({ workspace }: Pick<SurfaceRendererProps, "wo
 export { ConversationView } from "./ConversationView";
 
 export function ActivityView({ workspace, actions, selection }: AuxiliaryViewProps) {
-  return <div className="context-scroll activity-view"><PanelHeader title="Activity" detail={`Latest ${Math.min(20, workspace.memory.timeline.length)} of ${workspace.memory.timeline.length} events`} />{workspace.memory.timeline.slice(-20).reverse().map((entry) => <button className={`context-event event-${activityTone(entry.kind)}${selection === entry.id ? " selected" : ""}`} key={entry.id} onClick={() => actions.inspect(entry.id)}><time>{formatTime(entry.committed_at_unix_ms)}</time><i /><span><strong>{humanize(entry.kind)}</strong><small>{entry.component} · generation {entry.sequence}</small></span></button>)}{workspace.memory.timeline.length > 20 && <button className="ui-button activity-open-timeline" onClick={() => actions.openSurface(timelineInput(true))}>Open projected timeline</button>}{!workspace.memory.timeline.length && <EmptyState title="No committed activity" body="No history is exposed for the current Case projection." />}</div>;
+  return <div className="context-scroll activity-view"><PanelHeader title="Activity" detail={`Latest ${Math.min(20, workspace.memory.timeline.length)} of ${workspace.memory.timeline.length} events`} />{workspace.memory.timeline.slice(-20).reverse().map((entry) => <button className={`context-event event-${activityTone(entry.kind)}${selection === entry.id ? " selected" : ""}`} key={entry.id} onClick={() => actions.inspect(entry.id)}><time>{formatTime(entry.committed_at_unix_ms)}</time><i /><span><strong>{humanize(entry.kind)}</strong><small>{entry.component}</small></span></button>)}{workspace.memory.timeline.length > 20 && <button className="ui-button activity-open-timeline" onClick={() => actions.openSurface(timelineInput(true))}>Open projected timeline</button>}{!workspace.memory.timeline.length && <EmptyState title="No committed activity" body="No history is exposed for the current Case projection." />}</div>;
 }
 
 export { InspectorView } from "./InspectorView";

@@ -1666,3 +1666,8 @@ historical operation must not be presented as a complete historical candidate se
 The existing typed `decision.trajectory.*` operations and their semantic owner
 remain unchanged. `tests/studio/effect-actions.mjs` exercises all three authored
 reads through the real Host, hidden/missing refusals and unchanged Case state.
+
+Ordinary Activity, Work history and Timeline rows omit the technical Case counter.
+Historical-cut controls and exact receipts call it **Case state version**: it
+identifies a committed Case state, not a model generation or a Studio build.
+The typed generation fields and stale-state checks remain unchanged.

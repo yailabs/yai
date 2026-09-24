@@ -27,7 +27,7 @@ export function PolicyActions({ application, workspace, bindingRef, artifactRef,
       {binding && <p className="action-scope">Current binding: {binding.policy_key} · version {binding.version}</p>}
       {pending.action !== "unbind" && <label>Published policy artifact<input name="artifact" autoFocus required defaultValue={artifactRef} placeholder="Exact artifact reference from YAI" /></label>}
       <label>Reason<textarea name="reason" autoFocus={pending.action === "unbind"} required rows={3} /></label>
-      <small>Based on Case generation {pending.generation}. The backend refuses changes based on stale state.</small>
+      <small>Based on Case state version {pending.generation}. The backend refuses changes based on stale state.</small>
       {pending.generation !== workspace.case.generation && <p role="alert">The Case changed while this action was open. Close and reopen the action after inspecting the current binding.</p>}
     </ApplicationActionDialog>}
   </div>;

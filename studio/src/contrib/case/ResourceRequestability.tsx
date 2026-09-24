@@ -14,7 +14,7 @@ export function ResourceRequestability({ workspace, resourceRef, application }: 
       if (!active) return;
       const view = response.data;
       const matches = view?.case_id === workspace.case.case_ref && view.case_generation === workspace.case.generation && view.participant_id === workspace.case.participant_ref;
-      setResult(response.result_state === "success" && matches ? { identity, view } : { identity, error: response.error?.safe_message ?? "The capability projection did not match the current Case/Participant/generation." });
+      setResult(response.result_state === "success" && matches ? { identity, view } : { identity, error: response.error?.safe_message ?? "The capability projection did not match the current Case, Participant and state version." });
     }).catch(() => { if (active) setResult({ identity, error: "The current capability projection is unavailable. Reconnect or refresh the Case." }); }); return () => { active = false; };
   }, [application, availability, identity, workspace.case.case_ref, workspace.case.generation, workspace.case.participant_ref]);
   const current = result?.identity === identity ? result : undefined;
@@ -25,7 +25,7 @@ export function ResourceRequestability({ workspace, resourceRef, application }: 
       {entries.map(entry => <details key={resourceOperationLabel(entry.operation_kind)}><summary>{resourceOperationLabel(entry.operation_kind)} <Badge tone="info">Requestable</Badge></summary><p>Current Decision required: {entry.requires_current_decision ? "Yes" : "No, as projected"}</p>{entry.policy_constraints.map((rule, index) => <p key={index}>{rule.kind.replaceAll("_", " ")} · {rule.effect ?? (rule.required == null ? "Current constraint" : rule.required ? "Required" : "Not required")} · {rule.resolution}</p>)}</details>)}
       {excluded.map(entry => <p className="policy-refusal" key={resourceOperationLabel(entry.operation_kind)}>{resourceOperationLabel(entry.operation_kind)} · {entry.reason}</p>)}
       {!entries.length && !excluded.length && <p>No current entry for this Resource is disclosed.</p>}
-      <details><summary>Qualification basis</summary><code>{current.view?.effective_policy_id}</code><p>Generation {current.view?.case_generation} · {current.view?.view_id}</p></details>
+      <details><summary>Qualification basis</summary><code>{current.view?.effective_policy_id}</code><p>Case state version {current.view?.case_generation} · {current.view?.view_id}</p></details>
     </>}
   </section>;
 }

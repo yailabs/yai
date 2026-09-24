@@ -38,7 +38,7 @@ export function WorkflowActions({ workspace, platform }: Pick<SurfaceRendererPro
           if (result.result_state === "success" && patch) { setPatchRef(patch.patch_id); setReceipt(`Patch proposed: ${patch.patch_id}. Not adopted.`); } return result;
         }
         const result = await application.adoptWorkflowPatch({ case_ref: workspace.case.case_ref, patch_ref: String(form.get("patch")).trim() });
-        if (result.result_state === "success") setReceipt(`Patch adopted at generation ${result.data?.state.generation}.`); return result;
+        if (result.result_state === "success") setReceipt(`Patch adopted at Case state version ${result.data?.state.generation}.`); return result;
       }} committed={refresh} resync={refresh}>
       {pending.action === "define" && <><label>Name<input name="name" required autoFocus /></label><label>Workflow key<input name="key" required placeholder="operator-checkpoints" /></label><label>Version<input name="version" required defaultValue="1" /></label><label>Description<textarea name="description" rows={2} /></label><label>Checkpoints, one prompt per line<textarea name="steps" rows={5} required /></label><label>Required Participant roles, comma separated<input name="roles" placeholder="Optional exact roles" /></label><small>Each checkpoint accepts up to 4 KiB of text. Node IDs are step-1, step-2, … and edges follow the entered order.</small></>}
       {pending.action === "bind" && <label>Definition reference<input name="definition" required autoFocus defaultValue={definition?.workflow_definition_id} /></label>}

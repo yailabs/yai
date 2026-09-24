@@ -42,7 +42,7 @@ export function ExecutionContext({ application, execution, generation }: {
       {!visible.data.invocations.length && <p>No prepared invocation is retained for this execution.</p>}
       {visible.data.invocations.map(entry => { const input = entry.input_observation; const capacity = input?.capacity; const working = entry.working_state;
         return <div key={entry.invocation_ref}>
-          <p>Prepared at generation {entry.lineage.case_generation}. Disclosure checked at generation {visible.data!.observed_generation}.</p>
+          <p>Prepared at Case state version {entry.lineage.case_generation}. Disclosure checked at Case state version {visible.data!.observed_generation}.</p>
           {entry.unavailable_reason ? <p>{entry.unavailable_reason.replaceAll("_", " ")}</p> : <>
             <dl>
               <dt>Selected evidence/state</dt><dd>{working?.bounds.selected_items ?? "Unknown"} items</dd>
