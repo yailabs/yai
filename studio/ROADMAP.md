@@ -73,9 +73,11 @@ and primary model setup. These do not imply complete action coverage.
 
 The separate `SYSTEM.MODEL.FAST.SEARCH.0` slice adds a compact Conversation
 `+` tools menu and a per-SEND Fast Search preference. Current Application truth
-is degraded-to-standard because no public System Model producer exists. Direct
-W-bound `semantic.fast_search.prepare` inspection remains explicit Studio
-interaction debt; the menu does not pretend to consume or score it.
+is degraded-to-standard because no public System Model producer exists. Working State now authors
+W-bound `semantic.fast_search.prepare` inspection with exact references and bounded
+omissions. Current requalification requires explicit refresh after W4 paging;
+Studio retains that refusal rather than silently replacing the inspected W.
+The missing producer still prevents model scoring.
 
 **NOW:** infrastructure Case/behavioral portfolio, Tenant Providers and Case Compute
 separation, registered rail preferences and Material/Product/Canvas composition.

@@ -10,7 +10,7 @@ import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, 
 import type { CaseCapabilityView, ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
 import type { PolicyIngestResult, PolicyLifecycleAction, PolicyLifecycleInput, PolicyLifecycleResult } from "./policy";
 import type { IdentityPresentation } from "./application";
-import type { RecallRequest, RecallResult, WorkingStateRequest, WorkingStateResult, WorkingState, WorkingRefreshRequest, PageRequest, FrontierResult, DecisionPrepareInput, DecisionPreparation } from "./memory";
+import type { RecallRequest, RecallResult, WorkingStateRequest, WorkingStateResult, WorkingState, WorkingRefreshRequest, PageRequest, FastSearchPreparation, FrontierResult, DecisionPrepareInput, DecisionPreparation } from "./memory";
 export const APPLICATION_PROTOCOL = "yai.studio.application.v1";
 
 export type ResultState =
@@ -196,6 +196,7 @@ export class LiveClient {
   decisionCorpus(input: DecisionHistoryInput) { return this.call<DecisionCorpus>("decision.trajectory.corpus", input); }
   inspectDecision(input: DecisionInspectInput) { return this.call<DecisionTrajectory>("decision.trajectory.inspect", input); }
   evaluateDecisions(input: DecisionHistoryInput) { return this.call<DecisionEvaluation>("decision.trajectory.evaluate", input); }
+  prepareFastSearch(working_state: WorkingState, max_candidates: number) { return this.call<FastSearchPreparation>("semantic.fast_search.prepare", { working_state, max_candidates }); }
   prepareFrontier(working_state: WorkingState, max_candidates: number) { return this.call<FrontierResult>("decision.frontier.prepare", { working_state, max_candidates }); }
   prepareDecision(input: DecisionPrepareInput) { return this.call<DecisionPreparation>("decision.request.prepare", input); }
   compileWorkingState(request: WorkingStateRequest, pageable: boolean) { return this.call<WorkingStateResult>("semantic.working_state.compile", { request, pageable }); }

@@ -140,6 +140,7 @@ export class ApplicationAccess implements Disposable {
   decisionCorpus(input: DecisionHistoryInput) { return this.invoke("decision.trajectory.corpus", () => this.client.decisionCorpus(input)); }
   inspectDecision(input: DecisionInspectInput) { return this.invoke("decision.trajectory.inspect", () => this.client.inspectDecision(input)); }
   evaluateDecisions(input: DecisionHistoryInput) { return this.invoke("decision.trajectory.evaluate", () => this.client.evaluateDecisions(input)); }
+  prepareFastSearch(working_state: WorkingState, max_candidates: number) { return this.invoke("semantic.fast_search.prepare", () => this.client.prepareFastSearch(working_state, max_candidates)); }
   prepareFrontier(working_state: WorkingState, max_candidates: number) { return this.invoke("decision.frontier.prepare", () => this.client.prepareFrontier(working_state, max_candidates)); }
   prepareDecision(input: DecisionPrepareInput) { return this.invoke("decision.request.prepare", () => this.client.prepareDecision(input)); }
   compileWorkingState(request: WorkingStateRequest, pageable: boolean) { return this.invoke("semantic.working_state.compile", () => this.client.compileWorkingState(request, pageable)); }

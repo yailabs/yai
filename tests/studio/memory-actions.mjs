@@ -102,6 +102,35 @@ try {
  await page.getByRole('button',{name:'Expand group',exact:true}).first().waitFor();
  await page.getByRole('button',{name:'Defer group',exact:true}).last().click();
  await page.waitForFunction(()=>[...document.querySelectorAll('button')].filter(b=>b.textContent==='Expand group').length===2);
+ await page.getByRole('button',{name:'Inspect memory navigation',exact:true}).click();
+ const pagedDialog=page.getByRole('dialog',{name:'Inspect memory navigation'});
+ await pagedDialog.getByRole('button',{name:'Inspect',exact:true}).click();await pagedDialog.locator('.action-result').waitFor();
+ assert.equal(exchanges.findLast(item=>item.request.operation_ref==='semantic.fast_search.prepare').result.result_state,'stale','Current owner requires explicit refresh after paging');
+ await pagedDialog.getByRole('button',{name:'Cancel',exact:true}).click();
+ await page.getByRole('button',{name:'Refresh exact task',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('.memory-operational button')?.disabled);
+ const navigationBefore=await accepted('case.summary',{case_ref:caseRef});
+ const inspectNavigation=async bound=>{await page.getByRole('button',{name:'Inspect memory navigation',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Inspect memory navigation'});await dialog.getByLabel('Maximum navigation choices').fill(String(bound));await dialog.getByRole('button',{name:'Inspect',exact:true}).click();await dialog.waitFor({state:'hidden'});return exchanges.findLast(item=>item.request.operation_ref==='semantic.fast_search.prepare');};
+ const boundedNavigation=await inspectNavigation(2);
+ assert.equal(boundedNavigation.result.result_state,'success',JSON.stringify(boundedNavigation.result));
+ assert.equal(boundedNavigation.result.data.navigation.choices.length,2);
+ assert.ok(boundedNavigation.result.data.navigation.omitted_optional_choices>0);
+ const navigationCall=await inspectNavigation(16);
+ const navigation=navigationCall.result.data;
+ assert.equal(navigationCall.result.result_state,'success',JSON.stringify(navigationCall.result));
+ assert.equal(navigation.active,false);assert.equal(navigation.availability,'unavailable_producer');
+ assert.equal(navigation.actual_path,'qualified_deterministic_recall_w');
+ assert.equal(navigation.navigation.working_state_id,navigationCall.request.input.working_state.working_state_id);
+ const choices=navigation.navigation.choices;
+ assert.ok(choices.some(choice=>choice.origin.kind==='deterministic_path'));
+ assert.equal(choices.filter(choice=>choice.origin.kind==='resident_recall_group').length,0,'Both optional resident groups were explicitly deferred');
+ assert.equal(choices.filter(choice=>choice.origin.kind==='deferred_working_group').length,2);
+ const inspection=page.getByRole('region',{name:'Memory navigation preparation'});
+ await inspection.getByText('System Model unavailable. Standard Recall / Working State remains the execution path.',{exact:true}).waitFor();
+ for(const choice of choices){const row=inspection.locator('details.working-entry').filter({hasText:choice.candidate.candidate_id});await row.locator('summary').click();await row.getByText(choice.candidate.description,{exact:true}).waitFor();if(choice.origin.kind==='deferred_working_group')await row.getByText(choice.origin.reference_id,{exact:true}).waitFor();}
+ assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),navigationBefore,'Navigation preparation must not mutate canonical state');
+ assert.equal(await page.getByRole('button',{name:'Expand group',exact:true}).count(),2,'Navigation must not implicitly page evidence');
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});await inspection.scrollIntoViewIfNeeded();await page.screenshot({path:`${evidence}/memory-navigation-${width}x${height}.png`});}
  await page.getByRole('button',{name:'Refresh exact task',exact:true}).click();
  await page.getByRole('button',{name:'Prepare frontier',exact:true}).click();form=page.getByRole('dialog',{name:'Prepare frontier'});await form.getByRole('button',{name:'Prepare',exact:true}).click();await form.waitFor({state:'hidden'});
  const frontierCall=exchanges.findLast(item=>item.request.operation_ref==='decision.frontier.prepare');assert.equal(frontierCall.result.result_state,'success',JSON.stringify(frontierCall.result));assert.ok(frontierCall.result.data.frontier.candidates.length>=2);
@@ -110,8 +139,9 @@ try {
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/memory-${width}x${height}.png`});}
  const after=await accepted('case.summary',{case_ref:caseRef});assert.equal(after.case.generation,before.case.generation+1,'Recall/W/page/refresh must not mutate the Case');
  await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'qualification-observer'});
+ const staleNavigation=await call('semantic.fast_search.prepare',navigationCall.request.input);assert.notEqual(staleNavigation.result_state,'success','Changed Case must refuse prior navigation preparation');assert.ok(!staleNavigation.data,'Refused navigation must not disclose choices');
  const stale=await call('decision.frontier.prepare',frontierCall.request.input);assert.notEqual(stale.result_state,'success','Changed Case must refuse the prior Working State');
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='Prepare frontier')?.disabled);
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,working_state:first.working_state_id,generation:after.case.generation,proof:['Real documentary acquisition -> Recall exact text','W refuses absent admitted view','Explicit view admission only canonical change','W compile + refresh','Explicit W4 page-out and page-in','Case generation unchanged by derived operations','4 viewport matrix','Typed Decision Frontier and request preserve exact candidates','Stale Working State refused','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,working_state:first.working_state_id,generation:after.case.generation,proof:['Real documentary acquisition -> Recall exact text','W refuses absent admitted view','Explicit view admission only canonical change','W compile + refresh','Explicit W4 page-out and page-in','Case generation unchanged by derived operations','4 viewport matrix','Typed Decision Frontier and request preserve exact candidates','Stale Working State refused','Exact W-bound navigation, explicit unavailable producer, bounded omissions and no implicit paging','Stale navigation refused without choices','CLI replay']}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

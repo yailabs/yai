@@ -1695,3 +1695,15 @@ Its profile pins the expected target/model; it does not configure a provider.
 The controlled context-capacity lane runs the same suite used for future real
 model evidence. Structural success and natural-language quality are separate:
 `language_quality=NOT_ASSESSED` is not human or external YVEX acceptance.
+
+
+### Inspect prepared memory navigation
+
+In Memory → Working State, compile a task and choose **Inspect memory navigation**.
+YAI returns exact resident Recall groups, deferred W4 references and the standard
+path, with a bounded count of omitted optional choices. Expand a row to inspect
+its description and exact reference. No group is automatically expanded and no
+model is invoked or scored. The absent System Model producer remains explicit.
+After W4 paging, use **Refresh exact task** first: current backend requalification
+rejects the page-history-bearing W until explicit refresh. Changed Case state also
+requires refresh; refusal does not disclose a newly qualified choice list.

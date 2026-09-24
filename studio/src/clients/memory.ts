@@ -40,3 +40,20 @@ export interface DecisionPreparation { request_id: string; decision_kind: string
 export interface DecisionPrepareInput { working_state: WorkingState; frontier: DecisionFrontier; decision_kind: string; budget: { max_candidates: number; max_result_bytes: number; max_compute_millis: number } }
 export interface WorkingRefreshRequest { schema: "yai.working_refresh_request.v1"; case_id: string; participant_id: string; base_working_state_id: string; budget: null }
 export interface PageRequest { schema: "yai.semantic_page_request.v1"; case_id: string; participant_id: string; base_working_state_id: string; references: string[]; action: "page_in" | "page_out"; bounds: RecallBounds }
+
+export interface FastSearchPreparation {
+  schema: "yai.fast_search_prepare_result.v1";
+  availability: "unavailable_producer" | "unavailable_no_choices";
+  active: boolean; actual_path: string;
+  navigation: {
+    navigation_id: string; working_state_id: string;
+    posture: "ready_for_optional_producer" | "deterministic_fallback_no_choice";
+    omitted_optional_choices: number;
+    choices: Array<{
+      candidate: DecisionFrontier["candidates"][number]["candidate"];
+      origin: { kind: "resident_recall_group"; entry_id: string }
+        | { kind: "deferred_working_group"; reference_id: string; group_entry_id: string }
+        | { kind: "deterministic_path" };
+    }>;
+  };
+}
