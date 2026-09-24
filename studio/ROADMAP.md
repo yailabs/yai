@@ -120,6 +120,25 @@ shared YAI machine-management work; unavailable transport does not turn existing
 YVEX functionality into a missing producer implementation. No private Studio
 launcher or direct provider execution bypass is admitted.
 
+The first product boundary is a dedicated YVEX workspace, not another provider
+registration form. Its local navigation separates Models/acquisition,
+Preparation/artifacts, Runtime/machines, Sessions/generation and Observability.
+The landing view must identify the selected deployment and machine when qualified,
+distinguish current reachability from dated health and model residency, and expose
+the actual reason behind a degraded observation. Unknown machine identity or
+unavailable live logs must remain explicit. Exact adapter, artifact/profile lineage
+and raw evidence belong in Inspector; routine actions remain in their owning view.
+Providers separately presents Tenant inventory and governance; Compute presents
+the current Case's bindings and execution compatibility.
+
+Acceptance requires authored, tested interactions for the selected public actions,
+including failure and disconnect states, rather than a page listing future steps.
+Producer implementation, qualified transport, shared Application/CLI exposure and
+Studio interaction are four separate coverage axes. No aggregate “90% of YVEX”
+claim follows from the operation registry. Shared machine-management development
+and Studio workspace composition may proceed independently, but controls requiring
+an unpublished management contract cannot be presented as operational.
+
 **NEXT, inference track:** qualify the internal service readiness question end to end and context
 closure against the real model. Controlled native two-client mutation fanout,
 parallel Case isolation and restart recovery are established separately; they do
