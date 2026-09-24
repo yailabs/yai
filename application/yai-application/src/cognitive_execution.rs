@@ -30,6 +30,44 @@ pub struct ConversationSendInput {
     pub parts: Vec<ConversationSendPart>,
     #[serde(default)]
     pub intent: ConversationExecutionInput,
+    #[serde(default, skip_serializing_if = "MemorySearchMode::is_standard")]
+    pub memory_search_mode: MemorySearchMode,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemorySearchMode {
+    #[default]
+    Standard,
+    Fast,
+}
+
+impl MemorySearchMode {
+    fn is_standard(&self) -> bool { matches!(self, Self::Standard) }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemorySearchExecutionStatus {
+    pub requested: MemorySearchMode,
+    pub effective: MemorySearchMode,
+    pub system_model_active: bool,
+    pub posture: String,
+}
+
+impl MemorySearchExecutionStatus {
+    fn for_request(requested: MemorySearchMode) -> Self {
+        Self {
+            requested,
+            effective: MemorySearchMode::Standard,
+            system_model_active: false,
+            posture: if requested == MemorySearchMode::Fast {
+                "degraded_public_decision_producer_unavailable"
+            } else {
+                "standard_qualified_path"
+            }.into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -154,6 +192,8 @@ pub fn include_prepared_context(home: &std::path::Path, auth: &AuthenticatedPrin
 pub struct ConversationSubmissionResult {
     pub created: bool,
     pub execution: ConversationExecutionObservation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_search: Option<MemorySearchExecutionStatus>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -185,7 +225,7 @@ pub fn submit_composition(home: &std::path::Path, auth: &AuthenticatedPrincipal,
             if existing.source_turn_id == turn.turn_id)) {
         store.submit_conversation_execution_intent_authorized(auth, request.clone(), Some(input.expected_generation))?;
         return Ok(ConversationSubmissionResult { created: false, execution: observe_cognitive_request(
-            home, auth, store, &input.case_ref, &input.participant_ref, &request.request_id)? });
+            home, auth, store, &input.case_ref, &input.participant_ref, &request.request_id)?, memory_search: None });
     }
     let permit = crate::runtime_execution::admit_application_carrier()?;
     let key = submission_key(auth, &input.case_ref, &input.participant_ref, &request.request_id)?;
@@ -194,7 +234,7 @@ pub fn submit_composition(home: &std::path::Path, auth: &AuthenticatedPrincipal,
         request, Some(input.expected_generation))?;
     if !created {
         return Ok(ConversationSubmissionResult { created: false, execution: observe_cognitive_request(
-            home, auth, store, &input.case_ref, &input.participant_ref, &request.request_id)? });
+            home, auth, store, &input.case_ref, &input.participant_ref, &request.request_id)?, memory_search: None });
     }
     let execution = ConversationExecutionObservation {
         schema: "yai.conversation_execution_observation.v1".into(), case_ref: input.case_ref,
@@ -216,7 +256,7 @@ pub fn submit_composition(home: &std::path::Path, auth: &AuthenticatedPrincipal,
         })();
         if result.is_err() { eprintln!("cognitive_execution_unresolved: observe canonical execution evidence"); }
     });
-    Ok(ConversationSubmissionResult { created: true, execution })
+    Ok(ConversationSubmissionResult { created: true, execution, memory_search: None })
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -513,6 +553,7 @@ fn observe_execution(home: &std::path::Path, auth: &AuthenticatedPrincipal, stor
 /// starts a carrier. A retry observes canonical facts and never restarts work.
 pub fn submit_conversation(home: &std::path::Path, auth: &AuthenticatedPrincipal, store: &LmdbRecordStore,
     input: ConversationSendInput) -> Result<ConversationSubmissionResult, String> {
+    let memory_search = MemorySearchExecutionStatus::for_request(input.memory_search_mode);
     let state = authorized_conversation_case(auth, store, &input.case_ref, &input.participant_ref)?;
     let tenant = state.tenant_id.as_deref().ok_or("conversation_tenant_missing")?;
     store.resolve_security_context(auth, tenant)?.require_owner()?;
@@ -533,7 +574,7 @@ pub fn submit_conversation(home: &std::path::Path, auth: &AuthenticatedPrincipal
             return Err("conversation_submission_idempotency_conflict".into());
         }
         Ok(Some(ConversationSubmissionResult { created: false, execution: observe_submission(home, auth, store,
-            &input.case_ref, &input.participant_ref, &input.submission_ref)? }))
+            &input.case_ref, &input.participant_ref, &input.submission_ref)?, memory_search: Some(memory_search.clone()) }))
     };
     if let Some(previous) = existing()? { return Ok(previous) }
     let permit = crate::runtime_execution::admit_application_carrier()?;
@@ -579,7 +620,7 @@ pub fn submit_conversation(home: &std::path::Path, auth: &AuthenticatedPrincipal
         })();
         if result.is_err() { eprintln!("conversation_execution_unresolved: observe canonical execution evidence"); }
     });
-    Ok(ConversationSubmissionResult { created: true, execution })
+    Ok(ConversationSubmissionResult { created: true, execution, memory_search: Some(memory_search) })
 }
 #[derive(Clone, Debug, Default, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ConversationExecutionInput {

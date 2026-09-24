@@ -66,6 +66,7 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "review.defer": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/application-actions.mjs" },
   "review.deny": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/application-actions.mjs" },
   "semantic.recall": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/memory-actions.mjs" },
+  "semantic.fast_search.prepare": { state: "debt", detail: "Exact navigation preparation is Application-ready; Conversation tools expose only the SEND policy and truthful fallback, not a direct W-bound inspection interaction." },
   "semantic.working_state.compile": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/memory-actions.mjs" },
   "semantic.working_state.page": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/memory-actions.mjs" },
   "semantic.working_state.refresh": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/memory-actions.mjs" },

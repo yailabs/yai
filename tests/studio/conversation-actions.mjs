@@ -101,9 +101,23 @@ try {
  assert.equal(snapshot.compute.targets[0].semantic_evidence[0].evidence_id,attested.data.evidence_id);
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  const composer=page.getByRole('textbox',{name:'Message to the Case'});
+ await page.getByRole('button',{name:'Conversation tools'}).click();
+ const toolsBox=await page.getByRole('menu',{name:'Conversation tools'}).boundingBox();
+ const conversationBox=await page.locator('.conversation-operational').boundingBox();
+ assert.ok(toolsBox && conversationBox && toolsBox.x>=conversationBox.x && toolsBox.x+toolsBox.width<=conversationBox.x+conversationBox.width && toolsBox.y>=conversationBox.y,'Tools menu fits the Context Panel');
+ await page.screenshot({path:`${evidence}/conversation-tools-1440x900.png`});
+ await page.getByRole('menu',{name:'Conversation tools'}).getByRole('menuitemradio',{name:/Fast Search/}).click();
+ await page.getByText('Fast Search · fallback available').waitFor();
  const baselineRequests=generationRequests;
  await composer.fill('First exact Studio message');await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.locator('.turn-ai').getByText('Controlled provider response',{exact:true}).waitFor();
+ const fastSubmission=exchanges.filter(x=>x.request.operation_ref==='conversation.send').at(-1);
+ assert.equal(fastSubmission.request.input.memory_search_mode,'fast');
+ assert.equal(fastSubmission.result.data.memory_search.requested,'fast');
+ assert.equal(fastSubmission.result.data.memory_search.effective,'standard');
+ await page.getByText('Fast Search unavailable; YAI used qualified standard memory.').waitFor();
+ await page.getByRole('button',{name:'Conversation tools'}).click();
+ await page.getByRole('menu',{name:'Conversation tools'}).getByRole('menuitemradio',{name:/Standard/}).click();
  snapshot=await accepted('case.summary',{case_ref:caseRef});assert.equal(snapshot.conversation.turns.length,1);assert.ok(snapshot.conversation.turns[0].execution_request_ref);
  assert.equal(generationRequests,baselineRequests+1);assert.equal(await composer.inputValue(),'');
  // Exact retry after lost acknowledgement and read-only recovery must not redispatch.
@@ -142,6 +156,11 @@ try {
    await page.setViewportSize({width,height});
    const composerBox = await page.locator('.conversation-composer').boundingBox();
    assert.ok(composerBox && composerBox.y >= 0 && composerBox.y + composerBox.height <= height, 'Composer remains reachable');
+   await page.getByRole('button',{name:'Conversation tools'}).click();
+   const menuBox=await page.getByRole('menu',{name:'Conversation tools'}).boundingBox();
+   const panelBox=await page.locator('.conversation-operational').boundingBox();
+   assert.ok(menuBox && panelBox && menuBox.x>=panelBox.x && menuBox.x+menuBox.width<=panelBox.x+panelBox.width && menuBox.y>=panelBox.y,'Tools menu remains visible in the viewport matrix');
+   await page.keyboard.press('Escape');
    await page.screenshot({path:`${evidence}/conversation-${width}x${height}.png`});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  }

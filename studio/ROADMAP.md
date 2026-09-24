@@ -68,6 +68,12 @@ transport. Machine/model/resource observations require exact run provenance.
 identity, typed Environment/Work/Memory operations, ordinary Conversation SEND
 and primary model setup. These do not imply complete action coverage.
 
+The separate `SYSTEM.MODEL.FAST.SEARCH.0` slice adds a compact Conversation
+`+` tools menu and a per-SEND Fast Search preference. Current Application truth
+is degraded-to-standard because no public System Model producer exists. Direct
+W-bound `semantic.fast_search.prepare` inspection remains explicit Studio
+interaction debt; the menu does not pretend to consume or score it.
+
 **NOW:** infrastructure Case/behavioral portfolio, Tenant Providers and Case Compute
 separation, registered rail preferences and Material/Product/Canvas composition.
 Independent docked/floating Conversation and Inspector are qualified in fixture,

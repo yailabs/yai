@@ -2,7 +2,7 @@
 
 Generated from `application/yai-application/src/capabilities.rs`. Edit the code-owned catalog, not this matrix.
 
-Inventory: **43 capabilities** — 19 product reads, 14 product actions, 3 operator diagnostics, 3 internal mechanics and 4 targets. **32** are Application-ready, **36** CLI-exposed and **33** Studio-consumable through the typed Application boundary.
+Inventory: **44 capabilities** — 20 product reads, 14 product actions, 3 operator diagnostics, 3 internal mechanics and 4 targets. **33** are Application-ready, **37** CLI-exposed and **34** Studio-consumable through the typed Application boundary.
 
 | Capability | Disposition / impact | Engine owner | Application | CLI | Studio |
 |---|---|---|---|---|---|
@@ -42,6 +42,7 @@ Inventory: **43 capabilities** — 19 product reads, 14 product actions, 3 opera
 | `resource.lifecycle`<br>Attach and inspect exact governed filesystem/process/other Resources | `ProductAction` / `CanonicalMutation` | ResourceAttachment transitions | `Ready`<br>case.summary<br>resource.attach<br>resource.attach_process | `Exposed`<br>yai.case.resource.attach_filesystem<br>yai.case.resource.attach_process<br>yai.case.resource.import<br>yai.case.resource.list | `ApplicationReady` |
 | `semantic.adaptive_cognition`<br>Choose the least expensive qualified cognitive mechanism for a bounded step | `TargetOnly` / `Proposal` | future Minimum Sufficient Cognition controller | `NotApplicable`<br>— | `DeferredWithReason`<br>—<br>No adaptive router is implemented. | `NotUiRelevant` |
 | `semantic.ambient_refresh`<br>Assess and refresh an active Conversation/Workflow consumer after admitted semantic change | `ProductRead` / `DerivedComputation` | AmbientRefresh v1 + existing Recall/W compiler | `Ready`<br>semantic.ambient_refresh.assess | `Exposed`<br>yai.case.context.ambient | `ApplicationReady` |
+| `semantic.fast_search`<br>Prepare optional System-1 memory navigation over exact current Recall/W choices with deterministic fallback | `ProductRead` / `DerivedComputation` | Cognitive Decision Plane + Recall/W | `Ready`<br>semantic.fast_search.prepare | `Exposed`<br>yai.case.cognitive.fast_search | `ApplicationReady` |
 | `semantic.recall`<br>Reconstruct task/query-qualified D/H/S evidence with exact closure and disclosure | `ProductRead` / `DerivedComputation` | Recall v2 | `Ready`<br>semantic.recall | `Exposed`<br>yai.case.recall | `UiAlreadyConsumed` |
 | `semantic.w_to_e`<br>Lower YAI W into a public YVEX computational state contract | `TargetOnly` / `DerivedComputation` | future YAI/YVEX public boundary | `NotApplicable`<br>— | `DeferredWithReason`<br>—<br>No public producer/consumer contract exists; I07 is unselected. | `NotUiRelevant` |
 | `semantic.working_state`<br>Compile W3, exact-group W4 pages and explicit same-task refresh | `ProductRead` / `DerivedComputation` | SemanticWorkingState compiler/refresh/paging | `Ready`<br>semantic.working_state.compile<br>semantic.working_state.page<br>semantic.working_state.refresh | `Exposed`<br>yai.case.context.compile<br>yai.case.context.refresh<br>yai.case.context.expand | `UiAlreadyConsumed` |
@@ -54,4 +55,4 @@ The catalog describes support and surface posture. `case.capabilities` separatel
 
 ## Current product Application blockers
 
-No retained Application execution-lifecycle blocker among the 32 eligible PRODUCT families. Host lifecycle is the carrier-level exception, not an Application operation. Ready does not imply automatic retry, universal recovery or Studio interaction coverage.
+No retained Application execution-lifecycle blocker among the 33 eligible PRODUCT families. Host lifecycle is the carrier-level exception, not an Application operation. Ready does not imply automatic retry, universal recovery or Studio interaction coverage.

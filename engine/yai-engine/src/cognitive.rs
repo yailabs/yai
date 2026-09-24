@@ -2233,6 +2233,179 @@ pub struct CognitiveDecisionPreparationMeasurements {
     pub total_us: u128,
 }
 
+pub const FAST_SEARCH_NAVIGATION_SCHEMA: &str = "yai.fast_search_navigation.v1";
+pub const FAST_SEARCH_DECISION_KIND: &str = "yai.fast_search.memory_navigation.v1";
+
+/// A next inspection opportunity, never a new fact or permission to omit W.
+/// Resident groups come from qualified Recall inside W; deferred references
+/// name only explicit W4 page opportunities and carry no deferred content.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum FastSearchOrigin {
+    ResidentRecallGroup { entry_id: String },
+    DeferredWorkingGroup { reference_id: String, group_entry_id: String },
+    DeterministicPath,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FastSearchChoice {
+    pub candidate: CognitiveDecisionCandidate,
+    pub origin: FastSearchOrigin,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FastSearchPreparationPosture {
+    ReadyForOptionalProducer,
+    DeterministicFallbackNoChoice,
+}
+
+/// The exact finite navigation state supplied to an optional System Model.
+/// It reuses DecisionRequest v1 and never changes the qualified W or Recall
+/// selection. The request is not authority and a later score needs the normal
+/// current-W distribution fence before it may guide an explicit inspection.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FastSearchNavigation {
+    pub schema: String,
+    pub navigation_id: String,
+    pub working_state_id: String,
+    pub posture: FastSearchPreparationPosture,
+    pub choices: Vec<FastSearchChoice>,
+    pub omitted_optional_choices: usize,
+    pub decision_request: Option<CognitiveDecisionRequest>,
+}
+
+impl FastSearchNavigation {
+    pub fn derive(
+        working: &crate::semantic_state::SemanticWorkingState,
+        max_candidates: usize,
+    ) -> Result<Self, String> {
+        use crate::semantic_state::SemanticValue;
+        working.validate_refresh_envelope()?;
+        if !(2..=MAX_DECISION_CANDIDATES).contains(&max_candidates) {
+            return Err("fast_search_candidate_bound_invalid".into());
+        }
+        let mut choices = Vec::new();
+        let fallback_origin = FastSearchOrigin::DeterministicPath;
+        choices.push(Self::choice(
+            fallback_origin,
+            "Continue with qualified deterministic Recall and W".into(),
+            Vec::new(),
+        )?);
+        for entry in working.entries() {
+            let SemanticValue::RecalledEvidence { evidence } = &entry.value else {
+                continue;
+            };
+            let mut parts = evidence.events.iter().take(3)
+                .map(|event| event.label.as_str().to_owned()).collect::<Vec<_>>();
+            let relation_kinds = evidence.relations.iter().map(|relation| format!("{:?}", relation.kind))
+                .collect::<BTreeSet<_>>();
+            if !relation_kinds.is_empty() {
+                parts.push(format!("recorded relations: {}", relation_kinds.into_iter()
+                    .take(4).collect::<Vec<_>>().join(", ")));
+            }
+            if let Some(documentary) = evidence.documentary.as_ref() {
+                if let Some(unit) = documentary.units.first() {
+                    parts.push(format!("documentary: {}", unit.unit.text));
+                }
+            }
+            let preview = parts.join("; ").chars().filter(|ch| !ch.is_control())
+                .take(300).collect::<String>();
+            choices.push(Self::choice(
+                FastSearchOrigin::ResidentRecallGroup { entry_id: entry.entry_id.clone() },
+                format!("Inspect qualified Recall group: {}", if preview.is_empty() {
+                    "qualified evidence" } else { &preview }),
+                vec![entry.entry_id.clone()],
+            )?);
+        }
+        let resident = working.resident_page_references().into_iter()
+            .collect::<BTreeSet<_>>();
+        for reference in working.page_references() {
+            if resident.contains(&reference.reference_id) {
+                continue;
+            }
+            choices.push(Self::choice(
+                FastSearchOrigin::DeferredWorkingGroup {
+                    reference_id: reference.reference_id.clone(),
+                    group_entry_id: reference.group_entry_id.clone(),
+                },
+                "Request explicit page-in of an exact deferred W4 group".into(),
+                Vec::new(),
+            )?);
+        }
+        // W already made the task-relative selection. This bound only limits
+        // optional navigation suggestions; it never drops resident evidence.
+        let omitted_optional_choices = choices.len().saturating_sub(max_candidates);
+        choices.truncate(max_candidates);
+        let posture = if choices.len() < 2 {
+            FastSearchPreparationPosture::DeterministicFallbackNoChoice
+        } else {
+            FastSearchPreparationPosture::ReadyForOptionalProducer
+        };
+        let decision_request = if choices.len() >= 2 {
+            Some(CognitiveDecisionRequest::new(
+                working,
+                FAST_SEARCH_DECISION_KIND,
+                choices.iter().map(|choice| choice.candidate.clone()).collect(),
+                CognitiveDecisionBudget {
+                    max_candidates,
+                    max_result_bytes: 65_536,
+                    max_compute_millis: 5_000,
+                },
+            )?)
+        } else {
+            None
+        };
+        let digest = digest_of(&(
+            FAST_SEARCH_NAVIGATION_SCHEMA,
+            working.id(),
+            &posture,
+            &choices,
+            omitted_optional_choices,
+            &decision_request,
+        ), "fast_search_navigation_identity")?;
+        Ok(Self {
+            schema: FAST_SEARCH_NAVIGATION_SCHEMA.into(),
+            navigation_id: short_identity("fast-search-navigation", &digest),
+            working_state_id: working.id().into(),
+            posture,
+            choices,
+            omitted_optional_choices,
+            decision_request,
+        })
+    }
+
+    fn choice(
+        origin: FastSearchOrigin,
+        description: String,
+        semantic_refs: Vec<String>,
+    ) -> Result<FastSearchChoice, String> {
+        let digest = digest_of(&origin, "fast_search_choice_identity")?;
+        Ok(FastSearchChoice {
+            candidate: CognitiveDecisionCandidate {
+                candidate_id: short_identity("fast-search-choice", &digest),
+                candidate_kind: "yai.fast_search.navigation.v1".into(),
+                description,
+                semantic_refs,
+            },
+            origin,
+        })
+    }
+
+    pub fn validate_against(
+        &self,
+        working: &crate::semantic_state::SemanticWorkingState,
+        max_candidates: usize,
+    ) -> Result<(), String> {
+        if Self::derive(working, max_candidates)? != *self {
+            return Err("fast_search_navigation_integrity_mismatch".into());
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

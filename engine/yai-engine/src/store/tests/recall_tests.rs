@@ -87,6 +87,87 @@ fn recall(w: &World, query: &str, refs: &[&str], at: Option<u64>) -> Result<Reca
 }
 
 #[test]
+fn fast_search_navigation_uses_only_current_qualified_recall_and_never_replaces_w() {
+    use crate::cognitive::{FastSearchNavigation, FastSearchOrigin,
+        FastSearchPreparationPosture, CognitiveDecisionOutput,
+        CognitiveDecisionProducerIdentity, CognitiveDecisionScore,
+        CognitiveScoreDirection, CognitiveScoreSemantics, COGNITIVE_DECISION_OUTPUT_SCHEMA};
+    use crate::semantic_state::{CompilationRequest, SemanticPurpose, SemanticScope,
+        SemanticValue, WorkingStateRequest};
+    let w = World::new();
+    let operation = w.operation("request:fast-search:allow", "src/retry.txt");
+    let (decision, _) = w.store.derive_and_commit_policy_decision(CASE, &operation.operation_id).unwrap();
+    let generation = w.store.get_case_state(CASE).unwrap().unwrap().generation;
+    let request = WorkingStateRequest {
+        case_id: CASE.into(), expected_generation: generation,
+        compilation: CompilationRequest {
+            scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
+            intent: "inspect exact filesystem decision evidence".into(),
+            output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units: 131072, max_derived_items: 8, resource_refs: vec![],
+            required_refs: vec![HUMAN.into()], previous_item_ids: vec![], view_selection_id: None,
+        },
+        recall_query: None, at: None, recall_required_refs: vec![decision.decision_id.clone()],
+        recall_bounds: Default::default(), max_output_bytes: 1024 * 1024,
+    };
+    let working = w.store.compile_working_state_authorized(&w.owner, request, None)
+        .unwrap().working_state;
+    let resident_before = working.entries().iter().filter(|entry|
+        matches!(entry.value, SemanticValue::RecalledEvidence { .. })).count();
+    assert!(resident_before > 0);
+    let navigation = FastSearchNavigation::derive(&working, 8).unwrap();
+    assert_eq!(navigation.posture, FastSearchPreparationPosture::ReadyForOptionalProducer);
+    assert!(navigation.choices.iter().any(|choice| matches!(choice.origin,
+        FastSearchOrigin::ResidentRecallGroup { .. })));
+    assert!(matches!(navigation.choices[0].origin, FastSearchOrigin::DeterministicPath));
+    assert_eq!(FastSearchNavigation::derive(&working, 1).unwrap_err(),
+        "fast_search_candidate_bound_invalid");
+    assert_eq!(FastSearchNavigation::derive(&working, 33).unwrap_err(),
+        "fast_search_candidate_bound_invalid");
+    let bounded = FastSearchNavigation::derive(&working, 2).unwrap();
+    assert_eq!(bounded.choices.len(), 2);
+    assert_eq!(bounded.omitted_optional_choices, navigation.choices.len().saturating_sub(2));
+    assert_eq!(navigation.decision_request.as_ref().unwrap().working_state_id, working.id());
+    assert_eq!(working.entries().iter().filter(|entry|
+        matches!(entry.value, SemanticValue::RecalledEvidence { .. })).count(), resident_before);
+    navigation.validate_against(&working, 8).unwrap();
+    let mut forged = navigation.clone();
+    forged.choices[0].candidate.description = "fake permission".into();
+    assert_eq!(forged.validate_against(&working, 8).unwrap_err(),
+        "fast_search_navigation_integrity_mismatch");
+    assert_eq!(w.store.validate_working_state_authorized(&w.outsider, &working, None).unwrap_err(),
+        "case_not_visible");
+    let request = navigation.decision_request.as_ref().unwrap();
+    let history_before = w.store.list_case_transitions(CASE).unwrap();
+    let fixture_output = CognitiveDecisionOutput {
+        schema: COGNITIVE_DECISION_OUTPUT_SCHEMA.into(),
+        request_id: request.request_id.clone(),
+        producer: CognitiveDecisionProducerIdentity {
+            capability_id: "fixture:memory-navigation".into(),
+            producer_id: "fixture:deterministic-no-model".into(),
+            producer_version: "v1".into(),
+            model_id: None, composition_id: None, profile_id: None,
+            state_generation: None, evidence_refs: vec!["test:fast-search".into()],
+        },
+        score_semantics: CognitiveScoreSemantics::RelativeCandidateProbability {
+            normalization: "fixture:equal-fixed-point".into(),
+        },
+        score_direction: CognitiveScoreDirection::HigherIsPreferred,
+        score_scale: request.candidates.len() as u64 * 1000,
+        scores: request.candidates.iter().map(|candidate| CognitiveDecisionScore {
+            candidate_id: candidate.candidate_id.clone(), value: 1000,
+        }).collect(),
+        uncertainty: None,
+    };
+    let qualified = w.store.qualify_cognitive_decision_distribution_authorized(
+        &w.owner, &working, request, fixture_output, None).unwrap();
+    assert_eq!(qualified.distribution.request, *request);
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history_before);
+    assert_eq!(w.store.get_case_state(CASE).unwrap().unwrap().generation, generation);
+    w.finish();
+}
+
+#[test]
 fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
     use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, SemanticValue,
         WorkingStateRequest, DeltaCompilationMode, SemanticWorkingState};

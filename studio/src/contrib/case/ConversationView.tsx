@@ -24,9 +24,13 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
   const [executions, setExecutions] = useState<Record<string, ConversationExecution>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [memorySearchMode, setMemorySearchMode] = useState<"standard" | "fast">("standard");
+  const [memorySearchResult, setMemorySearchResult] = useState<string>();
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [tick, setTick] = useState(0);
   const log = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const actionsMenu = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
   const alive = useRef(true);
   useEffect(() => {
@@ -38,9 +42,20 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
   const inFlight = useRef(false);
   const draftRef = useRef(draft); draftRef.current = draft;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!actionsMenu.current?.contains(event.target as Node)) setActionsOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setActionsOpen(false); };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); };
+  }, [actionsOpen]);
   const persist = (text: string, intent?: ConversationSendInput) => sessionStorage.setItem(key, JSON.stringify({ draft: text, pending: intent }));
   const refresh = () => platform.commands.executeCommand("studio.case.refresh").catch(() => undefined);
   const supported = Boolean(application?.supports("conversation.send") && application.supports("execution.get"));
+  const fastSearchSupported = Boolean(application?.supports("semantic.fast_search.prepare"));
   const hasTarget = workspace.compute.targets.length > 0;
   const assignment = workspace.compute.cognitive_bindings?.find(item => item.participant_id === participant && item.role === "primary");
   const canSend = supported && Boolean(assignment) && hasTarget && workspace.case.case_status === "open";
@@ -93,13 +108,18 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     if (!application || inFlight.current || !canSend) return;
     inFlight.current = true; setBusy(true); setError(undefined);
     try {
-      const input = retry && pending ? pending : makeConversationSend(caseRef, participant, workspace.conversation.turns.at(-1)?.thread_ref, workspace.case.generation, draft);
+      const input = retry && pending ? pending : makeConversationSend(caseRef, participant, workspace.conversation.turns.at(-1)?.thread_ref, workspace.case.generation, draft, memorySearchMode);
       // Persist the exact envelope before dispatch. A timeout cannot create a new Turn on retry.
       persist(draft, input); setPending(input);
       const result = await application.sendConversation(input);
       if (!alive.current) return;
       if (result.result_state === "success" && result.data) {
         if (result.data.execution.submission_ref !== input.submission_ref) throw new Error("Conversation submission identity mismatch.");
+        if (result.data.memory_search) {
+          setMemorySearchResult(result.data.memory_search.requested === "fast" && result.data.memory_search.effective === "standard"
+            ? "Fast Search unavailable; YAI used qualified standard memory."
+            : result.data.memory_search.effective === "fast" ? "Fast Search active for this request." : undefined);
+        }
         accept(result.data.execution);
         const sent = new TextDecoder().decode(new Uint8Array(input.parts[0].bytes));
         const next = draftRef.current === sent ? "" : draftRef.current;
@@ -134,7 +154,22 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
       <div className="conversation-input-shell"><textarea ref={composer} aria-label="Message to the Case" placeholder="Ask about this Case…" value={draft} rows={1} maxLength={65536} onChange={event => { const text = event.target.value; setDraft(text); try { persist(text, pending); } catch { setError("Local draft storage is unavailable."); } }} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!pending) void submit(); } }} />
       </div>
       {error && <p role="alert" className="conversation-error">{error}</p>}
-      {pending ? <div className="object-action-row"><Button type="button" disabled={busy || !supported} onClick={() => setTick(value => value + 1)}>Check delivery</Button><Button type="button" disabled={busy || !canSend} onClick={() => void submit(true)}>Retry exact submission</Button></div> : <div className="conversation-send-row"><small title="Draft stays on this device until sent">Ctrl/⌘ Enter</small><Button className="conversation-send" aria-label={busy ? "Sending…" : "Send"} title="Send message" type="submit" disabled={busy || !canSend || !draft.trim()}><span aria-hidden="true">{busy ? "…" : "↑"}</span></Button></div>}
+      {memorySearchResult && <p className="conversation-memory-result" role="status">{memorySearchResult}</p>}
+      {pending ? <div className="object-action-row"><Button type="button" disabled={busy || !supported} onClick={() => setTick(value => value + 1)}>Check delivery</Button><Button type="button" disabled={busy || !canSend} onClick={() => void submit(true)}>Retry exact submission</Button></div> : <div className="conversation-send-row">
+        <div className="conversation-composer-actions" ref={actionsMenu}>
+          <button type="button" className="conversation-plus" aria-label="Conversation tools" aria-expanded={actionsOpen} aria-controls="conversation-tools-menu" onClick={() => setActionsOpen(value => !value)}><Icon name="plus" size={18} /></button>
+          {actionsOpen && <div className="conversation-tools-menu" id="conversation-tools-menu" role="menu" aria-label="Conversation tools">
+            <div className="conversation-tools-heading">Memory search</div>
+            <button type="button" role="menuitemradio" aria-checked={memorySearchMode === "standard"} onClick={() => { setMemorySearchMode("standard"); setActionsOpen(false); }}><Icon name="memory" size={17} /><span><strong>Standard</strong><small>Qualified Recall and Working State</small></span>{memorySearchMode === "standard" && <Icon name="check" size={15} />}</button>
+            <button type="button" role="menuitemradio" aria-checked={memorySearchMode === "fast"} disabled={!fastSearchSupported} onClick={() => { setMemorySearchMode("fast"); setActionsOpen(false); }}><Icon name="search" size={17} /><span><strong>Fast Search</strong><small>{fastSearchSupported ? "Optional System Model; standard fallback if unavailable" : "Not supported by this YAI Host"}</small></span>{memorySearchMode === "fast" && <Icon name="check" size={15} />}</button>
+            <div className="conversation-tools-divider" />
+            <button type="button" role="menuitem" onClick={() => { setActionsOpen(false); actions.openPerspective("Memory"); }}><Icon name="memory" size={17} /><span><strong>Open Memory</strong><small>Recall, Working State and history</small></span></button>
+            <button type="button" role="menuitem" onClick={() => { setActionsOpen(false); actions.openPerspective("Environment"); }}><Icon name="sources" size={17} /><span><strong>Browse sources</strong><small>Case sources and resources</small></span></button>
+          </div>}
+        </div>
+        <small className="conversation-memory-mode">{memorySearchMode === "fast" ? "Fast Search · fallback available" : "Ctrl/⌘ Enter"}</small>
+        <Button className="conversation-send" aria-label={busy ? "Sending…" : "Send"} title="Send message" type="submit" disabled={busy || !canSend || !draft.trim()}><span aria-hidden="true">{busy ? "…" : "↑"}</span></Button>
+      </div>}
     </form>
   </div>;
 }

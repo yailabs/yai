@@ -65,6 +65,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             )
         }
         "yai.case.cognitive.frontier" => decision_frontier(invocation),
+        "yai.case.cognitive.fast_search" => fast_search(invocation),
         "yai.case.cognitive.decision_request" => decision_request(invocation),
         operation_id @ ("yai.case.resource.import" | "yai.case.resource.request") => {
             crate::command_adapters::resource_application_command(
@@ -218,6 +219,23 @@ fn decision_frontier(invocation: &Invocation) -> Result<CliData, CliError> {
         .map_err(|_| CliError::usage("--max-candidates must be an integer"))?
         .unwrap_or(8);
     application_operation("decision.frontier.prepare", serde_json::json!({
+        "working_state": working,
+        "max_candidates": max_candidates,
+    }))
+}
+
+fn fast_search(invocation: &Invocation) -> Result<CliData, CliError> {
+    let working = working_state_file(invocation)?;
+    let case_ref = invocation.positional("case")
+        .ok_or_else(|| CliError::usage("Case is required"))?;
+    if working.case_id() != case_ref {
+        return Err(CliError::usage("working state and Case do not match"));
+    }
+    let max_candidates = invocation.flag("--max-candidates")
+        .map(str::parse::<usize>).transpose()
+        .map_err(|_| CliError::usage("--max-candidates must be an integer"))?
+        .unwrap_or(8);
+    application_operation("semantic.fast_search.prepare", serde_json::json!({
         "working_state": working,
         "max_candidates": max_candidates,
     }))

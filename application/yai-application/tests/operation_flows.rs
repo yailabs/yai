@@ -206,6 +206,40 @@ fn conversation_submission_is_durable_idempotent_and_observable_without_provider
 }
 
 #[test]
+fn fast_search_send_preference_degrades_to_standard_without_model_or_redispatch() {
+    let mut f = Fixture::new("fast-search-send-fallback");
+    let generation = f.generation();
+    let input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "thread_ref":"thread:fast-search", "submission_ref":"send:fast-search",
+        "expected_generation":generation, "memory_search_mode":"fast",
+        "parts":[{"modality":"text", "media_type":"text/plain;charset=utf-8",
+            "bytes":b"inspect exact evidence".to_vec()}]});
+    let mut hidden = input.clone(); hidden["participant_ref"] = json!("participant:hidden");
+    assert_ne!(f.call("conversation.send", hidden).result_state, ResultState::Success);
+    let first = f.success("conversation.send", input.clone());
+    assert_eq!(first["created"], true);
+    assert_eq!(first["memory_search"]["requested"], "fast");
+    assert_eq!(first["memory_search"]["effective"], "standard");
+    assert_eq!(first["memory_search"]["system_model_active"], false);
+    assert_eq!(first["memory_search"]["posture"], "degraded_public_decision_producer_unavailable");
+    f.app = LocalApplication::from_yai_home(&f.home);
+    let retry = f.success("conversation.send", input.clone());
+    assert_eq!(retry["created"], false);
+    assert_eq!(retry["execution"]["turn_ref"], first["execution"]["turn_ref"]);
+    assert_eq!(retry["memory_search"], first["memory_search"]);
+    let mut changed_policy = input;
+    changed_policy["memory_search_mode"] = json!("standard");
+    assert_eq!(f.call("conversation.send", changed_policy).error.unwrap().code,
+        "conversation_submission_idempotency_conflict");
+    let store = yai_core_engine::store::lmdb::LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    let history = store.list_case_transitions("case:audit").unwrap();
+    assert_eq!(history.iter().filter(|transition| matches!(transition.payload,
+        yai_core_engine::transition::TransitionPayload::ConversationTurnCommitted { .. })).count(), 1);
+    assert!(!history.iter().any(|transition| matches!(transition.payload,
+        yai_core_engine::transition::TransitionPayload::ProviderInvocationStarted { .. })));
+}
+
+#[test]
 fn canonical_filesystem_effect_application_retry_observes_receipt_without_second_write() {
     canonical_effect_retry(false, false, false, false);
 }
@@ -842,6 +876,52 @@ fn recall_and_working_state_are_real_qualified_results_and_reject_stale_inputs()
     let hidden = f.call("semantic.recall", json!({"request":hidden}));
     assert_ne!(hidden.result_state, ResultState::Success);
     assert!(hidden.data.is_none());
+}
+
+#[test]
+fn fast_search_preparation_is_w_bound_non_authoritative_and_currently_unavailable() {
+    use yai_core_engine::semantic_state::{CompilationRequest, SemanticPurpose, SemanticScope,
+        WorkingStateRequest};
+    let f = Fixture::new("fast-search-navigation");
+    let submitted = f.success("conversation.send", json!({
+        "case_ref":"case:audit", "participant_ref":"participant:operator",
+        "thread_ref":"thread:navigation", "submission_ref":"send:navigation",
+        "expected_generation":f.generation(),
+        "parts":[{"modality":"text", "media_type":"text/plain;charset=utf-8",
+            "bytes":b"release evidence observation".to_vec()}]
+    }));
+    let turn_ref = submitted["execution"]["turn_ref"].as_str().unwrap();
+    let generation = f.generation();
+    let request = WorkingStateRequest {
+        case_id:"case:audit".into(), expected_generation:generation,
+        compilation:CompilationRequest {
+            scope:SemanticScope::model("participant:operator", SemanticPurpose::Inspection),
+            intent:"inspect release evidence observation".into(),
+            output_contract_id:yai_core_engine::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units:131072, max_derived_items:8, resource_refs:vec![],
+            required_refs:vec!["participant:operator".into()], previous_item_ids:vec![], view_selection_id:None,
+        }, recall_query:None, at:None, recall_required_refs:vec![turn_ref.into()],
+        recall_bounds:Default::default(), max_output_bytes:1024*1024,
+    };
+    let compiled = f.success("semantic.working_state.compile", json!({"request":request}));
+    let working = compiled["working_state"].clone();
+    let input = json!({"working_state":working,"max_candidates":8});
+    let before = f.generation();
+    let prepared = f.success("semantic.fast_search.prepare", input.clone());
+    assert_eq!(prepared["active"], false);
+    assert_eq!(prepared["availability"], "unavailable_producer");
+    assert_eq!(prepared["actual_path"], "qualified_deterministic_recall_w");
+    assert!(prepared["navigation"]["decision_request"]["request_id"].as_str().is_some());
+    assert!(prepared["navigation"]["choices"].as_array().unwrap().iter().any(|choice|
+        choice["origin"]["kind"] == "resident_recall_group"));
+    assert_eq!(f.success("semantic.fast_search.prepare", input.clone()), prepared);
+    assert_eq!(f.generation(), before);
+    let mut tampered = input.clone();
+    tampered["working_state"]["case_id"] = json!("case:another");
+    assert_ne!(f.call("semantic.fast_search.prepare", tampered).result_state, ResultState::Success);
+    f.success("participant.role.add", json!({"case_ref":"case:audit",
+        "participant_ref":"participant:operator", "role":"reviewer"}));
+    assert_eq!(f.call("semantic.fast_search.prepare", input).result_state, ResultState::Stale);
 }
 
 #[test]

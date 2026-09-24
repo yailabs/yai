@@ -1277,6 +1277,13 @@ window-session storage, partitioned by Case and Participant, not Case truth.
 Text is currently bounded to 64 KiB; streaming and attachment authoring remain
 unimplemented. The immutable Conversation projection remains a read surface;
 SEND availability comes from the current operation catalog and YAI admission.
+The composer has a compact `+` tools menu for authored Case navigation and a
+per-SEND Standard/Fast Search memory preference. It does not register or select
+a System Model as the primary conversation provider. The exact preference is
+retained in the submitted envelope for lost-acknowledgement retry, and the
+Application result reports the effective path. Today the public non-generative
+producer is unavailable, so a Fast request visibly degrades to qualified
+standard Recall/W; no score, recommendation or model execution is implied.
 
 Compute separates measured wire qualification from operator-attested semantic
 suitability and the primary cognitive binding. `provider.models` authorizes the

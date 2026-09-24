@@ -150,6 +150,21 @@ unchanged admission/effect owners remain final. Both Frontier and distribution
 are reconstructible derived application/domain contracts, not canonical Case
 state or a YAI↔YVEX wire ABI.
 
+Fast Search is a separate optional navigation use of the same derived Decision
+request semantics, not another memory owner or canonical Decision. From an
+already current-qualified Recall-aware W, YAI constructs an exact finite set
+of resident Recall-group inspection choices, exact deferred W4 page
+opportunities, and the deterministic Recall/W continuation. Candidate labels
+are bounded previews of already disclosed group content and typed recorded
+relations; they never mint relations or expose deferred bytes. Omitted optional
+navigation choices are counted, while the underlying qualified W and its
+mandatory evidence remain unchanged. `semantic.fast_search.prepare` rechecks
+current W, disclosure and backing before exposing those choices. No public
+non-generative producer currently consumes the request, so Conversation SEND
+`fast` degrades explicitly to `standard`; no hidden provider registration,
+model score or implied authority is created. A future System Model is an
+internal computational service independent of the Case's primary provider.
+
 The bounded preparation hot path composes current-W requalification, typed
 Workflow-origin resolution, Frontier construction and `CognitiveDecisionRequest
 v1` inside one operation-scoped LMDB read snapshot. The private qualified basis

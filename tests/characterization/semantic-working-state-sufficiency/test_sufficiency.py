@@ -248,6 +248,49 @@ def evaluation(stage, cli, run, view):
         ref_flags = tuple(value for reference in refs for value in ("--ref", reference))
         trace = recall(query, *ref_flags)["trace"]
         compiled = compile_state(query, *ref_flags, *compile_flags)
+        capture_dir = os.environ.get("YAI_FAST_SEARCH_CAPTURE_DIR")
+        if capture_dir and name in {
+            "documentary_knowledge", "documentary_operational_contradiction",
+            "temporal_causal_explanation", "long_history_distractor_pressure",
+            "revoked_evidence", "large_source_distractor_pressure",
+        }:
+            target = Path(capture_dir)
+            target.mkdir(parents=True, exist_ok=True)
+            working_path = run / f"fast-search-{name}.json"
+            working_path.write_text(json.dumps(compiled["working_state"]))
+            started = time.perf_counter()
+            navigation = cli(
+                "case", "cognitive", "fast-search", CASE,
+                "--working-file", working_path, "--max-candidates", "32", "--json",
+            )
+            prepare_ms = (time.perf_counter() - started) * 1000
+            entry_by_id = {entry["entry_id"]: entry for entry in compiled["working_state"]["entries"]}
+            candidates = []
+            for choice in navigation["navigation"]["choices"]:
+                origin = choice["origin"]
+                entry = entry_by_id.get(origin.get("entry_id"))
+                candidates.append({
+                    "id": choice["candidate"]["candidate_id"],
+                    "kind": origin["kind"],
+                    "description": choice["candidate"]["description"],
+                    "required_hits": [present(entry, item) if entry else False for item in required],
+                    "forbidden_hits": [present(entry, item) if entry else False for item in forbidden],
+                    "distractor_hits": [present(entry, item) if entry else False for item in distractors],
+                })
+            (target / f"{name}.json").write_text(json.dumps({
+                "task": name,
+                "query": query,
+                "oracle_digest": ORACLE_DIGEST,
+                "working_state_id": compiled["working_state"]["working_state_id"],
+                "navigation_id": navigation["navigation"]["navigation_id"],
+                "preparation_ms": round(prepare_ms, 3),
+                "candidate_count": len(candidates),
+                "omitted_optional": navigation["navigation"]["omitted_optional_choices"],
+                "required_count": len(required),
+                "standard_required_hits": [present(compiled["working_state"], item) for item in required],
+                "standard_forbidden_hits": [present(compiled["working_state"], item) for item in forbidden],
+                "candidates": candidates,
+            }, indent=2))
         return vector(name, trace, compiled, required, forbidden, distractors, note=note)
 
     if stage == "prepare":

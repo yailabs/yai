@@ -1415,6 +1415,20 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.cognitive.fast_search",
+        ["case", "cognitive", "fast-search"],
+        "Prepare exact qualified memory-navigation choices and report System Model availability",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--working-file", Some("WORKING_STATE.json"), true),
+            flag("--max-candidates", Some("COUNT"), false)
+        ]
+    ),
+    op!(
         "yai.case.cognitive.decision_request",
         ["case", "cognitive", "decision-request"],
         "Prepare a non-authoritative DecisionRequest from an exact current Frontier",
@@ -3634,6 +3648,8 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
         || matches!(operation_id, "yai.meta.help" | "yai.meta.completion")
     {
         "platform.capability_discovery"
+    } else if operation_id == "yai.case.cognitive.fast_search" {
+        "semantic.fast_search"
     } else if operation_id == "yai.case.cognitive.frontier" {
         "cognitive.decision_frontier"
     } else if operation_id == "yai.case.cognitive.decision_request" {

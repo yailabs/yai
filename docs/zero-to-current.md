@@ -1337,6 +1337,22 @@ The corrected bounded result is 14 `SUFFICIENT`, one
 `REFUSED_CORRECTLY`, zero Recall/W-stage failures and zero forbidden disclosure.
 This is exact recorded-relation closure, not general causal inference.
 
+Fast Search inspection can be requested after compiling a current qualified
+Working State. In the present build it prepares exact Recall-group and W4
+page opportunities, then truthfully reports the absent public System Model
+producer and retains deterministic Recall/W as the actual path:
+
+```sh
+./yai case cognitive fast-search CASE --working-file WORKING_STATE.json --max-candidates 8 --json
+```
+
+Conversation `conversation.send` accepts the non-canonical
+`memory_search_mode: "standard" | "fast"` preference. Until a qualified
+public decision producer exists, `fast` returns a degraded-to-standard status;
+it does not create a provider Invocation or another Turn. A stale W is refused
+by current requalification. The [optional Laya reference runner](../labs/fast-search/laya_reference.py)
+uses external checkpoint files and never enters product execution.
+
 To reproduce the first model-independent Cognitive Decision Plane foundation,
 run:
 

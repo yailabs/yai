@@ -10,6 +10,7 @@ pub mod capabilities;
 pub mod provider_transport;
 pub mod provider_execution;
 pub mod cognitive_execution;
+pub mod fast_search;
 pub mod resource_transport;
 pub mod resource_execution;
 pub mod runtime_execution;
@@ -1410,6 +1411,12 @@ impl LocalApplication {
                 )?;
                 serde_json::to_value(prepared)
                     .map_err(|error| format!("decision_request_encode:{error}"))
+            }
+            "semantic.fast_search.prepare" => {
+                let input: fast_search::FastSearchPrepareInput = decode_input(request)?;
+                let prepared = fast_search::prepare(&self.home_path, &auth, &store, input)?;
+                serde_json::to_value(prepared)
+                    .map_err(|error| format!("fast_search_prepare_encode:{error}"))
             }
             "semantic.recall" => {
                 let input: RecallExecuteInput = decode_input(request)?;
@@ -3315,7 +3322,7 @@ mod tests {
         assert_eq!(result.result_state, ResultState::Success);
         let data = result.data.unwrap();
         assert_eq!(data["schema"], capabilities::CAPABILITY_CATALOG_SCHEMA);
-        assert_eq!(data["capabilities"].as_array().unwrap().len(), 43);
+        assert_eq!(data["capabilities"].as_array().unwrap().len(), 44);
         assert!(data.get("cases").is_none());
         assert!(data.get("resources").is_none());
     }
@@ -3421,8 +3428,8 @@ mod tests {
             .iter()
             .filter(|capability| capability.application_posture == ApplicationPosture::Deferred)
             .count();
-        assert_eq!(product.len(), 33);
-        assert_eq!(ready, 32);
+        assert_eq!(product.len(), 34);
+        assert_eq!(ready, 33);
         assert_eq!(deferred, 0);
         assert_eq!(capabilities::APPLICATION_BLOCKERS.len(), deferred);
         assert!(capabilities::APPLICATION_BLOCKERS.iter().all(|blocker| {
@@ -3449,6 +3456,8 @@ mod tests {
         typed::<EffectProposalResult>();
         typed::<DecisionFrontierPrepareInput>();
         typed::<DecisionRequestPrepareInput>();
+        typed::<fast_search::FastSearchPrepareInput>();
+        typed::<fast_search::FastSearchPrepareResult>();
         typed::<RecallExecuteInput>();
         typed::<WorkingStateCompileInput>();
         typed::<WorkingStateRefreshInput>();

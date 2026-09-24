@@ -812,6 +812,17 @@ artifact and scope present in producer evidence. Summing to one does not create
 confidence or calibration. The v1 contracts are YAI application/domain meaning,
 not a frozen YAI↔YVEX wire format and not a production scorer API.
 
+Fast Search is an optional System-1 memory-navigation role above qualified
+Recall/W, not a second provider or the user's primary model. YAI owns the
+finite disclosed inspection frontier and deterministic fallback. A future
+computational producer may score that frontier through a public Decision
+Readout contract, but cannot fetch Case storage, change Recall truth or acquire
+effect authority. The current YAI vertical prepares exact resident-group and
+deferred-page opportunities and reports producer unavailability; no production
+Fast Search acceleration or calibration is claimed. Laya is a reference
+characterization artifact, not the semantic identity or an embedded PyTorch
+runtime. This work selects neither W → E nor I07.
+
 The adopted execution doctrine is **Minimum Sufficient Cognition**. For each
 bounded cognitive step, a future qualified controller should select the least
 expensive mechanism capable of the work:
