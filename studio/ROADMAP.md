@@ -14,7 +14,7 @@ Counts below are inventory, never a percentage of product completion.
 | ⚪ LATER | Explicit horizon, not current implementation. |
 
 <!-- maturity-counts:start -->
-Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **17** · 🔴 OPEN **3** · ⚪ LATER **2** · **44 properties**.
+Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **17** · 🔴 OPEN **8** · ⚪ LATER **3** · **50 properties**.
 Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 <!-- maturity-counts:end -->
 
@@ -53,6 +53,15 @@ result/context identity, hidden refusal and retry through the real Host; control
 producer qualification leaves real-model reasoning quality unassessed. PERFORMS
 records measurements separately. Natural-language quality never
 substitutes for deterministic authority, identity and effect assertions.
+
+The YVEX contract reconciliation at `models2@9f64194814a6d65e8a30e99b584dec300cd52a4a`
+finds local protocol v21 and HTTP compatibility v3; public `main@3f4a1c1` is older
+(protocol v20). [Studio doctrine](../docs/studio.md#published-producer-reconciliation)
+records pinned sources, process-role boundaries and the consumption matrix.
+The registry's 153 non-removed entries include engineering, protocol and local
+REPL operations: no percentage of desired UI coverage has been established.
+The next delivery must distinguish producer support, transport availability,
+YAI Application/CLI coverage and tested Studio interaction for each selected action.
 
 Providers is Tenant inventory/governance carried by the Host; Compute projects
 Case bindings and use; YVEX native management consumes only qualified public
@@ -104,7 +113,14 @@ Product tabs now have an overflow selector and distinct geometry; contextual too
 launchers occupy their own rail rather than covering tabs. Default bottom-panel
 height is reduced while existing local preferences remain intact.
 
-**NEXT:** qualify the internal service readiness question end to end and context
+**NEXT, independent product track:** `STUDIO.YVEX.OPERATIONAL.WORKSPACE.0`
+selects the complete qualified YVEX operational lifecycle as a first-party Studio
+workspace. Producer reconciliation and UI composition can progress alongside the
+shared YAI machine-management work; unavailable transport does not turn existing
+YVEX functionality into a missing producer implementation. No private Studio
+launcher or direct provider execution bypass is admitted.
+
+**NEXT, inference track:** qualify the internal service readiness question end to end and context
 closure against the real model. Controlled native two-client mutation fanout,
 parallel Case isolation and restart recovery are established separately; they do
 not substitute for real-provider evidence.
@@ -223,6 +239,12 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SP03 | 🟡 PARTIAL | Cognitive preparation distinguished from provider configuration | Primary conversation suitability and assignment are authored; auxiliary roles and exact planning/realization remain debt | Explicit Compute posture |
 | SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Live qualification passed; populated Case execution received HTTP 413 from the current 4096-token deployment | Controlled provider test is not external model evidence |
 | SY02 | 🔴 OPEN | Studio consumption of YAI-owned machine registration, LAN discovery, execution-location selection and runtime/model observations | YAI owns typed lifecycle/discovery contracts shared by CLI and Studio; YVEX management requires its qualified public boundary. Concurrent backend work is consumed only after publication; no Studio-private launcher or discovery | Selected Exon → DGX Spark operator requirement; no private producer coupling or fabricated telemetry |
+| SY03 | 🔴 OPEN | Models and acquisition: catalog, HF/local pull, exact revision, progress, resume/stop and storage | Offline YVEX owners exist; qualified shared management operations and authored Studio flow remain | Published registry/command contract; no UI qualification yet |
+| SY04 | 🔴 OPEN | Preparation and artifacts: verification, coordinated compilation lanes, representations, profiles, lineage and explicit calibration choices | Preserve YVEX ownership and family-specific admission; offline ABI is not a remote management service | Published compiler/artifact contracts; no UI qualification yet |
+| SY05 | 🔴 OPEN | Runtime operations: exact engines, load/unload, leases, memory and device placement | Producer protocol v21 implements local operations; qualified consumer/remote boundary remains open | Published local protocol; existing health page is not engine control |
+| SY06 | 🔴 OPEN | Sessions and generation: text/media capabilities, cancellation and exact result identity | Case execution stays governed; native media is not OpenAI HTTP multimodal support; YVEX sessions are not Cases | Published runtime/HTTP contracts; current text SEND remains SC01 |
+| SY07 | 🔴 OPEN | Observability: retained/live events, server logs, owner-authored progress and resource accounting | Native telemetry exists; current provider.inventory only supplies dated YAI observations | Published event contract; no server-log UI qualification yet |
+| SY08 | ⚪ LATER | Advanced engineering diagnostics and calibration experiments beyond ordinary platform operation | Classify each producer action; no indiscriminate UI for kernel probes, no automatic tuning or capability promotion | Producer engineering inventory; explicit selection and resource budget required |
 | SH01 | 🟢 ESTABLISHED | Resident same-user Unix Host, singleton discovery, events, auto-attach, telemetry and lifecycle | Host survives Studio; normal live mode never embeds Application | application/yai-host tests; existing native acceptance |
 | SH02 | 🟡 PARTIAL | Host supervises the existing RuntimeInstance; exact run/stop and reconnect observation | S1 lifecycle depth and ambiguous-delivery recovery remain open | effect-actions.mjs; application-execution-lifecycle characterization |
 | SI01 | 🟡 PARTIAL | Common typed Inspector for projected objects, graph edges and Journal events | Handoff inbox, execution result bodies and model catalog details require read projections | knowledge-navigation.mjs; navigation-journal.mjs |

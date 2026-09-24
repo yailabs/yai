@@ -1767,3 +1767,15 @@ deployments. Resize to 1000×650: inventory, section navigation and scrolling st
 inside the Work Surface. `tests/studio/compute-actions.mjs` retains the real-Host
 controlled-provider interaction and four-viewport regression. This is local
 product evidence, not external YVEX or human acceptance.
+
+
+YVEX platform expansion is now selected beyond the compatibility deployment page.
+The planned operating path is catalog/acquisition → preparation/artifacts → exact
+runtime → supported generation, with transversal observability. These are future
+Studio interactions until their typed management boundaries and tests exist.
+The current UI still exposes only Runtime/Evidence/Platform deployment observations
+and governed provider actions. Do not interpret the expanded roadmap as new
+working pull, compiler, load/unload, device or server-log controls.
+Acceptance of each future slice must cover the exact target machine, identity,
+progress/failure, authority and retained outcome, with CLI/Studio equivalence and
+Case continuity. Producer protocol/ABI availability alone is not acceptance.

@@ -493,6 +493,68 @@ implementation, automation driver or screenshot transport is selected here.
 
 ## YVEX Integration
 
+### One Workbench, two first-party systems
+
+Studio is the graphical operating surface for both YAI and YVEX. YVEX is not
+reduced to a provider settings page. YAI owns Case semantics, authority and
+context; YVEX owns source/package compilation and computational execution.
+Studio composes their qualified interfaces without acquiring either ownership.
+Providers remains Tenant inventory/governance, Compute remains Case-scoped use,
+and YVEX is a platform workspace spanning the source-to-result lifecycle.
+A YVEX Source, Profile or Session is not a YAI Source, Case or Participant.
+
+The selected interface has local navigation for **Models & acquisition**,
+**Preparation & artifacts**, **Runtime & machines**, **Sessions & generation**,
+and **Observability**. Routine tasks use compact authored flows; exact lineage,
+tensors, policies and diagnostic evidence use Inspector/advanced views. Acquisition,
+compilation and loading expose owner-authored progress and failure, not estimated
+completion. Model identity, representation, profile and engine generation remain
+distinct. A downloaded checkpoint does not imply an executable model.
+
+Case requirements inform selection and compatibility, not silent calibration.
+Representation/quantization, calibration input and runtime policy remain explicit
+YVEX-owned choices with provenance and feasibility evidence. YAI supplies its
+required modalities, context and authority; Studio exposes mismatches and asks for
+an explicit supported choice. It does not truncate context, tune an engine or
+unload another Case's shared deployment automatically.
+
+### Published producer reconciliation
+
+The reviewed public cuts are YVEX `main` at
+`3f4a1c182d35e5a0e163adb81008ae7a366efcc6` (local protocol 20) and `models2` at
+`9f64194814a6d65e8a30e99b584dec300cd52a4a` (local protocol 21, HTTP compatibility
+v3). The latter matches the operator-reported protocol version; this does not
+prove the running executable has that exact source SHA. Review the pinned
+[operation registry](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/config/operator/registry.json),
+[command ownership](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/architecture/commands.md),
+[compiler architecture](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/architecture/compilation.md),
+[local protocol](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/contracts/local-protocol.md),
+[telemetry contract](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/contracts/events-telemetry.md)
+and [HTTP profile](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b584dec300cd52a4a/docs/openai-compatibility.md).
+
+| Producer boundary | Executable scope at the reviewed cut | Studio integration posture |
+|---|---|---|
+| Finite offline owners / installed ABI | Search, HF/local acquisition, resume/stop, verification, preparation, artifacts, profiles, quantization and inspection | Selected product/advanced flows; no current shared YAI typed management carrier. Do not parse CLI output or link compiler ownership into React. |
+| Private local protocol v21 | Host status/memory/logs/stop, engine lifecycle, leases, sessions, generation, cancellation, events and preflight | Producer functionality exists. Versioned UID-local transport is explicitly private, not an authenticated remote SDK; a qualified management boundary is required. |
+| HTTP compatibility v3 | Health, loaded-model discovery, exact model/capacity identities, preflight, Chat Completions and Responses subset | Generic governed inference and exact preflight already have YAI consumers. Raw producer data availability does not imply full Studio projection. |
+| Native media generation | Typed directional capabilities and admitted media-engine results/progress | Do not promise HTTP multimedia parity: the reviewed compatibility profile refuses multimodal input and image/audio endpoint families. Case output/evidence admission and a typed media route must be qualified. |
+| Remote machines | Local host/runtime facts do not establish network identity or remote trust | Enrollment, discovery, bootstrap, authenticated management and revocation remain shared YAI/producer contract work. |
+
+Compilation has coordinated computation and parameter/package lanes. Package
+lineage joins executable specialization before an engine is loaded. A future
+pipeline UI must preserve this structure rather than draw a fictitious universal
+linear “tensor → GGUF → generation” compiler for every family.
+
+Coverage means supported semantic actions with authored interactions and tests,
+not all registry rows turned into buttons. At the reviewed cut the registry has
+167 entries: 14 removed, 33 product-default, 60 product-advanced, 54 engineering
+and 6 API-only. These are producer inventory categories, not a Studio coverage
+percentage or 153 independent UI requirements. REPL-local, protocol, duplicated
+porcelain/plumbing and diagnostic actions require explicit dispositions. No
+“90% required” or “90% integrated” claim is qualified. Regenerate the inventory
+from the pinned producer registry on the next delta check; do not maintain a
+second operation registry here.
+
 ### Inference plane
 
 YVEX continues through the same qualified generic OpenAI-compatible provider
