@@ -504,25 +504,31 @@ Case continuity nor evidence of a successful external effect.
 
 ### Management plane
 
-The selected product requirement is a Studio-owned operator experience over
-public YVEX device and management contracts: discover eligible machines on the
-LAN, explicitly enroll a device, retain its verified identity across launches,
-select its execution location, start/stop the runtime, load/unload a model and
-observe supported status, memory accounting and bounded followable logs.
+The selected product requirement is a YAI-owned machine and provider-management
+capability exposed through typed Application operations to both CLI and Studio.
+It must discover eligible machines on the LAN, explicitly enroll a Tenant machine
+asset, retain its verified identity across launches, select its execution
+location, start/stop the runtime, load/unload a model and observe supported
+status, memory accounting and bounded followable logs.
 For example, Studio on Exon selects the registered DGX Spark; execution and
 telemetry belong to Spark, not to the UI machine. An address or display name is
 not a durable device identity, and discovery does not grant trust or authority.
 
-YVEX owns device discovery/identity and its runtime management semantics; Studio
-consumes published contracts through the typed YAI boundary. Registration must
-preserve an authenticated association and distinguish a known offline device
-from an unknown peer or changed identity. Starting a stopped remote runtime
-requires a reachable authenticated management/bootstrap carrier on that machine;
-the stopped inference listener cannot provide its own startup mechanism.
+YVEX owns its published device identity, discovery proof and runtime management
+semantics. YAI owns Tenant-scoped candidate qualification, explicit registration,
+the authenticated association to that identity, Case-independent device inventory,
+execution-location selection and application-level refusal/evidence meaning.
+CLI and Studio consume those same operations; neither owns a private discovery
+or startup path. One enrolled compute machine may serve several Cases without
+inheriting authority or disclosure from any of them. Registration must
+distinguish a known offline device from an unknown peer or changed identity.
+Starting a stopped remote runtime requires a reachable authenticated
+management/bootstrap carrier on that machine; the stopped inference listener
+cannot provide its own startup mechanism.
 Transport, enrollment/revocation and lifecycle contracts must be qualified before
 this interaction can be implemented. Do not infer them from CLI help, a local
-Unix socket path, or generic OpenAI-compatible HTTP. No shell/SSH command runner
-in Studio substitutes for that contract.
+Unix socket path, or generic OpenAI-compatible HTTP. A shell/SSH command runner
+in either YAI backend or Studio does not substitute for that contract.
 
 Additional public YVEX product capabilities may include installed
 and admitted models, engines, load/unload, deployment, compilation,
@@ -534,7 +540,7 @@ results and truthful failure states. They must not bypass YAI inference
 qualification, read YVEX internals or make YVEX a Case owner. No management API
 is invented or implemented. Normal provider qualification remains black-box
 consumption as specified by AGENTS; an operator's separately authorized producer
-deployment attempt does not establish Studio management capabilities.
+deployment attempt does not establish YAI machine-management capabilities.
 
 ## Provider Experience
 
