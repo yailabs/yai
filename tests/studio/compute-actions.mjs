@@ -110,6 +110,16 @@ try {
  await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
  await page.locator('.inspector-view').getByRole('heading',{name:'unbound-inventory-target',exact:true}).waitFor();
  await page.locator('.inspector-view').getByText('Not bound',{exact:true}).waitFor();
+ await page.getByRole('region',{name:'Observed deployment health'}).waitFor();
+ assert.equal(await page.locator('.platform-surface.live-page').count(),0,'Platform uses full workspace, not document page');
+ await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Platform',exact:true}).click();
+ await page.getByText('No typed management connection',{exact:true}).first().waitFor();
+ await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Runtime',exact:true}).click();
+ await page.getByText('Not disclosed by this connection',{exact:true}).waitFor();
+ await page.getByRole('searchbox',{name:'Filter deployments'}).fill('unbound-inventory-target');
+ assert.equal(await page.locator('.deployment-list .compute-target').count(),1);
+ await page.getByRole('searchbox',{name:'Filter deployments'}).fill('');
+
  // Tenant state can change without a Case generation change: toolbar refresh
  // must invalidate both the inventory Surface and the selected Inspector.
  const unbound=inventory.targets.find(item=>item.provider_key==='unbound-inventory-target');
@@ -122,6 +132,22 @@ try {
  assert.ok(exchanges.filter(x=>x.request.operation_ref==='provider.inventory').length>=inventoryReads+2);
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,unchangedGeneration);
  assert.ok(await page.locator('.kernel-status .provider-status').innerText());
+ // Selected-target governance needs no manually copied reference. Polling must
+ // subsequently observe a Tenant-only change in both workspace and Inspector.
+ await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Evidence',exact:true}).click();
+ await page.getByRole('button',{name:'Set target trust',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Set target trust'});
+ assert.equal(await form.getByLabel('Exact target reference').count(),0);
+ await form.getByRole('button',{name:'Record trust',exact:true}).click();await form.waitFor({state:'hidden'});
+ assert.equal(exchanges.findLast(x=>x.request.operation_ref==='provider.trust.set').request.input.target_ref,unbound.id);
+ await page.locator('.deployment-list').getByText('approved',{exact:true}).waitFor();
+ await page.locator('.inspector-view').getByText('approved',{exact:true}).waitFor();
+ await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Runtime',exact:true}).click();
+ await accepted('provider.trust.set',{target_ref:unbound.id,posture:'denied'});
+ await page.locator('.deployment-list').getByText('denied',{exact:true}).last().waitFor({timeout:15000});
+ await page.locator('.inspector-view').getByText('denied',{exact:true}).waitFor({timeout:15000});
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,unchangedGeneration);
+
 
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
    await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/providers-${width}x${height}.png`});

@@ -1336,3 +1336,16 @@ observation contract. Existing provider health observations are shown with their
 recorded time, circuit posture and failure count; they do not imply a new probe. No Studio-side process scan or network probe is introduced.
 The existing Application capability entries remain exact: this is another authored
 consumer of Conversation/execution operations, not a new semantic capability.
+
+
+Providers/YVEX product workspace uses a compact selectable deployment inventory
+and local Runtime/Evidence/Platform navigation rather than the document-page
+composition. Runtime presents the authorized recorded health, time, circuit and
+failure class. Evidence scopes the existing governance actions to the selected
+immutable target. Inspector owns exact technical metadata. Both inventory and
+provider Inspector perform bounded ten-second reads while visible; they do not
+probe the producer or initiate inference. Platform identifies the unconsumed
+native management boundary without manufacturing compiler, residency or log
+telemetry. Existing `provider.inspect` and `provider.governance` catalog ownership
+and operation identities remain exact; this presentation change adds no operation
+or backend maturity claim. CLI and Studio still consume the same provider owners.

@@ -1749,3 +1749,21 @@ from `studio/` once. Then launch with `yai-studio`. The installed symlink resolv
 the current checkout release and includes the qualified X11/WebKit defaults; it
 does not copy a binary that becomes stale after rebuilding. Explicit environment
 overrides remain supported. Standalone packaging/signing remains unqualified.
+
+
+Providers and YVEX now open a full-height deployment workspace: select a target
+in the compact inventory, then use **Runtime**, **Evidence**, or **Platform**.
+Runtime distinguishes recorded health, observation time, circuit and failure
+class from actual live connectivity. Evidence owns qualification and governance
+for the selected target; exact identifiers and adapter details remain in Inspector.
+Inventory and provider Inspector reread authorized facts every ten seconds while
+visible, without probing or redispatching inference. Refresh does not make an old
+observation current. Native server logs, registered-machine identity and model
+residency remain explicitly unavailable through the current Application boundary.
+
+Operator check: open Providers, select a deployment, inspect its failure/time,
+switch to Evidence, and compare Inspector. Open YVEX to see only compatible
+deployments. Resize to 1000×650: inventory, section navigation and scrolling stay
+inside the Work Surface. `tests/studio/compute-actions.mjs` retains the real-Host
+controlled-provider interaction and four-viewport regression. This is local
+product evidence, not external YVEX or human acceptance.

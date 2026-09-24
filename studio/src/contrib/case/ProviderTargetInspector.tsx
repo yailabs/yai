@@ -14,14 +14,21 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
   useEffect(() => {
     if (!tenant || !application?.supports("provider.inventory")) return;
     let active = true;
-    void application.providerInventory(tenant).then(result => {
+    let pending = false;
+    const refresh = () => {
+      if (pending) return;
+      pending = true;
+      void application.providerInventory(tenant).then(result => {
       if (!active) return;
       const target = result.result_state === "success" && result.data?.tenant_ref === tenant
         ? result.data.targets.find(item => item.id === selection) : undefined;
       setRead({tenant, selection, catalog: availability.catalog, target,
         error: target ? undefined : result.error?.safe_message ?? "This target is not available in the bounded Tenant inventory."});
-    }).catch(() => { if (active) setRead({tenant, selection, catalog: availability.catalog, error: "Target details unavailable. Reconnect to YAI."}); });
-    return () => { active = false; };
+    }).catch(() => { if (active) setRead({tenant, selection, catalog: availability.catalog, error: "Target details unavailable. Reconnect to YAI."}); }).finally(() => { pending = false; });
+    };
+    refresh();
+    const interval = window.setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 10_000);
+    return () => { active = false; window.clearInterval(interval); };
   }, [application, availability.catalog, tenant, selection, workspace]);
   const current = read?.tenant === tenant && read?.selection === selection && read?.catalog === availability.catalog
     && availability.state === "available" ? read : undefined;
@@ -37,7 +44,11 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
         <div><dt>Endpoint</dt><dd>{target.endpoint}</dd></div>
         <div><dt>Locality</dt><dd>{target.locality.replaceAll("_", " ")}</dd></div>
         <div><dt>Current Case</dt><dd>{workspace.compute.targets.some(item => item.id === selection) ? "Bound" : "Not bound"}</dd></div>
-        <div><dt>Observed health</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div></dl>
+        <div><dt>Observed health</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div>
+        <div><dt>Last observation</dt><dd>{posture?.health.observed_at_unix_ms ? new Date(posture.health.observed_at_unix_ms).toLocaleString() : "Not observed"}</dd></div>
+        <div><dt>Circuit</dt><dd>{posture?.health.circuit ?? "Not exposed"}</dd></div>
+        <div><dt>Failure</dt><dd>{posture?.health.failure_class ?? "No failure class recorded"}</dd></div>
+        <div><dt>Consecutive failures</dt><dd>{posture?.health.consecutive_failures ?? "Not exposed"}</dd></div></dl>
       <p className="surface-note">Tenant-owned deployment. Trust and binding do not grant permission for an operation.</p>
       <details><summary>Technical details</summary><p>{target.id}</p><p>{tenant}</p>
         {posture?.qualification && <p>{posture.qualification.id}</p>}</details>
