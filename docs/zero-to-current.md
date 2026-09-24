@@ -1600,3 +1600,30 @@ that omit this optional projection must show **Not observed**, not zero workers.
 Stopping/failing supervision clears the snapshot. No Case payloads or owner token
 belong in this operational telemetry. Retained lifecycle and gated-provider tests
 verify exact scheduler identity, active work, stop/restart and no duplicate dispatch.
+
+
+### Native Case portfolio and bounded storage
+
+`tests/studio/native-portfolio.py` is the opt-in native two-client lane. Supply an
+explicit existing `YAI_HOME`, desktop binary, CLI binary, two distinct `--cases`
+and a fresh `--evidence` directory. It opens independent WebKitGTK/Tauri processes,
+uses exact Case refs in the Case switcher, creates only unsent local drafts,
+switches Cases and verifies draft isolation/restoration. Closing one client must
+leave the same Host instance and the other client functional. Before/after typed
+Case summaries must preserve Case state and Conversation. This is native local
+product evidence, not real-model execution or human acceptance. Ordered raw
+observations retain the command, source SHA, desktop digest and Host identity.
+
+The deterministic portfolio lane additionally records stopped-profile storage
+before its owned cleanup. `tools/validation/profile_storage.py --home <profile>`
+is a bounded, read-only metadata diagnostic: logical/allocated regular-file bytes,
+container groups, hardlink deduplication and explicit partial/error posture. It
+never reads database contents, follows descendant symlinks or estimates per-Case,
+canonical/derived attribution inside LMDB. The existing portfolio gate exercises
+bounded truncation, hardlinks and concurrent directory-to-symlink replacement.
+This qualification helper adds no Application operation or Studio filesystem path.
+
+The live two-client browser harness observes exact successful Case snapshots and
+the visible Journal, rather than requiring the retired primary Generation label.
+Its read-only mode does not qualify mutation fanout; select the explicit controlled
+mutation lane separately for that property.

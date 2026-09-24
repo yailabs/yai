@@ -43,7 +43,10 @@ try{
    window.__TAURI__={core:{invoke:(command,args)=>command==='studio_call'?window.qualificationHostCall(args.request):Promise.resolve(undefined)},event:{listen:async(_name,handler)=>{listeners.add(handler);return()=>listeners.delete(handler);}}};
    const state={state:'live',telemetry,resync_required:false};const host={capabilities:{kind:'web',nativeDesktop:false,terminalAvailable:false,windowControlsAvailable:false},snapshot:()=>state,subscribe:()=>({dispose(){}}),dispose(){},closeWindow(){},status:async()=>telemetry};
    const client=new LiveClient(), platform=new PlatformServices(host,client), registry=new WorkbenchRegistry();registerContributions(builtInContributions,{platform,workbench:registry});window.qualificationPlatform=platform;
-   const container=document.createElement('div');document.body.appendChild(container);ReactDOM.createRoot(container).render(React.createElement(StudioApplication,{dataSource:new LiveDataSource(client),platform,registry}));
+   const dataSource=new LiveDataSource(client), summary=dataSource.caseSummary.bind(dataSource);
+   window.qualificationSnapshots=[];
+   dataSource.caseSummary=async(...args)=>{const result=await summary(...args);window.qualificationSnapshots.push(result);return result;};
+   const container=document.createElement('div');document.body.appendChild(container);ReactDOM.createRoot(container).render(React.createElement(StudioApplication,{dataSource,platform,registry}));
   },telemetry);
   await page.locator('.workbench-kernel').waitFor();
   await new Promise((resolve,reject)=>{const socket=connect((frame,socket)=>{
@@ -93,7 +96,11 @@ try{
   const checked=JSON.parse(execFileSync(binary,['case','verify',caseRef,'--json'],{env,encoding:'utf8'}));
   assert.equal(checked.status,'ok');await writeFile(`${evidence}/cli-verify.json`,JSON.stringify(checked,null,2));
  }
- for(const page of pages)await page.getByLabel('Workbench status').getByText(`Generation ${after.data.case.generation}`,{exact:true}).waitFor();
+ // Version is technical state, no longer a primary status-bar label. Observe
+ // the real LiveDataSource resync and assert the visible unpaused Journal too.
+ for(const page of pages)await page.waitForFunction(({ref,generation})=>window.qualificationSnapshots.some(result=>result.result_state==='success'&&result.data?.case.case_ref===ref&&result.data.case.generation===generation),{ref:caseRef,generation:after.data.case.generation});
+ const lastSequence=after.data.memory.timeline.at(-1)?.sequence;
+ if(lastSequence!==undefined)await pages[1].waitForFunction(sequence=>[...document.querySelectorAll('.journal-sequence')].at(-1)?.textContent===String(sequence),lastSequence);
  if(after.data.case.generation!==before.data.case.generation){
   for(let client=0;client<2;client++)assert.ok(events.some(e=>e.client===client&&e.case_ref===caseRef&&e.generation>before.data.case.generation),'Real Host events for each attachment');
   assert.equal(await pages[0].locator('.journal-events').innerText(),paused,'Paused Journal retains previous cut');

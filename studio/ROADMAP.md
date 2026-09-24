@@ -150,21 +150,24 @@ selection and evidence, not an alternative capability catalog.
 | `case:yai-enterprise-launch` / retired | Operator-requested cancellation and closure; history retained | Closed at state version 57. Earlier release-assessment evidence does not qualify the replacement infrastructure Case. Do not recreate or resume it automatically. |
 | `case:studio-live-qualification` / single | Persistent technical oracle; preserve operator additions | Existing heterogeneous qualification world retained; no cleanup or recreation by portfolio runner. |
 | `behavioral-alpha` + `behavioral-beta` / parallel | Fresh isolated profile reconstructed from manifest; remove only after Host stop, or explicitly retain | Concurrent independent clients, role isolation, repeated mutation, stale snapshot refusal and restart equivalence qualified by `make test-behavioral-portfolio`. This is product behavior, not model competence. |
-| Enterprise / multi-client | Same durable Case, independent views and local drafts | Studio Workflow binding advanced 54 → 55; two Host-backed browser Workbenches received events and refetched, Journal pause/resume preserved its cut. Three existing native clients separately reattached after Host restart. Combined two-native-client mutation delivery remains a separate acceptance proof. |
+| Retired enterprise / historical multi-client | Same durable Case, independent views and local drafts | Studio Workflow binding advanced 54 → 55; two Host-backed browser Workbenches received events and refetched, Journal pause/resume preserved its cut. Three existing native clients separately reattached after Host restart. Combined two-native-client mutation delivery remains a separate acceptance proof. |
+| Infrastructure + technical oracle / native multi-client | Two independent native Studios, one Host; unsent drafts local to window and Case | `tests/studio/native-portfolio.py` qualifies exact-ref switching, isolated/restored drafts, unchanged authoritative Case/Conversation and Host survival when one client closes. No model call or canonical mutation is part of this lane. |
 | Nested Cases | No frontend parent identifier or implicit scope inheritance | No qualified canonical parent/child owner selected; semantic gap remains explicit. Handoff and Workflow subflows do not substitute for Case parentage. |
 
 | Studio / Host | Provider location | Case / client topology | Qualification posture |
 |---|---|---|---|
-| Exon, Arch Linux x86_64 | None | Two disposable Cases, independent Host clients | Local product runner `portfolio-1790176379355556389`: PASS, 143,360 allocated profile bytes before cleanup; no inference or performance verdict. |
-| Exon, Arch Linux x86_64 | Operator-exposed compatible endpoint | Enterprise / two browser Workbenches; native Host attachments separately observed | Read/reopen evidence only. Exact model, deployment and capacity must be pinned again for the inference run. |
-| Exon | Spark / YVEX | Enterprise single and parallel | Selected external lane; generic public inference/preflight only. Existing 4096-token deployment is not proof that populated Case input fits. |
+| Exon, Arch Linux x86_64 | None | Two disposable Cases, independent Host clients | Local product runner `portfolio-1790259708872413843`: PASS; 139,264 allocated regular-file bytes after Host stop, before cleanup. Whole-profile observation, no inference or performance verdict. |
+| Exon, Arch Linux x86_64 | Not invoked | Infrastructure + technical oracle / two native Studios on one Host | `native-portfolio-1790259703929577045`: exact Case switching and independent drafts, Host survival, canonical Case/Conversation unchanged. Browser read-only dual-client inspection is separate; this run does not prove mutation fanout. |
+| Exon | Spark / YVEX | Infrastructure single and parallel | Selected external lane; generic public inference/preflight only. Existing 4096-token deployment is not proof that populated Case input fits. |
 | Spark | Spark | Single Case | NOT_RUN; no duplicate heavyweight deployment launched by this program. |
 | Exon | Exon | Local single Case | NOT_RUN; provider and memory budget must be selected explicitly. |
 | MacBook | Qualified target | Single / multiple clients | NOT_RUN; Linux qualification does not establish native macOS behavior. |
 
 Storage observations distinguish allocated filesystem bytes from logical content.
-The initial disposable profile measurement does not separate canonical, retained
-and derived stores. Persistent-profile breakdown and growth remain open. Use
+The bounded metadata helper groups regular files by container and counts hardlinks
+once without following descendant symlinks. Database containers do not separate
+canonical, retained and derived records or attribute bytes per Case. Persistent
+growth comparisons remain open. Use
 existing immutable backing where qualified; no lossy history compaction or
 implicit shared-backing claim. External model residency is unknown unless a
 public observation supplies it. Schedule heavyweight deployment scenarios

@@ -15,6 +15,7 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools/validation"))
 from behavioral_corpus import Host, fingerprint
+from profile_storage import measure_profile_storage
 
 
 def main():
@@ -103,15 +104,17 @@ def main():
             for case, state in zip(cases, after):
                 assert call(reopened, "case.summary", dict(case_ref=case["case_ref"])) == state
                 cli("case", "verify", case["case_ref"])
-            allocated = sum(p.stat().st_blocks * 512 for p in root.rglob("*") if p.is_file())
         finally:
             if started:
                 cli("host", "stop")
+            storage = measure_profile_storage(home) if home.exists() else None
+            emit(dict(observation="stopped_profile_storage", storage=storage))
             if not args.retain:
                 shutil.rmtree(root)
         emit(dict(result="PASS", dimensions=["CAN_DO", "REFUSES", "RECOVERS", "REMEMBERS", "ISOLATES"],
                   model_behavior="NOT_ASSESSED", cases=len(cases), independent_clients=len(cases),
-                  allocated_profile_bytes=allocated, nested_case=manifest["nested_case"],
+                  allocated_profile_bytes=storage["allocated_bytes"] if storage else None,
+                  storage_posture=storage["posture"] if storage else "not_observed", nested_case=manifest["nested_case"],
                   cleanup="retained_stopped_profile" if args.retain else "removed_after_stop"))
         print(json.dumps(dict(result="PASS", run_id=run, cases=len(cases), profile=str(home) if args.retain else "removed_after_stop", evidence=str(args.output))))
 

@@ -989,6 +989,7 @@ test-behavioral-corpus:
 .PHONY: test-behavioral-portfolio
 test-behavioral-portfolio: build-rust
 	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/qualification/behavioral-corpus/test_storage.py
 	@corpus_evidence=$$(mktemp -d); python3 tests/qualification/behavioral-corpus/portfolio.py --yai target/debug/yai --output "$$corpus_evidence/observations.jsonl"
 
 test-rust-doc:
