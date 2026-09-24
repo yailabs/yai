@@ -2,7 +2,7 @@
 """Native portfolio qualification: read-only existing Cases or fresh-profile event/restart proof."""
 import argparse,base64,hashlib,json,os,shutil,socket,subprocess,sys,tempfile,time,urllib.request
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,default=Path(__file__).resolve().parents[2]);p.add_argument('--binary',type=Path,required=True);p.add_argument('--yai',type=Path,required=True);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--cases',nargs=2,required=True);p.add_argument('--fresh-profile',action='store_true',help='Create disposable manifest Cases and qualify CLI update fanout/restart; never mutate the supplied YAI_HOME');p.add_argument('--desktop-autostart',action='store_true',help='Fresh profile only: the first native Studio starts the supervised Host');a=p.parse_args();assert not a.desktop_autostart or a.fresh_profile
+p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,default=Path(__file__).resolve().parents[2]);p.add_argument('--binary',type=Path,required=True);p.add_argument('--yai',type=Path,required=True);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--cases',nargs=2,required=True);p.add_argument('--fresh-profile',action='store_true',help='Create disposable manifest Cases and qualify CLI update fanout/restart; never mutate the supplied YAI_HOME');p.add_argument('--desktop-autostart',action='store_true',help='Fresh profile only: the first native Studio starts the supervised Host');p.add_argument('--inspect-retained-conversation',action='store_true',help='Read and compare existing completed results and native execution details; never submit');a=p.parse_args();assert not a.desktop_autostart or a.fresh_profile
 owned_root=None;host_started=False
 if a.fresh_profile:
  manifest=json.loads((a.repo/'tests/qualification/behavioral-corpus/portfolio.json').read_text())
@@ -139,6 +139,21 @@ try:
  first.open(a.cases[1],labels[a.cases[1]]);assert first.draft()=='';assert second.draft()=='UNSENT_NATIVE_BETA'
  first.open(a.cases[0],labels[a.cases[0]]);assert first.draft()=='UNSENT_NATIVE_ALPHA'
  first.shot('native-case-alpha.png');second.shot('native-case-beta.png')
+ if a.inspect_retained_conversation:
+  case=before[a.cases[0]]
+  turns=case['conversation']['turns'];assert turns, 'Select an existing Case with a retained model answer'
+  for turn in turns:
+   observed=call('execution.get',dict(case_ref=a.cases[0],participant_ref=case['case']['participant_ref'],execution=dict(domain='cognitive_composition',request_ref=turn['execution_request_ref'])))
+   if not observed.get('primary_result'):continue
+   result=observed['primary_result']
+   first.wait('return [...document.querySelectorAll(".conversation-answer")].some(n=>n.dataset.resultRef===arguments[0] && n.textContent.trim())',result['result_id'])
+   details=first.js('const article=[...document.querySelectorAll(".turn-ai")].find(n=>n.querySelector(".conversation-answer")?.dataset.resultRef===arguments[0]); const details=article.querySelector(":scope > details"); details.open=true; return {source:article.querySelector(".conversation-response-source").textContent,attempts:[...article.querySelectorAll(".conversation-attempt pre")].map(n=>JSON.parse(n.textContent))}',result['result_id'])
+   assert details['source']==result['output'], 'Original candidate changed during rendering'
+   assert details['attempts']==observed['attempt_outcomes'], 'Displayed receipt differs from authoritative observation'
+   emit(dict(proof='Native answer and readable receipt preserve authoritative result; no provider submission',result_ref=result['result_id'],attempts=len(details['attempts'])))
+  assert first.js('return Boolean(document.querySelector(".conversation-answer"))'), 'No retained result rendered'
+  first.js('document.querySelector(".conversation-attempt")?.scrollIntoView({block:"center"})')
+  first.shot('native-retained-details.png')
  if a.fresh_profile:
   second.open(a.cases[0],labels[a.cases[0]]);assert second.draft()=='';second.type('UNSENT_SECOND_ALPHA')
   for client in clients:

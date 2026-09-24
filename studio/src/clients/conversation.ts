@@ -12,7 +12,16 @@ export interface ConversationExecution {
   posture: "admitted" | "running" | "completed" | "provider_result_recorded" | "refused" | "failed" | "cancelled" | "delivery_indeterminate" | "unresolved";
   invocation_refs: string[];
   primary_result?: { result_id: string; invocation_id: string; output: string; selection: { selected_target_id: string } } | null;
-  attempt_outcomes: Array<{ status?: string; failure_class?: string; [key: string]: unknown }>;
+  attempt_outcomes: ProviderAttemptObservation[];
+}
+/** Presentation subset of the engine-owned ProviderAttemptOutcome; absent facts
+ * stay unknown, including older/partial retained observations. */
+export interface ProviderAttemptObservation {
+  outcome_id?: string; target_id?: string; attempt_number?: number;
+  delivery?: string; stage?: string; request_bytes_written?: number;
+  response_status?: number | null; no_execution_proven?: boolean;
+  failure_class?: string | null; recorded_at_unix_ms?: number;
+  [key: string]: unknown;
 }
 export interface ConversationSubmission {
   created: boolean; execution: ConversationExecution;

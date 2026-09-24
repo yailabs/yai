@@ -1916,3 +1916,10 @@ inspect exact objects already disclosed in the current Case projection. Open
 text. Formatting grants no authority and never runs a command shown in a code
 block. Reopening the native 4K qualification Case exercises this on an existing
 real answer without another provider request.
+
+Execution details also presents each retained provider attempt as readable
+transport facts: delivery classification, attempt number, HTTP status, written
+bytes, failure and observation time. Unrecorded fields stay unrecorded; a
+missing response is never presented as an HTTP success. **Exact transport
+evidence** retains the original observation. Delivery uncertainty explicitly
+warns that execution may have occurred; opening these details never retries it.

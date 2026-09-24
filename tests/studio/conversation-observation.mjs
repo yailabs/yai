@@ -20,7 +20,7 @@ try {
     const availability = { state: 'ready' };
     const calls = window.observationCalls = [];
     window.sendCalls = 0;
-    let recovered = false, markdownOutput;
+    let recovered = false, markdownOutput, attempts=[];
     const application = {
       snapshot: () => availability, subscribe: () => ({ dispose() {} }),
       supports: operation => ['execution.get', 'conversation.send'].includes(operation), reason: () => 'Observation fixture',
@@ -34,7 +34,7 @@ try {
           case_ref: input.case_ref, participant_ref: input.participant_ref,
           submission_ref: input.execution.submission_ref ?? ref, request_ref: ref, turn_ref: ref.replace('request:', 'turn:'),
           observed_generation: 7, posture: completed ? 'completed' : ref === 'request:active' ? 'running' : 'unresolved',
-          invocation_refs: [], attempt_outcomes: [],
+          invocation_refs: [], attempt_outcomes: attempts,
           primary_result: completed ? { result_id: `result:${ref}`, output: markdownOutput ?? `Retained answer for ${ref}`, invocation_id: 'invocation:fixture' } : null,
         } };
       },
@@ -60,6 +60,7 @@ try {
     window.recoverExecution = () => { recovered = true; };
     window.advanceCase = () => { workspace.case = { ...workspace.case, generation: 8 }; render(); };
     window.showMarkdown = text => { markdownOutput=text; workspace.case={...workspace.case,generation:9}; render(); };
+    window.showAttempts = values => { attempts=values; workspace.case={...workspace.case,generation:workspace.case.generation+1}; render(); };
     render();
   });
   await page.getByRole('button', { name: 'Check status', exact: true }).waitFor();
@@ -96,6 +97,28 @@ try {
   assert.equal(await page.locator('.conversation-response-source').first().textContent(),markdown,'Exact candidate bytes remain inspectable');
   assert.equal(await page.evaluate(()=>Boolean(window.injected)),false);
   assert.deepEqual(external,[]);
+  const outcomes=[
+    {outcome_id:'attempt:received',attempt_number:1,delivery:'result_received',stage:'completed',request_bytes_written:8311,response_status:200,recorded_at_unix_ms:1790283497093},
+    {outcome_id:'attempt:uncertain',attempt_number:2,delivery:'delivery_indeterminate',stage:'response_body',request_bytes_written:12456,response_status:null,failure_class:'delivery_or_response_unknown'},
+    {outcome_id:'attempt:refused',attempt_number:3,delivery:'not_dispatched',stage:'request_serialized',request_bytes_written:0,response_status:null,failure_class:'request_capacity_refused'},
+    {outcome_id:'attempt:partial'},
+  ];
+  await page.evaluate(values=>window.showAttempts(values),outcomes);
+  const exchange=page.locator('.turn-ai').first();
+  await exchange.locator(':scope > details > summary').click();
+  await exchange.getByText('Result received',{exact:true}).waitFor();
+  assert.equal(await exchange.getByText('Delivery uncertain',{exact:true}).count(),1);
+  assert.equal(await exchange.getByText('Not sent',{exact:true}).count(),1);
+  const receipts=exchange.getByRole('region',{name:'Provider attempt'});
+  assert.equal(await receipts.count(),4);
+  assert.match(await receipts.nth(1).innerText(),/may have executed/);
+  assert.match(await receipts.nth(2).innerText(),/request capacity refused/);
+  assert.match(await receipts.nth(3).innerText(),/Delivery not classified/);
+  assert.match(await receipts.nth(3).innerText(),/Not recorded/);
+  assert.equal(await receipts.nth(3).getByText('200',{exact:true}).count(),0);
+  assert.equal(await receipts.nth(3).getByText('Attempt 4',{exact:true}).count(),0);
+  await receipts.first().getByText('Exact transport evidence',{exact:true}).click();
+  assert.deepEqual(JSON.parse(await receipts.first().locator('pre').textContent()),outcomes[0]);
   assert.equal(await page.evaluate(()=>window.sendCalls),0);
   assert.deepEqual(errors, []);
   console.log('PASS: Conversation and Overview active-only observation, unresolved explicit check, Case update resync; no redispatch (presentation fixture).');

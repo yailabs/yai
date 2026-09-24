@@ -3088,6 +3088,12 @@ summary {
 .conversation-operational details { font-size: 11px; overflow-wrap: anywhere; margin-top: 12px; color: var(--text-muted); }
 .conversation-operational details summary { cursor: pointer; width: fit-content; }
 .conversation-operational details pre { white-space: pre-wrap; }
+.conversation-attempt { padding-block: 12px; border-bottom: 1px solid var(--border); }
+.conversation-attempt > header { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.conversation-attempt > header strong { color: var(--text); }
+.conversation-attempt > dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 7px 12px; }
+.conversation-attempt dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.conversation-attempt pre { max-height: 220px; overflow: auto; }
 .conversation-operational details code { display: block; margin-top: 8px; }
 .conversation-composer { position: relative; flex: none; padding: 12px; margin: 0 12px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
 .conversation-composer textarea:focus-visible { outline: none; box-shadow: none; }

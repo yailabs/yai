@@ -138,6 +138,11 @@ try {
  }
  holdResponse=false;releaseResponse();releaseResponse=undefined;
  await page.locator('.conversation-answer').getByText('Controlled provider response',{exact:true}).waitFor();
+ const completedDetails=page.locator('.turn-ai').first().locator(':scope > details');
+ await completedDetails.locator(':scope > summary').click();
+ await completedDetails.getByText('Result received',{exact:true}).waitFor();
+ assert.equal(await completedDetails.getByText('200',{exact:true}).count(),1);
+ await completedDetails.locator(':scope > summary').click();
  const fastSubmission=exchanges.filter(x=>x.request.operation_ref==='conversation.send').at(-1);
  assert.equal(fastSubmission.request.input.memory_search_mode,'fast');
  assert.equal(fastSubmission.result.data.memory_search.requested,'fast');
