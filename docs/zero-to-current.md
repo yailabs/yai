@@ -357,6 +357,16 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    `effect.propose` normalizes an exact retained candidate without executing;
    `effect.submit` crosses normal admission, and `effect.reconcile` permits only
    the existing domain's recovery. A process signal is never blindly repeated.
+   In Work, inspect a historical Decision and select **Observe Operation effect**
+   to read current controlled-effect evidence for its exact Operation. This is
+   distinct from the historical cut: it shows the current status, outcome,
+   Decision/Review and effect/receipt identities when retained. Unsupported or
+   hidden Operations are refused by YAI. The reference remains available in
+   this window's Executions; refresh is read-only. `tests/studio/effect-actions.mjs`
+   proves this navigation against a real controlled filesystem write, with no
+   new dispatch or canonical mutation and hidden/unknown-reference refusals.
+   This extends `execution.get` consumption; the catalog's effect family remains
+   Application-ready with proposal, submission and reconciliation authoring debt.
    Newer Operations must not hide an older completed receipt. Source carrier loss
    does not authorize reacquisition, and absent dispatch evidence stays unresolved.
    These are bounded contracts, not arbitrary carrier recovery or human/External

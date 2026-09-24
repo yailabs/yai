@@ -3,6 +3,8 @@ import type { SurfaceRendererProps } from "../../workbench/kernel/types";
 import type { DecisionCorpus, DecisionEvaluation, DecisionTrajectory } from "../../clients/work";
 import { Badge, Button } from "../../components/primitives";
 import { useApplicationAvailability } from "./applicationActions";
+import { ExecutionReceipt } from "./ExecutionActions";
+import { executionKey, rememberExecution } from "../../clients/execution";
 import { factKind } from "./facts";
 
 type Props = Pick<SurfaceRendererProps, "workspace" | "platform" | "actions">;
@@ -16,6 +18,7 @@ export function DecisionHistory({ workspace, platform, actions }: Props) {
   const [reference, setReference] = useState("");
   const [corpus, setCorpus] = useState<DecisionCorpus>();
   const [selected, setSelected] = useState<DecisionTrajectory>();
+  const [observeEffect, setObserveEffect] = useState(false);
   const [evaluation, setEvaluation] = useState<DecisionEvaluation>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -28,7 +31,7 @@ export function DecisionHistory({ workspace, platform, actions }: Props) {
     if (!application || pending.current) return;
     pending.current = true; setBusy(true); setError(undefined);
     // A refused re-read must not leave earlier disclosures on screen.
-    setSelected(undefined); setCorpus(undefined); setEvaluation(undefined);
+    setSelected(undefined); setCorpus(undefined); setEvaluation(undefined); setObserveEffect(false);
     try {
       if (kind === "corpus") {
         const result = await application.decisionCorpus({ ...identity, max_decisions: limit });
@@ -69,6 +72,8 @@ export function DecisionHistory({ workspace, platform, actions }: Props) {
       {selected.task_context && <p>{selected.task_context}</p>}
       <p>Candidate reconstruction: {human(selected.candidate_posture)}. {selected.candidate_posture !== "exact_reconstructed" && "The selected operation does not establish all alternatives available at the time."}</p>
       <dl className="object-facts">{Object.entries(selected.readiness).map(([name, available]) => <div key={name}><dt>{human(name.replace(/_available$/, ""))}</dt><dd>{available ? "Available" : "Not reconstructed"}</dd></div>)}</dl>
+      <Button disabled={!application?.supports("execution.get")} onClick={() => { rememberExecution(executionKey(identity.case_ref, identity.participant_ref), { domain: "controlled_effect", operation_ref: selected.decision.operation_id }); setObserveEffect(true); }}>Observe Operation effect</Button>
+      {observeEffect && <section aria-label="Current effect observation"><p>Read current effect evidence for this historical Operation. YAI refuses operations outside the controlled-effect domain.</p><ExecutionReceipt workspace={workspace} platform={platform} reference={{ domain: "controlled_effect", operation_ref: selected.decision.operation_id }} /></section>}
       <h4>Decision basis</h4><div className="object-action-row">{selected.decision.basis_refs.map(link)}</div>
       <h4>Related evidence</h4><div className="object-action-row">{selected.related_evidence.map(item => link(item.transition_id))}</div>
       <h4>Missing or unsupported</h4><ul>{[...selected.missingness, ...selected.pre_decision.unsupported_families].map((item, index) => <li key={index}>{human(item)}</li>)}</ul>

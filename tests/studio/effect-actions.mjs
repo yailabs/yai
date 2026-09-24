@@ -140,6 +140,33 @@ try {
  assert.equal(inspected.result_state,'success');assert.equal(inspected.data.decision.decision_id,selectedDecision.decision.decision_id);
  assert.ok(inspected.data.pre_decision.cut_generation<inspected.data.decision_generation);
  await history.getByText(selectedDecision.decision.reason,{exact:true}).waitFor();
+ // Navigate a real historical filesystem Decision to its current controlled-effect receipt.
+ let controlledDecision, controlledEvidence;
+ for(const item of corpus.data.trajectories) {
+  const result=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:{domain:'controlled_effect',operation_ref:item.decision.operation_id}});
+  if(result.result_state==='success' && result.data.progress?.receipt_id) {controlledDecision=item;controlledEvidence=result.data;break;}
+ }
+ assert.ok(controlledDecision,'Real governed file effect missing from Decision history');
+ await history.getByLabel('Exact Decision reference').fill(controlledDecision.decision.decision_id);
+ await history.getByRole('button',{name:'Inspect Decision',exact:true}).click();
+ await history.getByRole('button',{name:'Observe Operation effect',exact:true}).click();
+ const controlled=history.getByRole('region',{name:'Current effect observation',exact:true});
+ await controlled.getByText('Effect identities',{exact:true}).click();
+ await controlled.getByText(controlledEvidence.progress.receipt_id,{exact:true}).waitFor();
+ await controlled.getByText('applied',{exact:true}).waitFor();
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});await controlled.scrollIntoViewIfNeeded();await page.screenshot({path:`${evidence}/controlled-effect-${width}x${height}.png`});}
+ const retainedBefore=await accepted('case.summary',{case_ref:caseRef});
+ await controlled.getByRole('button',{name:'Refresh observation',exact:true}).click();
+ await controlled.getByText(controlledEvidence.progress.receipt_id,{exact:true}).waitFor();
+ assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),retainedBefore,'Effect observation must not change canonical state');
+ assert.equal(dispatches,resumeLimit,'Effect observation must not redispatch provider');
+ const hiddenEffect=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'controlled_effect',operation_ref:controlledDecision.decision.operation_id}});
+ assert.notEqual(hiddenEffect.result_state,'success');assert.equal(hiddenEffect.data,undefined);
+ await page.getByRole('button',{name:'Observe exact execution…',exact:true}).click();
+ const manual=page.locator('.execution-observe-form');await manual.getByLabel('Execution family').selectOption('controlled_effect');await manual.getByLabel('Exact reference').fill('operation:not-visible');await manual.getByRole('button',{name:'Observe reference',exact:true}).click();
+ await page.locator('.execution-history .execution-receipt').filter({hasText:'operation:not-visible'}).getByRole('alert').waitFor();
+ assert.equal(await page.locator('.execution-history .execution-receipt').filter({hasText:'operation:not-visible'}).getByRole('region',{name:'Controlled effect evidence'}).count(),0);
+
  await history.getByRole('button',{name:'Evaluate reconstruction',exact:true}).click();await history.locator('.decision-evaluation').waitFor();
  const evaluated=exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.evaluate').result;
  assert.equal(evaluated.result_state,'success');assert.equal(evaluated.data.trajectory_count,corpus.data.trajectories.length);
@@ -151,6 +178,6 @@ try {
  for(const operation of ['decision.trajectory.corpus','decision.trajectory.evaluate'])assert.equal((await call(operation,{case_ref:caseRef,participant_ref:'participant:hidden',max_decisions:16})).result_state,'unauthorized');
  assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),historyBefore,'Historical inspection/evaluation must not mutate the Case');
  await page.screenshot({path:`${evidence}/work-executions.png`});assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,execution:finished.execution_ref,effect:effect.result.data.execution.operation_ref,proof:['UI controlled Resource effect; lost acknowledgement then exact retry, one dispatch','Configuration digest mismatch refused with no effect','UI process attach positive/absent PID refusal; no signal','UI bounded Case run, real supervised controlled provider','UI exact cooperative stop','Host restart, execution observation and no duplicate provider dispatch','Wrong runner and hidden Participant refused','UI Decision corpus/inspect/evaluate; exact pre-cut and real refusal; no mutation','UI stopped checkpoint resume; lost ACK exact retry; stale/hidden refusal; retained budgets and run identity','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,execution:finished.execution_ref,effect:effect.result.data.execution.operation_ref,proof:['UI controlled Resource effect; lost acknowledgement then exact retry, one dispatch','Configuration digest mismatch refused with no effect','UI process attach positive/absent PID refusal; no signal','UI bounded Case run, real supervised controlled provider','UI exact cooperative stop','Host restart, execution observation and no duplicate provider dispatch','Wrong runner and hidden Participant refused','UI Decision corpus/inspect/evaluate; exact pre-cut and real refusal; no mutation','UI stopped checkpoint resume; lost ACK exact retry; stale/hidden refusal; retained budgets and run identity','Historical Decision to exact current controlled-effect receipt; hidden/unknown refusal and no canonical mutation','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();child?.kill();releaseProvider?.();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}
