@@ -1875,3 +1875,11 @@ from either the tab row or sidebar and verify both show the same selection.
 Use Left/Right, Home/End on the tab row; at 1000×650 the toolbar and section
 content must remain reachable. Endpoint health still includes its observation
 time, and Resource availability remains unknown when the owner has no live fact.
+
+Open an acquired or interrupted Source in Environment (or its policy carrier in
+Authority). Its current attempt is now observed in place, including retained
+progress and current Source phase. **Refresh observation** reads `execution.get`;
+it must not acquire again, advance Case history or turn an uncertain attempt into
+a resumable one. Work > Executions remains the place to inspect older locally
+retained references. The existing Source and execution catalog contracts are
+unchanged; carrier-loss recovery qualification remains separate from this read.

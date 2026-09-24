@@ -73,9 +73,18 @@ try {
  let acquired=exchanges.findLast(item=>item.request.operation_ref==='source.acquire');assert.equal(acquired.result.result_state,'success',JSON.stringify(acquired));
  assert.equal(acquired.result.data.execution.attempt,1);assert.notEqual(acquired.result.data.execution.phase,'acquired');
  let summary=await accepted('case.summary',{case_ref:caseRef});let progress=summary.environment.sources.find(item=>item.id===policy.id);assert.equal(progress.attempt,1);assert.ok(progress.progress_ref);
+ const sourceReceipt=page.locator('.source-acquisition .execution-receipt');
+ await sourceReceipt.getByText(acquired.result.data.execution.posture.replaceAll('_',' '),{exact:true}).waitFor();
+ assert.ok((await sourceReceipt.textContent()).includes(policy.id));
+ const sourceSubmissions=exchanges.filter(item=>['source.acquire','source.resume'].includes(item.request.operation_ref)).length;
+ await sourceReceipt.getByRole('button',{name:'Refresh observation',exact:true}).click();
+ await sourceReceipt.getByRole('button',{name:'Refresh observation',exact:true}).waitFor();
+ assert.equal(exchanges.filter(item=>['source.acquire','source.resume'].includes(item.request.operation_ref)).length,sourceSubmissions);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,summary.case.generation,'Source observation must not advance Case history');
  await writeFile(path.join(root,'policy.json'),await readFile(path.resolve(import.meta.dirname,'../qualification/studio-product-vertical/policy.json')));
  await page.getByRole('button',{name:'Resume acquisition…',exact:true}).click();form=page.getByRole('dialog',{name:'Resume acquisition'});await form.getByRole('button',{name:'Resume exact attempt'}).click();await form.waitFor({state:'hidden'});
  const resumed=exchanges.findLast(item=>item.request.operation_ref==='source.resume');assert.equal(resumed.result.result_state,'success',JSON.stringify(resumed));assert.equal(resumed.request.input.previous_progress_ref,progress.progress_ref);assert.equal(resumed.result.data.execution.attempt,1);assert.equal(resumed.result.data.execution.phase,'acquired');
+ await sourceReceipt.getByText('acquired',{exact:true}).first().waitFor();
  await page.getByRole('button',{name:'Publish Source policy…',exact:true}).click();form=page.getByRole('dialog',{name:'Publish Source policy'});await form.getByLabel('Review reason').fill('Inspect bounded source policy');await form.getByRole('button',{name:'Publish and bind'}).click();await form.waitFor({state:'hidden'});
  await page.locator('.live-rail button[aria-label="Environment"]').click();await page.locator('.live-sidebar').getByRole('button',{name:'document',exact:true}).click();
  await page.getByRole('button',{name:'Acquire Source…',exact:true}).click();form=page.getByRole('dialog',{name:'Acquire Source'});dropAcknowledgement='source.acquire';await form.getByRole('button',{name:'Acquire exact Source'}).click();await form.getByText('Confirmation was lost',{exact:true}).waitFor();assert.equal(await form.getByRole('button',{name:'Acquire exact Source'}).isEnabled(),false);await form.getByRole('button',{name:'Close and inspect state'}).click();
@@ -84,6 +93,13 @@ try {
  assert.equal((await accepted('source.acquire',acquired.request.input)).created,false);assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,stable);
  const observation={case_ref:caseRef,participant_ref:'participant:operator',execution:{domain:'source_acquisition',source_ref:ordinary,attempt:1}};
  assert.equal((await accepted('execution.get',observation)).phase,'acquired');
+ await sourceReceipt.getByText('acquired',{exact:true}).first().waitFor();
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+  await page.setViewportSize({width,height});
+  await sourceReceipt.scrollIntoViewIfNeeded();
+  await page.screenshot({path:`${evidence}/source-observation-${width}x${height}.png`});
+ }
+ await page.setViewportSize({width:1440,height:900});
  const hidden=await call('execution.get',{...observation,participant_ref:'participant:hidden'});assert.equal(hidden.result_state,'unauthorized');assert.equal(hidden.data,undefined);
  const stale=await call('source.acquire',{...acquired.request.input,attempt:2,expected_generation:0});assert.notEqual(stale.result_state,'success');assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,stable);
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await page.locator('.live-rail button[aria-label="Work"]').click();
