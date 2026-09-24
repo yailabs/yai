@@ -32,7 +32,7 @@ def main():
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             value = status()
-            if value["runtime_supervision"] == expected:
+            if value["runtime_supervision"] == expected and (expected not in {"supervised_running", "attached_existing_runtime"} or value.get("runtime_observation")):
                 return value
             time.sleep(.1)
         raise AssertionError(f"runtime supervision did not become {expected}: {value}")
@@ -46,14 +46,24 @@ def main():
              "--organization", "organization:host-test")
         running = await_posture("supervised_running")
         assert running["instance_id"] == waiting["instance_id"]
+        snapshot = running["runtime_observation"]
+        assert snapshot["pid"] == running["pid"]
+        assert snapshot["lifecycle"] == "running"
+        assert snapshot["worker_capacity"] == 2
+        assert snapshot["heartbeat_at_unix_ms"] <= snapshot["observed_at_unix_ms"]
+        assert "owner_token" not in snapshot and "principal_id" not in snapshot
         # Each CLI connection has already disconnected. Host and scheduler live.
         runtime = call("runtime", "status")
         assert f"pid: {running['pid']}\n" in runtime
         assert "state: running" in runtime.lower()
+        assert f"runtime_instance_id: {snapshot['instance_id']}\n" in runtime
+        assert f"owner_process_identity: {snapshot['process_identity']}\n" in runtime
         call("host", "start", "--json")
         assert status()["instance_id"] == running["instance_id"]
         call("host", "stop", "--json")
-        assert status()["state"] != "running"
+        stopped = status()
+        assert stopped["state"] != "running"
+        assert not stopped.get("runtime_observation")
         assert "state: stopped" in call("runtime", "status").lower()
         call("host", "start", "--json")
         restarted = await_posture("supervised_running")
@@ -77,6 +87,9 @@ def main():
             call("host", "start", "--json")
             attached = await_posture("attached_existing_runtime")
             assert attached["pid"] != external.pid
+            assert attached["runtime_observation"]["pid"] == external.pid
+            assert "active_workers" not in attached["runtime_observation"]
+            assert "available_workers" not in attached["runtime_observation"]
             call("host", "stop", "--json")
             assert external.poll() is None
             assert f"pid: {external.pid}\n" in call("runtime", "status")

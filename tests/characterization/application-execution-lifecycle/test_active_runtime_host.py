@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--binary", type=Path, default=Path("./yai"))
     parser.add_argument("--crash-in-flight", action="store_true")
     parser.add_argument("--source-crash-in-flight", action="store_true")
     parser.add_argument("--source-review", action="store_true")
@@ -32,7 +33,7 @@ def main():
     root = Path(tempfile.mkdtemp(prefix="yai-active-host-"))
     home = root / "home"
     env = dict(os.environ, YAI_HOME=str(home))
-    binary = Path("./yai").resolve()
+    binary = options.binary.resolve()
     entered, release = threading.Event(), threading.Event()
     dispatches = []
     timings = []
@@ -387,6 +388,18 @@ def main():
         assert entered.wait(10), app("execution.get", observe)
         active = app("execution.get", observe)
         assert active["state"] == "running"
+        deadline = time.monotonic()+5
+        while True:
+            telemetry = json.loads(cli("host", "status", "--json"))["data"]["value"]
+            observed = telemetry.get("runtime_observation", {})
+            if observed.get("active_workers") == 1:
+                break
+            assert time.monotonic() < deadline, telemetry
+            time.sleep(.05)
+        assert observed["pid"] == telemetry["pid"]
+        assert observed["available_workers"] == observed["worker_capacity"]-1
+        assert observed["lifecycle"] == "running"
+        assert not any(key in observed for key in ["owner_token", "case_id", "principal_id"])
         if crash_in_flight:
             discovery = json.loads((home / "run/host/discovery.json").read_text())
             assert Path(discovery["yai_home"]).resolve() == home.resolve()

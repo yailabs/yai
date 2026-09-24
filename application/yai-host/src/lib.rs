@@ -64,6 +64,23 @@ impl RuntimeSupervisionPosture {
     }
 }
 
+/// Dated observations supplied by the existing scheduler. No owner token, Case
+/// references or work payloads cross this operational telemetry boundary.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RuntimeObservation {
+    pub instance_id: String,
+    pub pid: u32,
+    pub process_identity: String,
+    pub lifecycle: String,
+    pub observed_at_unix_ms: u64,
+    pub heartbeat_at_unix_ms: u64,
+    pub worker_capacity: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_workers: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_workers: Option<usize>,
+}
+
 /// In-process Host lifetime, not a serializable authorization token. A client
 /// disconnect never clears it. The runtime must drain its own workers on stop.
 #[derive(Clone)]
@@ -80,6 +97,15 @@ impl RuntimeSupervisionControl {
     pub fn report(&self, posture: RuntimeSupervisionPosture) {
         if let Ok(mut state) = self.state.lock() {
             state.runtime_supervision = posture.label().into();
+            if !matches!(posture, RuntimeSupervisionPosture::Running | RuntimeSupervisionPosture::Attached) {
+                state.runtime_observation = None;
+            }
+        }
+    }
+
+    pub fn observe_runtime(&self, observation: RuntimeObservation) {
+        if let Ok(mut state) = self.state.lock() {
+            state.runtime_observation = Some(observation);
         }
     }
 }
@@ -155,6 +181,8 @@ pub struct HostTelemetry {
     pub event_sequence: u64,
     pub last_activity_unix_ms: u64,
     pub runtime_supervision: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_observation: Option<RuntimeObservation>,
 }
 
 impl HostTelemetry {
@@ -183,6 +211,7 @@ impl HostTelemetry {
             event_sequence: 0,
             last_activity_unix_ms: now_ms(),
             runtime_supervision: "not_integrated".into(),
+            runtime_observation: None,
         })
     }
 }
@@ -260,6 +289,7 @@ struct SharedState {
     last_activity_unix_ms: u64,
     application_readiness: String,
     runtime_supervision: String,
+    runtime_observation: Option<RuntimeObservation>,
 }
 
 impl SharedState {
@@ -322,6 +352,7 @@ impl SharedState {
             event_sequence: self.event_sequence,
             last_activity_unix_ms: self.last_activity_unix_ms,
             runtime_supervision: self.runtime_supervision.clone(),
+            runtime_observation: self.runtime_observation.clone(),
         }
     }
 
@@ -423,6 +454,7 @@ impl HostServer {
                 last_activity_unix_ms: started_at_unix_ms,
                 application_readiness,
                 runtime_supervision: "not_integrated".into(),
+                runtime_observation: None,
             })),
             running: Arc::new(AtomicBool::new(true)),
             application,
@@ -1620,6 +1652,36 @@ mod tests {
         assert!(!home.join("run/host/application.sock").exists());
         assert!(!home.join("run/host/discovery.json").exists());
         let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn runtime_observation_is_optional_dated_and_cleared_on_failure() {
+        let (home, state, handle) = running("runtime-observation");
+        let control = RuntimeSupervisionControl {
+            running: Arc::new(AtomicBool::new(true)), state,
+        };
+        assert!(observe(&home).unwrap().runtime_observation.is_none());
+        control.report(RuntimeSupervisionPosture::Running);
+        control.observe_runtime(RuntimeObservation {
+            instance_id: "runtime:observed".into(), pid: std::process::id(),
+            process_identity: "observed-process".into(), lifecycle: "running".into(),
+            observed_at_unix_ms: 1234, heartbeat_at_unix_ms: 1200,
+            worker_capacity: 2, active_workers: Some(1), available_workers: Some(1),
+        });
+        let snapshot = observe(&home).unwrap();
+        let observed = snapshot.runtime_observation.as_ref().unwrap();
+        assert_eq!(observed.instance_id, "runtime:observed");
+        assert_eq!(observed.observed_at_unix_ms, 1234);
+        assert_eq!(observed.active_workers, Some(1));
+        let mut old = serde_json::to_value(snapshot).unwrap();
+        old.as_object_mut().unwrap().remove("runtime_observation");
+        assert!(serde_json::from_value::<HostTelemetry>(old).unwrap().runtime_observation.is_none());
+        control.report(RuntimeSupervisionPosture::Failed);
+        let failed = observe(&home).unwrap();
+        assert_eq!(failed.runtime_supervision, "failed");
+        assert!(failed.runtime_observation.is_none());
+        stop_server(&home, handle);
+        fs::remove_dir_all(home).unwrap();
     }
 
     #[test]

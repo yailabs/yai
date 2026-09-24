@@ -39,6 +39,11 @@ export interface HostTelemetry {
   event_sequence: number;
   last_activity_unix_ms: number;
   runtime_supervision: "not_integrated" | string;
+  runtime_observation?: {
+    instance_id: string; pid: number; process_identity: string; lifecycle: string;
+    observed_at_unix_ms: number; heartbeat_at_unix_ms: number; worker_capacity: number;
+    active_workers?: number; available_workers?: number;
+  };
 }
 
 export interface HostConnectionState {

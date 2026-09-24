@@ -370,6 +370,13 @@ Host-owned runtime, shutdown requests drain through the existing owner and
 joins workers before releasing the Host singleton. Client disconnect does not
 stop the scheduler. Telemetry distinguishes waiting, starting, attached,
 supervised running, stopped and failed; it does not certify execution outcomes.
+An optional dated runtime observation carries scheduler PID/process identity,
+lifecycle, heartbeat and configured worker capacity. Supervised active/available
+worker counts come from the scheduler's existing in-memory worker assignment;
+they remain unknown for an independently owned scheduler. No owner token, Case
+refs or execution payloads are exposed. Failure/stop clears the observation.
+This extends Host operational telemetry, not Application admission or OS-wide
+process monitoring.
 Ordinary native CLI domain commands retain their current owner adapters; this
 does not route the entire CLI through Host transport. `yaid` remains a separate narrow C
 daemon and is neither promoted nor proxied as the application Host. These open

@@ -13,6 +13,7 @@ export function TelemetrySurface({ workspace, platform, actions }: SurfaceRender
   const [failure, setFailure] = useState<string>();
   useEffect(() => platform.host.subscribe(setConnection).dispose, [platform.host]);
   const host = connection.state === "live" ? connection.telemetry : undefined;
+  const runtime = host?.runtime_observation;
   const date = (value?: number) => value ? new Date(value).toLocaleString() : "Not observed";
   const refresh = async () => {
     setBusy(true); setFailure(undefined);
@@ -26,12 +27,16 @@ export function TelemetrySurface({ workspace, platform, actions }: SurfaceRender
     <header className="operational-heading"><div><small>Operational observations</small><h1>Telemetry</h1><p>Host processes, attached clients and this Case’s infrastructure.</p></div><Button disabled={busy} onClick={() => void refresh()}>{busy ? "Refreshing…" : "Refresh observations"}</Button></header>
     <p className="surface-note">{sampled ? `Last requested observation: ${date(sampled)}.` : "Host connection observations update independently of Case snapshots."} Opening this view starts no processes or endpoint probes.</p>
     {failure && <p role="alert">{failure}</p>}
-    <nav className="telemetry-nav" aria-label="Telemetry sections">{["Host", "Clients", "Resources", "Endpoints", "Executions"].map(name => <a key={name} href={`#telemetry-${name.toLowerCase()}`}>{name}</a>)}</nav>
+    <nav className="telemetry-nav" aria-label="Telemetry sections">{["Host", "Runtime", "Clients", "Resources", "Endpoints", "Executions"].map(name => <a key={name} href={`#telemetry-${name.toLowerCase()}`}>{name}</a>)}</nav>
     <section id="telemetry-host"><header><h2>YAI Host</h2><Badge tone={host ? "success" : "warning"}>{connection.state}</Badge></header>
       <dl>{[["PID", host?.pid], ["Uptime at observation", host ? `${Math.floor(host.uptime_ms / 1000)} s` : undefined], ["Application", host?.application_readiness], ["Runtime supervision", host?.runtime_supervision], ["Local endpoint", host?.endpoint], ["Last Host activity", date(host?.last_activity_unix_ms)]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? "Not observed"}</dd></div>)}</dl>
       {!host && <p className="surface-note">{connection.reason ?? "No current Host observation. Cached process facts are withheld."}</p>}
       <details><summary>Host identity</summary><dl>{[["Instance", host?.instance_id], ["Process identity", host?.process_identity], ["Build", host?.build], ["Protocol", host?.protocol]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? "Not observed"}</dd></div>)}</dl></details>
       <Button onClick={() => actions.openSettings("yai-host")}>Host controls</Button>
+    </section>
+    <section id="telemetry-runtime"><header><h2>Runtime scheduler</h2><Badge>{runtime?.lifecycle ?? "Not observed"}</Badge></header>
+      <p className="surface-note">{host?.runtime_supervision === "attached_existing_runtime" ? "Existing independently owned scheduler. Worker activity is not observed by this Host." : "Scheduler observations from the existing runtime owner. Worker counts are not OS process counts."}</p>
+      {runtime ? <><dl>{[["PID", runtime.pid], ["Worker capacity", runtime.worker_capacity], ["Active workers at observation", runtime.active_workers ?? "Not observed"], ["Available workers at observation", runtime.available_workers ?? "Not observed"], ["Observed at", date(runtime.observed_at_unix_ms)], ["Heartbeat", date(runtime.heartbeat_at_unix_ms)]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><details><summary>Scheduler identity</summary><code>{runtime.instance_id}</code><p>{runtime.process_identity}</p></details></> : <p>No scheduler snapshot in the current Host observation. Older Hosts may expose supervision posture only.</p>}
     </section>
     <section id="telemetry-clients"><header><h2>Connected clients</h2><span>{host?.connected_clients ?? "Unknown"}</span></header><p className="surface-note">Processes attached to this Host, not every process on the machine.</p>
       {host?.clients.map(client => <div className="telemetry-row" key={client.client_id}><strong>{client.client_kind}</strong><span>PID {client.pid}</span><span>Last seen {date(client.last_seen_unix_ms)}</span></div>)}
@@ -57,5 +62,5 @@ export function TelemetrySurface({ workspace, platform, actions }: SurfaceRender
 }
 
 export function TelemetryNavigation() {
-  return <div className="live-sidebar-content"><section className="sidebar-group"><h2>Observations</h2>{["Host", "Clients", "Resources", "Endpoints", "Executions"].map(name => <a className="telemetry-sidebar-link" key={name} href={`#telemetry-${name.toLowerCase()}`}>{name}</a>)}</section><p className="surface-note">Host-wide processes and Case-scoped bindings are separate observations. Refresh explicitly to request current facts.</p></div>;
+  return <div className="live-sidebar-content"><section className="sidebar-group"><h2>Observations</h2>{["Host", "Runtime", "Clients", "Resources", "Endpoints", "Executions"].map(name => <a className="telemetry-sidebar-link" key={name} href={`#telemetry-${name.toLowerCase()}`}>{name}</a>)}</section><p className="surface-note">Host-wide processes and Case-scoped bindings are separate observations. Refresh explicitly to request current facts.</p></div>;
 }

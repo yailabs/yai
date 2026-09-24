@@ -1586,3 +1586,17 @@ selection must survive. Reset Layout uses a smaller default bottom panel. Existi
 saved layouts retain their dimensions. Validate at 1600×960, 1440×900, 1280×800 and
 1000×650. Human acceptance remains `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` until
 reported against the published build.
+
+
+### Scheduler observations in Telemetry
+
+After starting the updated YAI Host, open **Telemetry → Runtime**. Compare PID and
+process identity with `yai runtime status` and `yai host status --json`. A supervised
+scheduler normally shares the Host PID; an attached independent scheduler has its
+own PID. Worker capacity is configuration; active/available counts are dated
+observations from the supervised scheduler. They remain unknown for an external
+scheduler. Heartbeat and observation timestamps are shown separately. Older Hosts
+that omit this optional projection must show **Not observed**, not zero workers.
+Stopping/failing supervision clears the snapshot. No Case payloads or owner token
+belong in this operational telemetry. Retained lifecycle and gated-provider tests
+verify exact scheduler identity, active work, stop/restart and no duplicate dispatch.

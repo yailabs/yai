@@ -705,6 +705,23 @@ pub(crate) fn serve_application_host(home: &Path) -> Result<(), String> {
     host.run_with_runtime(supervise_runtime)
 }
 
+fn runtime_observation(
+    instance: &yai_core_engine::store::lmdb::RuntimeInstance,
+    workers: Option<(usize, usize)>,
+) -> yai_host::RuntimeObservation {
+    yai_host::RuntimeObservation {
+        instance_id: instance.instance_id.clone(),
+        pid: instance.owner_pid,
+        process_identity: instance.owner_process_identity.clone(),
+        lifecycle: format!("{:?}", instance.lifecycle).to_lowercase(),
+        observed_at_unix_ms: now_unix_ms(),
+        heartbeat_at_unix_ms: instance.heartbeat_at_unix_ms,
+        worker_capacity: instance.config.workers,
+        active_workers: workers.map(|value| value.0),
+        available_workers: workers.map(|value| value.1),
+    }
+}
+
 fn supervise_runtime(control: yai_host::RuntimeSupervisionControl) -> Result<(), String> {
     use yai_host::RuntimeSupervisionPosture as Posture;
     let mut attached_existing = false;
@@ -730,6 +747,7 @@ fn supervise_runtime(control: yai_host::RuntimeSupervisionControl) -> Result<(),
             {
                 attached_existing = true;
                 control.report(Posture::Attached);
+                control.observe_runtime(runtime_observation(&instance, None));
                 // Do not acquire a competing lease or drain a separately owned
                 // scheduler when this Host stops. Process identity, not lease
                 // expiry alone, determines whether recovery may take ownership.
@@ -811,6 +829,7 @@ fn serve_runtime(
     )?;
     if let Some(control) = &supervision {
         control.report(yai_host::RuntimeSupervisionPosture::Running);
+        control.observe_runtime(runtime_observation(&running, None));
     }
     println!("state: running");
     println!("workers: {}", config.workers);
@@ -1179,6 +1198,9 @@ fn serve_runtime(
                     return Err("runtime_worker_channel_closed".to_string());
                 }
             }
+        }
+        if let Some(control) = &supervision {
+            control.observe_runtime(runtime_observation(&instance, Some((active.len(), available.len()))));
         }
         if draining && active.is_empty() {
             break;

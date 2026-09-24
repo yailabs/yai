@@ -42,6 +42,13 @@ const accepted = async (operation,input) => {const result=await call(operation,i
 try {
  telemetry=cli('host','start').data.value;
  await accepted('identity.bootstrap',{tenant_id:'tenant:studio-ui',organization_ref:'organization:yailabs'});
+ const runtimeDeadline=Date.now()+10000;
+ while(true) {
+  telemetry=cli('host','status').data.value;
+  if(telemetry.runtime_observation?.active_workers!==undefined)break;
+  assert.ok(Date.now()<runtimeDeadline,'Host runtime observation missing');
+  await new Promise(resolve=>setTimeout(resolve,50));
+ }
  const caseRef='case:studio-policy-actions';
  await accepted('case.create',{tenant_id:'tenant:studio-ui',case_ref:caseRef});await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'operator'});await accepted('participant.principal.link',{case_ref:caseRef,participant_ref:'participant:operator',principal_ref:'self'});
  provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;res.setHeader('Content-Type','application/json');if(req.url==='/v1/models')res.end(JSON.stringify({data:[{id:'controlled-text-model'}]}));else if(req.url==='/v1/chat/completions'){const value=JSON.parse(body);generationRequests++;if(rejectOversized){res.statusCode=413;res.end(JSON.stringify({error:{code:'input_too_large'}}));return;}res.end(JSON.stringify({id:'controlled-response',model:value.model,choices:[{message:{role:'assistant',content:'Controlled provider response'}}]}));}else{res.statusCode=404;res.end('{}');}});
@@ -196,6 +203,8 @@ try {
  await page.locator('.live-rail button[aria-label="Telemetry"]').click();
  await page.getByRole('heading',{name:'Telemetry',exact:true}).waitFor();
  assert.ok((await page.locator('#telemetry-host').innerText()).includes(String(telemetry.pid)));
+ assert.equal(await page.locator('#telemetry-runtime').getByText('PID',{exact:true}).locator('..').locator('dd').innerText(),String(telemetry.runtime_observation.pid));
+ assert.equal(await page.locator('#telemetry-runtime').getByText('Active workers at observation',{exact:true}).locator('..').locator('dd').innerText(),String(telemetry.runtime_observation.active_workers));
  const observedSnapshot=await accepted('case.summary',{case_ref:caseRef});
  const providerHealth=observedSnapshot.compute.targets[0].posture.health;
  assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(providerHealth.circuit));
