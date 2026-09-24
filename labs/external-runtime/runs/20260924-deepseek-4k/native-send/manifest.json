@@ -1,0 +1,91 @@
+{
+  "run_id": "native-conversation-1790281872484790046",
+  "yai_sha": "8d038ff2970d800e37e1df620fbf76bbcd7fc0b2",
+  "case_ref": "case:qualification-deepseek-4k",
+  "endpoint": "http://127.0.0.1:18001",
+  "model": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "evidence_class": "external_provider_native_product",
+  "exit_status": 1,
+  "result": "NONPASS",
+  "findings": [
+    {
+      "posture": "YAI_DEFECT",
+      "detail": "Cognitive request observation looked up a different carrier than SEND, reporting indeterminate while provider response was still pending. Reproduced by typed-dispatch and held-response Studio tests."
+    },
+    {
+      "posture": "MEASURED_LIMITATION",
+      "detail": "Subsequent canonical attempt outcome retained delivery_or_response_unknown at response_body after roughly 300 seconds; no provider result. No redispatch. This observation does not attribute the transport limitation to private YVEX internals."
+    }
+  ],
+  "capacity": {
+    "capacity_plan_identity": "b00189b1fabd12dff1e84c52bbc5c02a75ca51debb6a3d5ba631557fb3324423",
+    "effective_output_tokens": 720,
+    "engine_generation": 1,
+    "execution_or_resources_qualified": false,
+    "full_requested_output_fits": false,
+    "http_body_limit_bytes": 1048576,
+    "input_capacity_tokens": 4096,
+    "input_tokens": 3376,
+    "model_id": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+    "observation_kind": "exact_request_preflight",
+    "prompt_identity": "933e7dcef5bbc45e219673dfe9acc066ce83eaddd234dbb3904ad0b3d47bcdbb",
+    "provider_request_identity": "ea666fb01582fa0a98c43bbbe817a06842e035ebecbe2b89ede4e991cb76c690",
+    "public_contract": "yvex.openai.compat.v3",
+    "requested_output_tokens": 0,
+    "resource_reservation": false,
+    "runtime_binding_identity": "8cdb4929c523bd42e3fb82fa18ceed0a0a6732d6efd1d852c88398c8d2d6cd5e",
+    "runtime_model_identity": "cf8ebc69dae8e38f96a47418e8efcebdc47bc4ed05bac76d6974ccc1379e0e7e",
+    "sequence_capacity_tokens": 4096,
+    "token_capacity_compatible": true,
+    "tokenizer_identity": "68f23b5e24f8ee3aa208a424041c306581435a0f9eaaf7da7e81d5527af0e50e"
+  },
+  "request_ref": "cognitive-composition:sha256:83fe9932dc6acf2ab8bdaead7859f46323ca93934f3d2c97a37736703b420495",
+  "attempt_outcomes": [
+    {
+      "attempt_number": 1,
+      "delivery": "delivery_indeterminate",
+      "failure_class": "delivery_or_response_unknown",
+      "integrity_digest": "sha256:bd79d02fe1720bd5fd2e5e29f04b555906c55c8dc898fbeb3be4bb370a13dbbe",
+      "logical_turn_id": "cognitive-realization:cognitive-plan:d43795dce315bcba1b1e1aa812a23ae0",
+      "no_execution_proven": false,
+      "outcome_id": "provider-attempt-outcome:bd79d02fe1720bd5fd2e5e29f04b5559",
+      "recorded_at_unix_ms": 1790282181544,
+      "request_bytes_written": 12456,
+      "response_status": null,
+      "schema": "yai.provider_attempt_outcome.v1",
+      "selection_id": "provider-selection:d638ad2e4e70e3da029536521521e98a",
+      "stage": "response_body",
+      "target_id": "provider-target:965ce8d788b4d6321ed0fea629f99546"
+    }
+  ],
+  "command": [
+    "/usr/bin/python3",
+    "tests/studio/native-conversation.py",
+    "--binary",
+    "studio/src-tauri/target/release/yai-studio",
+    "--case",
+    "case:qualification-deepseek-4k",
+    "--target",
+    "provider-target:965ce8d788b4d6321ed0fea629f99546",
+    "--question-file",
+    "/home/mothx/.cache/tmp/deepseek-native-question.txt",
+    "--evidence",
+    "/home/mothx/.cache/tmp/deepseek-native-4k-8d038ff",
+    "--timeout",
+    "600",
+    "--submit"
+  ],
+  "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+  "environment": {
+    "YAI_HOME": "/home/mothx/.yai",
+    "WEBKIT_DISABLE_DMABUF_RENDERER": "1",
+    "GDK_BACKEND": "x11",
+    "TAURI_WEBVIEW_AUTOMATION": "true"
+  },
+  "artifacts": {
+    "followup-context.json": "dffd0c0a7c94594ac863a1d67b0cd18bbef1b46f2e69ba125f6105921fd9cab8",
+    "followup.json": "8c90e7e13064738d2705f70121af90bd6478ee07f7f3cb9f17aa87ff54b8e6c6",
+    "observations.jsonl": "138fb08c12742ff2dfec42cbd212b5f408536dd10baf8c5c47cf817e2a129230",
+    "command-stderr.log": "1c2a8d095033ffa5cd9116690c4863877ef1155f81aae76425232e3f12ee83f1"
+  }
+}

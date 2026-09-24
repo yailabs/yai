@@ -200,6 +200,19 @@ fn conversation_submission_is_durable_idempotent_and_observable_without_provider
     let store = yai_core_engine::store::lmdb::LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
     let history = store.list_case_transitions("case:audit").unwrap();
     assert_eq!(history.iter().filter(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ConversationTurnCommitted { .. })).count(), 1);
+    // Both public observation identities must follow the same SEND carrier.
+    // Hold its real lease after the provider-less carrier exits; no dispatch.
+    let send_key = history.iter().find_map(|t| t.transition_id.strip_prefix("transition:application-send:")).unwrap();
+    let carrier = yai_application::runtime_execution::acquire_execution_carrier(
+        &f.home.join("run/application-carriers").join(format!("{send_key}.lock"))).unwrap();
+    let cognitive_observation = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
+        "execution":{"domain":"cognitive_composition", "request_ref":acknowledged["execution"]["request_ref"]}});
+    assert_eq!(f.success("execution.get", cognitive_observation.clone())["posture"], "running");
+    let mut hidden_cognitive = cognitive_observation.clone();
+    hidden_cognitive["participant_ref"] = json!("participant:hidden");
+    assert_ne!(f.call("execution.get", hidden_cognitive).result_state, ResultState::Success);
+    drop(carrier);
+    assert_eq!(f.success("execution.get", cognitive_observation)["posture"], "unresolved");
     assert_eq!(history.iter().filter(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ConversationExecutionIntentRecorded { .. })).count(), 1);
     assert!(!history.iter().any(|t| matches!(t.payload, yai_core_engine::transition::TransitionPayload::ProviderInvocationStarted { .. })));
     assert_eq!(f.generation(), generation + 2);

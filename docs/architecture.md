@@ -467,6 +467,8 @@ canonical selection; an acknowledgement timeout instructs observation of the
 already-known exact plan, not substitution or a fresh attempt.
 
 Empty private operational lock files identify an active in-process carrier.
+For ordinary SEND, the committed Turn's Application submission identity resolves
+that lock even when a reconnecting client observes by cognitive request reference.
 They contain no result or authority, are never a new canonical store, and their
 stable inodes are not unlinked while clients may observe them. Carrier loss plus
 an invocation without a terminal record yields `delivery_indeterminate`; an

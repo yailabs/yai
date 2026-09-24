@@ -478,11 +478,11 @@ fn observe_execution(home: &std::path::Path, auth: &AuthenticatedPrincipal, stor
             if request.request_id == submission && request.participant_id == participant => Some(request),
         _ => None,
     })).flatten();
-    let turn = history.iter().find_map(|transition| match &transition.payload {
+    let (turn, turn_transition) = history.iter().find_map(|transition| match &transition.payload {
         TransitionPayload::ConversationTurnCommitted { turn }
             if (cognitive && intent.is_some_and(|request| request.source_turn_id == turn.turn_id))
                 || (!cognitive && transition.transition_id == format!("transition:application-send:{key}")
-                    && turn.participant_id == participant) => Some(turn),
+                    && turn.participant_id == participant) => Some((turn, transition)),
         _ => None,
     }).ok_or("execution_not_visible")?;
     let request = history.iter().find_map(|t| match &t.payload {
@@ -528,7 +528,12 @@ fn observe_execution(home: &std::path::Path, auth: &AuthenticatedPrincipal, stor
                 TransitionPayload::ProviderAttemptOutcomeRecorded { outcome } if outcome.selection_id == selection.selection_id && outcome.retry_safe()));
         }
     }
-    let running = crate::runtime_execution::execution_carrier_running(&submission_carrier(home, &key))?;
+    // Studio can recover a SEND by its durable cognitive request rather than
+    // its client submission token. Resolve the carrier from the committed Turn,
+    // not from whichever observation identity the client happened to supply.
+    let carrier_key = turn_transition.transition_id.strip_prefix("transition:application-send:")
+        .unwrap_or(&key);
+    let running = crate::runtime_execution::execution_carrier_running(&submission_carrier(home, carrier_key))?;
     let selection_refs = history.iter().filter_map(|t| match &t.payload {
         TransitionPayload::ProviderSelectionRecorded { selection }
             if selection.participant_id == request.participant_id && t.causal_refs.contains(&request.request_id) => Some(&selection.selection_id),

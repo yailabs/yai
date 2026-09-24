@@ -1854,6 +1854,22 @@ generation or keeps polling it indefinitely. A later authoritative Case update
 or explicit check can reveal a retained result; normal active requests continue
 to be observed until completion.
 
+A SEND observed through its cognitive request reference must show the same active
+carrier as observation through its original submission reference. The committed
+Turn identifies that carrier; opening the Conversation after acknowledgement loss
+must not turn a still-running request into an indeterminate one. The controlled
+Studio conversation test holds the provider response open and checks both typed
+observation identities before releasing it. The existing `execution.get` catalog
+contract remains exact: observation never authorizes another dispatch.
+
+The subsequent [native-composer DeepSeek attempt](../labs/external-runtime/runs/20260924-deepseek-4k/native-send/manifest.json)
+fit the exact 4096-token target (3376 input, 720 effective output allowance), but
+did not retain a completed response. The initial UI observation exposed the
+carrier-identity defect above; the later canonical attempt independently recorded
+unknown delivery at the response-body deadline. No automatic retry occurred.
+This is negative external evidence, not native inference acceptance or proof
+that the infrastructure Case now fits.
+
 Telemetry now opens one section at a time. Select Runtime, Shells or Endpoints
 from either the tab row or sidebar and verify both show the same selection.
 Use Left/Right, Home/End on the tab row; at 1000×650 the toolbar and section

@@ -19,6 +19,7 @@ const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {e
 let telemetry, serial=0, browser, provider, dropAcknowledgement;
 let generationRequests = 0;
 let rejectOversized = false;
+let holdResponse = false, releaseResponse;
 const exchanges = [];
 function rpc(request) {
  return new Promise((resolve,reject) => {
@@ -51,7 +52,7 @@ try {
  }
  const caseRef='case:studio-policy-actions';
  await accepted('case.create',{tenant_id:'tenant:studio-ui',case_ref:caseRef});await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'operator'});await accepted('participant.principal.link',{case_ref:caseRef,participant_ref:'participant:operator',principal_ref:'self'});
- provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;res.setHeader('Content-Type','application/json');if(req.url==='/v1/models')res.end(JSON.stringify({data:[{id:'controlled-text-model'}]}));else if(req.url==='/v1/chat/completions'){const value=JSON.parse(body);generationRequests++;if(rejectOversized){res.statusCode=413;res.end(JSON.stringify({error:{code:'input_too_large'}}));return;}res.end(JSON.stringify({id:'controlled-response',model:value.model,choices:[{message:{role:'assistant',content:'Controlled provider response'}}]}));}else{res.statusCode=404;res.end('{}');}});
+ provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;res.setHeader('Content-Type','application/json');if(req.url==='/v1/models')res.end(JSON.stringify({data:[{id:'controlled-text-model'}]}));else if(req.url==='/v1/chat/completions'){const value=JSON.parse(body);generationRequests++;if(rejectOversized){res.statusCode=413;res.end(JSON.stringify({error:{code:'input_too_large'}}));return;}if(holdResponse)await new Promise(resolve=>releaseResponse=resolve);res.end(JSON.stringify({id:'controlled-response',model:value.model,choices:[{message:{role:'assistant',content:'Controlled provider response'}}]}));}else{res.statusCode=404;res.end('{}');}});
  await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));const endpoint=`http://127.0.0.1:${provider.address().port}`;
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
  const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(10000);
@@ -124,7 +125,18 @@ try {
  await page.getByRole('menu',{name:'Conversation tools'}).getByRole('menuitemradio',{name:/Fast Search/}).click();
  await page.getByText('Fast Search · fallback available').waitFor();
  const baselineRequests=generationRequests;
+ holdResponse=true;
  await composer.fill('First exact Studio message');await page.getByRole('button',{name:'Send',exact:true}).click();
+ const inFlightDeadline=Date.now()+10000;
+ while(!releaseResponse) {assert.ok(Date.now()<inFlightDeadline,'Provider never received request');await new Promise(resolve=>setTimeout(resolve,20));}
+ const inFlight=exchanges.findLast(x=>x.request.operation_ref==='conversation.send');
+ for(const execution of [{domain:'conversation',submission_ref:inFlight.request.input.submission_ref},
+   {domain:'cognitive_composition',request_ref:inFlight.result.data.execution.request_ref}]) {
+  const observed=await accepted('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution});
+  assert.equal(observed.posture,'running','Both public identities observe the same live carrier');
+  assert.equal(observed.primary_result,null);
+ }
+ holdResponse=false;releaseResponse();releaseResponse=undefined;
  await page.locator('.turn-ai').getByText('Controlled provider response',{exact:true}).waitFor();
  const fastSubmission=exchanges.filter(x=>x.request.operation_ref==='conversation.send').at(-1);
  assert.equal(fastSubmission.request.input.memory_search_mode,'fast');
@@ -260,4 +272,5 @@ try {
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
  console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID']}));
-} finally {await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}
+} finally {
+ releaseResponse?.();await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}
