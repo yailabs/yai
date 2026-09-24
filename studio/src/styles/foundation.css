@@ -803,3 +803,12 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .context-tool-floating .context-tool-toolbar { min-height:40px; }
 .context-tool-docked .context-tool-toolbar { min-height:28px; }
 .context-tool-content .inspector-group { padding-block:12px; border-bottom:1px solid var(--yai-divider); }
+
+/* Historical Decision controls share compact Workbench form geometry. */
+.decision-history .object-action-row { align-items:end; }
+.decision-history label { display:grid; gap:6px; color:var(--yai-text-secondary); font-size:12px; min-width:0; }
+.decision-history input { min-width:0; width:100%; box-sizing:border-box; min-height:31px; padding:5px 8px; border:1px solid var(--yai-divider); border-radius:var(--radius-control); background:var(--yai-inset); color:var(--yai-text); font:inherit; }
+.decision-history input[type=number] { width:90px; }
+.decision-history form label { flex:1; min-width:180px; }
+.decision-history code, .decision-history dd, .decision-history .fact-row small { overflow-wrap:anywhere; }
+.decision-history .object-facts { grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); }

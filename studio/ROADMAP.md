@@ -115,8 +115,9 @@ Starting published cut: `21647b0dde51c98c5c6a7314438b38bc08be48e3`.
 reorganization without an executable Application delta. The starting catalog had
 85 operations and 32/32 eligible PRODUCT families Ready. This boundary adds
 `provider.inventory`, reusing authorized Tenant provider governance; it does not
-add a provider owner. Historical Decision trajectory operations remain explicit
-Studio interaction debt rather than obsolete backend blockers.
+add a provider owner. Historical Decision trajectory operations now have an authored Work read surface
+with bounded corpus, exact inspection and structural evaluation. Current disclosure,
+missingness and refusal remain owner-controlled; this is not model scoring.
 
 The code-owned [Application catalog](../application/yai-application/src/capabilities.rs)
 remains the operation identity owner. The
@@ -205,7 +206,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SA01 | 🟢 ESTABLISHED | Explicit policy document ingest, typed IR, validate/publish/retire/revoke and Case bind/replace/unbind | Compilers own interpretation; publication is not binding | policy-intake.mjs; policy-actions.mjs |
 | SA02 | 🟢 ESTABLISHED | Review approve/deny/defer and projected Grants/last Decision | Backend enforces current authority | application-actions.mjs |
 | SA03 | 🟡 PARTIAL | Policy Sources routed to Authority; documentary portions retain provenance | Policy catalog/read, mixed-region route projection, effective combined-policy explanation and simulation open | source-policy-actions.mjs |
-| SO01 | 🟡 PARTIAL | Work center exposes Workflow, Handoff, bounded run/stop, exact execution observation and history | No complete execution catalog, Handoff inbox or general result-body browser | work-actions.mjs; effect-actions.mjs |
+| SO01 | 🟡 PARTIAL | Work center exposes Workflow, Handoff, bounded run/stop, exact execution observation, history and historical Decision reconstruction/evaluation | No complete execution catalog, Handoff inbox or general result-body browser | work-actions.mjs; effect-actions.mjs |
 | SO02 | 🟡 PARTIAL | Define/bind human checkpoint workflows, HumanInput, checkpoint patch propose/adopt | Other node authors, effective patched topology/prompt projection open | work-actions.mjs |
 | SO03 | 🟡 PARTIAL | Explicit Handoff offer/accept/decline/result/reconcile | Authored exact refs work; inbox/read projection and richer result navigation open | work-actions.mjs |
 | SO04 | 🟢 ESTABLISHED | Journal from committed history, follow/pause/search/type/component, Inspector/Timeline | Latest 160 disclosure; not a complete ledger browser | navigation-journal.mjs; operational-live.mjs |

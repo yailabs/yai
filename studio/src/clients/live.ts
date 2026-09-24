@@ -1,3 +1,4 @@
+import type { DecisionHistoryInput, DecisionInspectInput, DecisionCorpus, DecisionTrajectory, DecisionEvaluation } from "./work";
 import type { ProviderModelsInput, ProviderModels } from "./compute";
 import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput, ConversationSubmission } from "./conversation";
@@ -191,6 +192,9 @@ export class LiveClient {
   bootstrapIdentity(input: { tenant_id: string; organization_ref: string }) { return this.call<unknown>("identity.bootstrap", input); }
   tenant(input: { tenant_id: string }) { return this.call<TenantPresentation>("tenant.get", input); }
   recall(request: RecallRequest) { return this.call<RecallResult>("semantic.recall", { request }); }
+  decisionCorpus(input: DecisionHistoryInput) { return this.call<DecisionCorpus>("decision.trajectory.corpus", input); }
+  inspectDecision(input: DecisionInspectInput) { return this.call<DecisionTrajectory>("decision.trajectory.inspect", input); }
+  evaluateDecisions(input: DecisionHistoryInput) { return this.call<DecisionEvaluation>("decision.trajectory.evaluate", input); }
   prepareFrontier(working_state: WorkingState, max_candidates: number) { return this.call<FrontierResult>("decision.frontier.prepare", { working_state, max_candidates }); }
   prepareDecision(input: DecisionPrepareInput) { return this.call<DecisionPreparation>("decision.request.prepare", input); }
   compileWorkingState(request: WorkingStateRequest, pageable: boolean) { return this.call<WorkingStateResult>("semantic.working_state.compile", { request, pageable }); }

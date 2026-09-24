@@ -1651,3 +1651,18 @@ The live two-client browser harness observes exact successful Case snapshots and
 the visible Journal, rather than requiring the retired primary Generation label.
 Its read-only mode does not qualify mutation fanout; select the explicit controlled
 mutation lane separately for that property.
+
+
+### Historical Decisions in Work
+
+Open **Work → Decisions and consequences**. Load a bounded history, select a
+Decision or enter its exact reference, and inspect the reason, historical cut,
+basis references, qualified later evidence and explicit missingness. Current
+Participant disclosure is enforced by YAI on every read. A refused re-read removes
+previous results; a Case/Participant/version change invalidates the captured view.
+**Evaluate reconstruction** reports structural coverage and violations only: it
+is neither a model-quality score nor permission to repeat an operation. A selected
+historical operation must not be presented as a complete historical candidate set.
+The existing typed `decision.trajectory.*` operations and their semantic owner
+remain unchanged. `tests/studio/effect-actions.mjs` exercises all three authored
+reads through the real Host, hidden/missing refusals and unchanged Case state.

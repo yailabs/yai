@@ -11,3 +11,20 @@ export interface HandoffOfferInput { source_case_ref: string; target_case_ref: s
 export interface HandoffAcceptInput { target_case_ref: string; source_case_ref: string; handoff_ref: string; participant_ref: string }
 export interface HandoffDeclineInput extends HandoffAcceptInput { reason: string }
 export interface HandoffResultInput { target_case_ref: string; handoff_ref: string; participant_ref: string; outcome: "succeeded" | "failed" | "cancelled"; result: HandoffData; evidence_refs: string[] }
+
+/** Read-only, current-disclosure-qualified historical Decision projections. */
+export interface DecisionHistoryInput { case_ref: string; participant_ref: string; max_decisions: number }
+export interface DecisionInspectInput { case_ref: string; participant_ref: string; decision_ref: string }
+export interface DecisionTrajectory {
+  schema: "yai.cognitive_decision_trajectory.v1"; trajectory_id: string; case_id: string; participant_id: string;
+  decision_transition_id: string; decision_generation: number;
+  pre_decision: { cut_generation: number; content_backing: Array<{ source_ref: string; posture: string }>; unsupported_families: string[] };
+  task_context?: string | null;
+  candidate_posture: "exact_reconstructed" | "partial" | "unavailable";
+  decision: { decision_id: string; operation_id: string; outcome: "allow" | "deny" | "require_review"; reason: string; basis_refs: string[] };
+  related_evidence: Array<{ transition_id: string; recorded_generation: number }>;
+  correction_decisions: string[]; missingness: string[];
+  readiness: { pre_state_available: boolean; working_state_available: boolean; candidate_set_available: boolean; decision_basis_available: boolean; consequence_available: boolean; correction_available: boolean; historical_distribution_available: boolean };
+}
+export interface DecisionCorpus { schema: "yai.cognitive_decision_corpus.v1"; case_id: string; participant_id: string; trajectories: DecisionTrajectory[]; omitted_visible_decisions: number }
+export interface DecisionEvaluation { schema: string; trajectory_count: number; exact_candidate_set_count: number; partial_candidate_set_count: number; historical_working_state_count: number; consequence_link_count: number; correction_count: number; missing_backing_count: number; temporal_leakage_violations: number; false_causality_violations: number; cross_case_leakage_violations: number; serialized_bytes: number }

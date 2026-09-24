@@ -103,7 +103,32 @@ try {
  telemetry=cli('host','restart').data.value;assert.equal((await accepted('execution.get',observe)).execution_ref,finished.execution_ref);assert.equal((await accepted('case.run',run.request.input)).created,false);assert.equal(dispatches,1);
  const badStop=await call('case.stop',{...stop.request.input,run_ref:'run:wrong'});assert.notEqual(badStop.result_state,'success');assert.equal((await call('execution.get',{...observe,participant_ref:'participant:hidden'})).result_state,'unauthorized');
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await receipt.getByRole('button',{name:'Refresh observation'}).click();
+
+ // Historical Decisions are read through the same typed Host dispatcher.
+ const history=page.getByRole('region',{name:'Decision history'});
+ await history.getByRole('button',{name:'Load Decision history',exact:true}).click();
+ await history.locator('.decision-corpus .fact-row').first().waitFor();
+ const corpus=exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.corpus').result;
+ assert.equal(corpus.result_state,'success');assert.ok(corpus.data.trajectories.length>0);
+ const selectedDecision=corpus.data.trajectories[0];
+ const historyBefore=await accepted('case.summary',{case_ref:caseRef});
+ await history.locator('.decision-corpus .fact-row').first().click();
+ await history.locator('.decision-reconstruction').waitFor();
+ const inspected=exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.inspect').result;
+ assert.equal(inspected.result_state,'success');assert.equal(inspected.data.decision.decision_id,selectedDecision.decision.decision_id);
+ assert.ok(inspected.data.pre_decision.cut_generation<inspected.data.decision_generation);
+ await history.getByText(selectedDecision.decision.reason,{exact:true}).waitFor();
+ await history.getByRole('button',{name:'Evaluate reconstruction',exact:true}).click();await history.locator('.decision-evaluation').waitFor();
+ const evaluated=exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.evaluate').result;
+ assert.equal(evaluated.result_state,'success');assert.equal(evaluated.data.trajectory_count,corpus.data.trajectories.length);
+ assert.equal(evaluated.data.cross_case_leakage_violations,0);
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});await history.scrollIntoViewIfNeeded();await page.screenshot({path:`${evidence}/decision-history-${width}x${height}.png`});}
+ await history.getByLabel('Exact Decision reference').fill('decision:not-visible');await history.getByRole('button',{name:'Inspect Decision',exact:true}).click();await history.getByRole('alert').waitFor();
+ assert.notEqual(exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.inspect').result.result_state,'success');
+ assert.equal(await history.locator('.decision-reconstruction,.decision-corpus,.decision-evaluation').count(),0,'Refused re-read must not retain prior disclosures');
+ for(const operation of ['decision.trajectory.corpus','decision.trajectory.evaluate'])assert.equal((await call(operation,{case_ref:caseRef,participant_ref:'participant:hidden',max_decisions:16})).result_state,'unauthorized');
+ assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),historyBefore,'Historical inspection/evaluation must not mutate the Case');
  await page.screenshot({path:`${evidence}/work-executions.png`});assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,execution:finished.execution_ref,effect:effect.result.data.execution.operation_ref,proof:['UI controlled Resource effect; lost acknowledgement then exact retry, one dispatch','Configuration digest mismatch refused with no effect','UI process attach positive/absent PID refusal; no signal','UI bounded Case run, real supervised controlled provider','UI exact cooperative stop','Host restart, execution observation and no duplicate provider dispatch','Wrong runner and hidden Participant refused','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,execution:finished.execution_ref,effect:effect.result.data.execution.operation_ref,proof:['UI controlled Resource effect; lost acknowledgement then exact retry, one dispatch','Configuration digest mismatch refused with no effect','UI process attach positive/absent PID refusal; no signal','UI bounded Case run, real supervised controlled provider','UI exact cooperative stop','Host restart, execution observation and no duplicate provider dispatch','Wrong runner and hidden Participant refused','UI Decision corpus/inspect/evaluate; exact pre-cut and real refusal; no mutation','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();child?.kill();releaseProvider?.();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

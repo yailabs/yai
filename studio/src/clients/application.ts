@@ -1,3 +1,4 @@
+import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
 import type { ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
@@ -135,6 +136,9 @@ export class ApplicationAccess implements Disposable {
   bootstrapIdentity(input: { tenant_id: string; organization_ref: string }) { return this.invoke("identity.bootstrap", () => this.client.bootstrapIdentity(input)); }
   tenant(input: { tenant_id: string }) { return this.invoke("tenant.get", () => this.client.tenant(input)); }
   recall(request: RecallRequest) { return this.invoke("semantic.recall", () => this.client.recall(request)); }
+  decisionCorpus(input: DecisionHistoryInput) { return this.invoke("decision.trajectory.corpus", () => this.client.decisionCorpus(input)); }
+  inspectDecision(input: DecisionInspectInput) { return this.invoke("decision.trajectory.inspect", () => this.client.inspectDecision(input)); }
+  evaluateDecisions(input: DecisionHistoryInput) { return this.invoke("decision.trajectory.evaluate", () => this.client.evaluateDecisions(input)); }
   prepareFrontier(working_state: WorkingState, max_candidates: number) { return this.invoke("decision.frontier.prepare", () => this.client.prepareFrontier(working_state, max_candidates)); }
   prepareDecision(input: DecisionPrepareInput) { return this.invoke("decision.request.prepare", () => this.client.prepareDecision(input)); }
   compileWorkingState(request: WorkingStateRequest, pageable: boolean) { return this.invoke("semantic.working_state.compile", () => this.client.compileWorkingState(request, pageable)); }

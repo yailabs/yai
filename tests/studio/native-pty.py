@@ -22,6 +22,7 @@ p.add_argument('--case', default='case:studio-live-qualification')
 p.add_argument('--evidence', type=Path, required=True)
 p.add_argument('--context-tools', action='store_true')
 p.add_argument('--operational-overview', action='store_true')
+p.add_argument('--decision-history', action='store_true')
 a = p.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/validation'))
 from behavioral_corpus import Host
@@ -84,6 +85,23 @@ try:
         script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
         wait('return document.querySelector(".case-overview")')
         print(json.dumps({'result':'PASS','proof':'Native rich Overview, explicit narrative control, observed Host PID and exact Case Resource inventory'}))
+    if a.decision_history:
+        script('document.querySelector(`.live-rail button[aria-label="Work"]`).click()')
+        wait('return document.querySelector(".decision-history")')
+        script('const button=[...document.querySelectorAll(".decision-history button")].find(item=>item.textContent==="Load Decision history");button.click()')
+        wait('return document.querySelector(".decision-corpus .fact-row")')
+        decision_ref=script('return document.querySelector(".decision-corpus .fact-row small").textContent')
+        script('document.querySelector(".decision-corpus .fact-row").click()')
+        wait('return document.querySelector(".decision-reconstruction")')
+        observation=host.call('decision.trajectory.inspect',{'case_ref':a.case,'participant_ref':before['data']['case']['participant_ref'],'decision_ref':decision_ref},f'native-trajectory:{time.time_ns()}')
+        assert observation['result_state']=='success'
+        assert script('return document.querySelector(".decision-reconstruction header p").textContent')==observation['data']['decision']['reason']
+        (a.evidence/'decision-trajectory.json').write_text(json.dumps(observation))
+        script('document.querySelector(".decision-reconstruction").scrollIntoView()')
+        shot('native-decision-history')
+        script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
+        wait('return document.querySelector(".case-overview")')
+        print(json.dumps({'result':'PASS','proof':'Native Work exact historical Decision identity/reason equals typed Host read','decision_ref':decision_ref}))
     # Use the Workbench's ordinary Terminal tab/command; no direct IPC invocation.
     script('const tab=[...document.querySelectorAll("button")].find(x=>x.textContent==="Terminal" && x.closest(".live-bottom")); if(tab)tab.click(); else document.dispatchEvent(new KeyboardEvent("keydown",{key:"`",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')
