@@ -1,0 +1,300 @@
+{
+  "schema": "yai.behavioral_corpus.v1",
+  "evaluations": [
+    {
+      "preconditions": [
+        "Expected identities are pinned from the original completed execution and its disclosed archived context, independently of this evaluation.",
+        "The selected Participant still has current disclosure authority; use the separate hidden check for refusal."
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        },
+        {
+          "$ref": "/profile/request_ref"
+        },
+        {
+          "$ref": "/profile/result_ref"
+        },
+        {
+          "$ref": "/profile/input_observation_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "execution.get"
+      ],
+      "forbidden_actions": [
+        "conversation.send",
+        "cognitive.compose",
+        "cognitive.realize",
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation or external redispatch"
+      ],
+      "repeatability": "Read-only, suitable before/after Host restart. Never reconstruct a SEND to inspect an existing result.",
+      "mode": "retained_conversation_structural",
+      "id": "conversation.retained_result",
+      "dimensions": [
+        "SEES",
+        "REMEMBERS",
+        "RECOVERS"
+      ],
+      "meaning": "Read an already completed governed Conversation through its durable request identity, including the exact archived input. No SEND; answer quality is evaluated separately.",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "receipt",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "cognitive_composition",
+              "request_ref": {
+                "$ref": "/profile/request_ref"
+              }
+            },
+            "include_context": true
+          }
+        },
+        {
+          "id": "repeat",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": {
+              "$ref": "/profile/participant_ref"
+            },
+            "execution": {
+              "domain": "cognitive_composition",
+              "request_ref": {
+                "$ref": "/profile/request_ref"
+              }
+            },
+            "include_context": true
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/receipt/result_state",
+          "op": "equal",
+          "value": "success"
+        },
+        {
+          "path": "/results/receipt/data/posture",
+          "op": "equal",
+          "value": "completed"
+        },
+        {
+          "path": "/results/receipt/data/case_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/case_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/participant_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/participant_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/request_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/request_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/turn_ref",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/turn_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/primary_result/result_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/result_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/primary_result/selection/selected_target_id",
+          "op": "equal",
+          "value": {
+            "$ref": "/profile/target_ref"
+          }
+        },
+        {
+          "path": "/results/receipt/data/prepared_context/invocations",
+          "op": "some",
+          "value": {
+            "invocation_ref": {
+              "$ref": "/profile/invocation_ref"
+            },
+            "/input_observation/observation_id": {
+              "$ref": "/profile/input_observation_ref"
+            },
+            "/input_observation/serialized_request_digest": {
+              "$ref": "/profile/serialized_request_digest"
+            },
+            "/input_observation/case_id": {
+              "$ref": "/profile/case_ref"
+            },
+            "/input_observation/participant_id": {
+              "$ref": "/profile/participant_ref"
+            },
+            "/input_observation/model_id": {
+              "$ref": "/profile/model_id"
+            },
+            "/input_observation/target_id": {
+              "$ref": "/profile/target_ref"
+            },
+            "/input_observation/refusal": null
+          }
+        },
+        {
+          "path": "/results/repeat/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/receipt/data"
+          }
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    },
+    {
+      "preconditions": [
+        "Expected identities are pinned from the original completed execution and its disclosed archived context, independently of this evaluation.",
+        "The selected Participant still has current disclosure authority; use the separate hidden check for refusal."
+      ],
+      "required_refs": [
+        {
+          "$ref": "/profile/case_ref"
+        },
+        {
+          "$ref": "/profile/request_ref"
+        },
+        {
+          "$ref": "/profile/result_ref"
+        },
+        {
+          "$ref": "/profile/input_observation_ref"
+        }
+      ],
+      "allowed_actions": [
+        "case.summary",
+        "execution.get"
+      ],
+      "forbidden_actions": [
+        "conversation.send",
+        "cognitive.compose",
+        "cognitive.realize",
+        "case.cancel",
+        "case.close"
+      ],
+      "expected_consequences": [
+        "No canonical mutation or external redispatch"
+      ],
+      "repeatability": "Read-only, suitable before/after Host restart. Never reconstruct a SEND to inspect an existing result.",
+      "mode": "retained_conversation_structural",
+      "id": "conversation.hidden_result",
+      "dimensions": [
+        "REFUSES",
+        "ISOLATES"
+      ],
+      "meaning": "Current disclosure refuses an unlinked Participant without leaking retained output or archived context.",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        },
+        {
+          "id": "hidden",
+          "operation": "execution.get",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            },
+            "participant_ref": "participant:behavioral-unlinked",
+            "execution": {
+              "domain": "cognitive_composition",
+              "request_ref": {
+                "$ref": "/profile/request_ref"
+              }
+            },
+            "include_context": true
+          }
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {
+            "case_ref": {
+              "$ref": "/profile/case_ref"
+            }
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/results/hidden/result_state",
+          "op": "equal",
+          "value": "unauthorized"
+        },
+        {
+          "path": "/results/hidden",
+          "op": "excludes",
+          "value": "data"
+        },
+        {
+          "path": "/results/after/data",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/before/data"
+          }
+        }
+      ]
+    }
+  ]
+}

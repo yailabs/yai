@@ -103,6 +103,21 @@ remains an ordinary separate YAI operation; acquiring the recipe does not bind i
 
 ## Retained governed actions
 
+`retained-conversation.json` observes an already completed Conversation by its
+durable cognitive request. It checks exact Turn/result/target identity and the
+archived input observation, model and serialized-request digest, repeats the read,
+and checks current hidden-Participant refusal without disclosed output. It never
+calls SEND and can run after Host restart while another Case is executing.
+
+Pin `case_ref`, `participant_ref`, `request_ref`, `turn_ref`, `result_ref`,
+`target_ref`, `invocation_ref`, `input_observation_ref`,
+`serialized_request_digest` and `model_id` from the original completed execution
+and its context evidence. Do not derive these expectations from the read being
+tested. Use the normal runner without `--allow-mutations`. This avoids trying to
+reconstruct the original submission with a newer Case generation just to inspect
+its answer. The suite assesses retained identity and disclosure, not answer
+quality or inference performance; those remain separate evidence classes.
+
 `retained-action.json` is a reusable, read-only structural suite over
 `execution.get` for an already executed Resource request. It checks exact Case,
 Participant, Operation, effect, result and receipt identities; repeated reads;

@@ -71,6 +71,38 @@ class CorpusTest(unittest.TestCase):
         with self.assertRaises(ValueError):corpus.evaluate(test,{},profile,host,impacts,False,lambda _:None)
         self.assertEqual(host.sends,0)
 
+    def test_retained_conversation_checks_exact_input_and_current_disclosure_without_send(self):
+        suite=json.loads((Path(__file__).parent / 'retained-conversation.json').read_text())
+        profile=dict(case_ref='case:A',participant_ref='participant:A',request_ref='request:A',
+            turn_ref='turn:A',result_ref='result:A',target_ref='target:A',invocation_ref='invocation:A',
+            input_observation_ref='input:A',serialized_request_digest='digest:A',model_id='model:A')
+        class Reader:
+            def __init__(self, alteration=None): self.alteration=alteration; self.calls=[]
+            def call(self, op, inputs, correlation):
+                self.calls.append(op)
+                if op=='case.summary': return dict(result_state='success',data={'case':{'generation':7}})
+                if inputs['participant_ref']=='participant:behavioral-unlinked':
+                    return dict(result_state='unauthorized', **({'data':{'output':'secret'}} if self.alteration=='leak' else {}))
+                data={k:profile[k] for k in ['case_ref','participant_ref','request_ref','turn_ref']}
+                observation=dict(observation_id='input:A',serialized_request_digest='digest:A',case_id='case:A',
+                    participant_id='participant:A',model_id='model:A',target_id='target:A',refusal=None)
+                data.update(posture='completed',primary_result=dict(result_id='result:A',selection={'selected_target_id':'target:A'}),
+                    prepared_context={'invocations':[{'invocation_ref':'invocation:A','input_observation':observation}]})
+                if self.alteration=='digest': observation['serialized_request_digest']='different'
+                if self.alteration=='result': data['primary_result']['result_id']='different'
+                if self.alteration=='context': data['prepared_context']['invocations']=[]
+                return dict(result_state='success',data=data)
+        impacts={'case.summary':'read','execution.get':'read'}
+        for test in suite['evaluations']:
+            host=Reader()
+            self.assertEqual(corpus.evaluate(test,{},profile,host,impacts,False,lambda _:None),'PASS')
+            self.assertTrue(set(host.calls)<=set(impacts))
+        for mutation in ['digest','result','context']:
+            with self.subTest(mutation=mutation),self.assertRaises(AssertionError):
+                corpus.evaluate(suite['evaluations'][0],{},profile,Reader(mutation),impacts,False,lambda _:None)
+        with self.assertRaises(AssertionError):
+            corpus.evaluate(suite['evaluations'][1],{},profile,Reader('leak'),impacts,False,lambda _:None)
+
     def retained_action(self):
         suite = json.loads((Path(__file__).parent / "retained-action.json").read_text())
         profile = dict(case_ref="case:A", participant_ref="participant:A", submission_ref="request:A",

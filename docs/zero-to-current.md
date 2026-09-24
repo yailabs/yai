@@ -1883,3 +1883,27 @@ it must not acquire again, advance Case history or turn an uncertain attempt int
 a resumable one. Work > Executions remains the place to inspect older locally
 retained references. The existing Source and execution catalog contracts are
 unchanged; carrier-loss recovery qualification remains separate from this read.
+
+For an already completed model response, use the behavioral
+`retained-conversation.json` suite with identities pinned from its original
+result/context evidence. It performs only reads, compares exact archived request
+digest and result identities, and checks refusal for an unlinked Participant.
+It may be repeated after Host restart without reconstructing or resending the
+question. A structural PASS does not assess the model's natural-language answer.
+
+The separate `case:qualification-deepseek-native-4k` retains a successful actual
+native-composer SEND at `f68247c`: 2039 input tokens, 4096 sequence capacity,
+8151 serialized request bytes, one HTTP 200 result. The existing generic Host
+setting `YAI_PROVIDER_RESPONSE_TIMEOUT_SECS=900` allowed the roughly 321-second
+response; YVEX was not reloaded or changed. This setting applies to that Host
+process and is not a persisted Studio preference. The default remains 300 seconds.
+[Raw native evidence](../labs/external-runtime/runs/20260924-deepseek-native-4k/manifest.json)
+includes the displayed candidate answer, normal setup operations, exact context,
+Host restart and read-only result/disclosure corpus. The answer reports missing
+infrastructure evidence; it is not an infrastructure release assessment. Its extra
+headings/sentences also do not meet the requested two-sentence formatting exactly.
+
+Operator check: reopen the native qualification Case and inspect its retained
+answer/context without sending again. Switching to the infrastructure Case must
+not carry over its Conversation. The latter's full 4K context refusal remains
+open. Human acceptance is still `PENDING_OPERATOR`.

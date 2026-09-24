@@ -1,0 +1,110 @@
+{
+  "schema": "yai.qualification_profile_storage.v1",
+  "scope": "whole_profile_not_per_case",
+  "started_at_unix_ns": 1790283495077581744,
+  "completed_at_unix_ns": 1790283495103115121,
+  "posture": "observed",
+  "entry_limit": 100000,
+  "entry_limit_reached": false,
+  "symlinks_not_followed": 0,
+  "duplicate_inodes_not_recounted": 0,
+  "containers": {
+    "auth": {
+      "files": 1,
+      "logical_bytes": 264,
+      "allocated_bytes": 4096
+    },
+    "case": {
+      "files": 2,
+      "logical_bytes": 483,
+      "allocated_bytes": 8192
+    },
+    "conversation-content-v1/backings": {
+      "files": 44,
+      "logical_bytes": 120549,
+      "allocated_bytes": 266240
+    },
+    "conversation-content-v1/objects": {
+      "files": 23,
+      "logical_bytes": 12645,
+      "allocated_bytes": 94208
+    },
+    "log": {
+      "files": 1,
+      "logical_bytes": 6367,
+      "allocated_bytes": 8192
+    },
+    "operator": {
+      "files": 1,
+      "logical_bytes": 232,
+      "allocated_bytes": 4096
+    },
+    "qualification/infra-world": {
+      "files": 10,
+      "logical_bytes": 22422,
+      "allocated_bytes": 53248
+    },
+    "run": {
+      "files": 1,
+      "logical_bytes": 807,
+      "allocated_bytes": 4096
+    },
+    "run/application-carriers": {
+      "files": 8,
+      "logical_bytes": 0,
+      "allocated_bytes": 0
+    },
+    "run/host": {
+      "files": 2,
+      "logical_bytes": 590,
+      "allocated_bytes": 4096
+    },
+    "run/source-carriers": {
+      "files": 16,
+      "logical_bytes": 0,
+      "allocated_bytes": 0
+    },
+    "store/control": {
+      "files": 1,
+      "logical_bytes": 18655,
+      "allocated_bytes": 20480
+    },
+    "store/facts": {
+      "files": 1,
+      "logical_bytes": 5255168,
+      "allocated_bytes": 5255168
+    },
+    "store/graph": {
+      "files": 1,
+      "logical_bytes": 800,
+      "allocated_bytes": 4096
+    },
+    "store/lmdb": {
+      "files": 2,
+      "logical_bytes": 2662400,
+      "allocated_bytes": 2662400
+    },
+    "store/replay": {
+      "files": 2,
+      "logical_bytes": 1794,
+      "allocated_bytes": 8192
+    },
+    "tmp/filesystem-review-loop": {
+      "files": 1,
+      "logical_bytes": 35,
+      "allocated_bytes": 4096
+    }
+  },
+  "unique_files": 117,
+  "logical_bytes": 8103211,
+  "allocated_bytes": 8400896,
+  "errors": [],
+  "limitations": [
+    "Non-atomic filesystem metadata observation; concurrent changes may occur",
+    "Regular-file bytes only; directory metadata and reflink sharing are not attributed",
+    "Container bytes do not distinguish canonical, retained and derived records inside a database",
+    "No per-Case attribution or model-storage observation",
+    "Hard-linked inodes counted once; reflink sharing is not measured",
+    "No files read, changed, compacted or deleted"
+  ]
+}

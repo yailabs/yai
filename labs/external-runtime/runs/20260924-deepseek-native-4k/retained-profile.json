@@ -1,0 +1,12 @@
+{
+  "case_ref": "case:qualification-deepseek-native-4k",
+  "participant_ref": "participant:operator",
+  "request_ref": "cognitive-composition:sha256:0b3f3a38dab50880d9a920454c0acea492364db5b79748b857f5665562559689",
+  "turn_ref": "conversation-turn:sha256:9b87fee2abb3f01b59cdb65353187f60ed739fce07ffdc039ebe657c69d884fc",
+  "result_ref": "provider-result:cognitive:60034dd06d6d7502",
+  "target_ref": "provider-target:965ce8d788b4d6321ed0fea629f99546",
+  "invocation_ref": "invocation:cognitive:60034dd06d6d7502",
+  "input_observation_ref": "provider-input:1dd94e28466699b4",
+  "serialized_request_digest": "sha256:fb2d7884a3ee329adac2a2ef6c2b021f9a844d71d81fb1f8817881a67ec0a30c",
+  "model_id": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda"
+}
