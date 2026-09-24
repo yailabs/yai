@@ -48,6 +48,22 @@ Build the desktop without making it a core/CLI prerequisite:
 npm run desktop:build -- -- --locked
 ```
 
+On the qualified Linux source checkout, install the official command once:
+
+```sh
+npm run desktop:install
+yai-studio
+```
+
+The installer links `~/.local/bin/yai-studio` to the versioned launcher in this
+checkout; `PREFIX` may select another installation prefix. Keep its `bin` on
+`PATH`. Rebuilds are picked up automatically without copying old binaries.
+The launcher defaults `YAI_HOME` to `~/.yai`, prefers X11 when `DISPLAY` exists,
+and disables WebKit DMA-BUF by default. Explicit environment overrides are
+preserved. It does not start Vite or administer YVEX. Moving/removing the checkout
+requires reinstalling the launcher. This is a Linux source installation, not a
+signed or standalone distribution package.
+
 The build produces an executable without installer/signing qualification.
 Default window: 1600×960, minimum 1000×650. Studio owns its npm and Tauri Cargo
 lockfiles; backend builds do not require Node or Tauri. The undecorated Tauri

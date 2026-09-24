@@ -229,7 +229,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SI02 | 🟢 ESTABLISHED | Identity/Manage Activity footer, real Principal/Tenant/Participant, local identity bootstrap | Other-Principal enrollment and membership picker remain open | identity-actions.mjs; navigation-journal.mjs |
 | SI03 | 🟢 ESTABLISHED | Singleton searchable preferences; Provider/YVEX management points to Compute | Settings is not another management owner | workbench.mjs; navigation-journal.mjs |
 | SD01 | 🟢 ESTABLISHED | Native PTY, compact shared panel toolbar and conditional resizable shell list | PTY remains desktop capability, not Case authority | native desktop acceptance; terminal Rust tests |
-| SD02 | 🟡 PARTIAL | Linux native window, drag/resize, status bar and strict production CSP | Other desktop platforms require native qualification | desktop-csp.mjs; reliability.mjs |
+| SD02 | 🟡 PARTIAL | Linux native window, drag/resize, status bar, strict production CSP and versioned source-install launcher | Other desktop platforms require native qualification | desktop-csp.mjs; reliability.mjs |
 | SQ01 | 🟢 ESTABLISHED | Persistent real qualification world, explicit convergent enrichment and two-client Host event resync | Extend by normal product operations; never reset operator Case | operational-live.mjs; operational_world.py |
 | SQ02 | 🟢 ESTABLISHED | Shared geometry/tokens, lazy heavy renderers, four-size visual matrix and per-action regressions | Permanent proportional Product Quality Pass | browser suites and production build |
 | SQ03 | 🟡 PARTIAL | Automated local proof and Golden local | Human Golden and external producer evidence remain independent | HUMAN_GOLDEN_CASE = PENDING_OPERATOR |

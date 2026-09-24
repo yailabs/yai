@@ -34,7 +34,9 @@
     "test:capabilities": "node ../tests/studio/capability-parity.mjs && python3 ../tools/validation/check_studio_roadmap.py",
     "test:execution": "node ../tests/studio/execution-actions.mjs && node ../tests/studio/effect-actions.mjs && node ../tests/studio/resource-actions.mjs",
     "test:operational": "node ../tests/studio/identity-actions.mjs && node ../tests/studio/policy-intake.mjs && node ../tests/studio/source-policy-actions.mjs && node ../tests/studio/memory-actions.mjs && node ../tests/studio/work-actions.mjs && node ../tests/studio/compute-actions.mjs && node ../tests/studio/navigation-journal.mjs && node ../tests/studio/knowledge-navigation.mjs",
-    "test:conversation": "node ../tests/studio/conversation-actions.mjs"
+    "test:conversation": "node ../tests/studio/conversation-actions.mjs",
+    "desktop:install": "sh ../tools/shell/install-studio.sh",
+    "test:launcher": "python3 ../tests/studio/launcher.py"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.0",

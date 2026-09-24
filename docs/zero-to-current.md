@@ -1743,3 +1743,9 @@ The status bar shows the bound provider's recorded health and its observation
 time in the tooltip, separately from Host connectivity and model assignment.
 It does not claim continuously observed model residency. No provider probe or
 inference runs merely because the operator refreshes the view.
+
+For the Linux source installation, build Studio and run `npm run desktop:install`
+from `studio/` once. Then launch with `yai-studio`. The installed symlink resolves
+the current checkout release and includes the qualified X11/WebKit defaults; it
+does not copy a binary that becomes stale after rebuilding. Explicit environment
+overrides remain supported. Standalone packaging/signing remains unqualified.
