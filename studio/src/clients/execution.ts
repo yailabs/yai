@@ -7,6 +7,7 @@ export type ExecutionReference = { domain: "runtime_work" | "resource_request"; 
 export interface ExecutionGetInput { case_ref: string; participant_ref: string; execution: ExecutionReference }
 export interface EffectProposeInput { case_ref: string; participant_ref: string; resource_ref: string; candidate_ref: string; expected_generation: number }
 export interface EffectSubmitInput { case_ref: string; participant_ref: string; operation_ref: string; expected_generation: number }
+export interface EffectReconcileInput extends EffectSubmitInput { effect_ref: string; retry_no_effect: boolean }
 export interface ControlledOperation {
   schema: string; operation_id: string; operation_digest: string; case_id: string; participant_id: string;
   kind: "filesystem_write" | "process_signal"; resource_attachment_id: string; expected_case_generation: number;

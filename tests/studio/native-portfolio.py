@@ -75,6 +75,9 @@ class Client:
   actual=self.draft();emit(dict(client=self.index,observation='typed_unsent_draft',expected=text,actual=actual))
   assert actual==text, 'Native typing did not establish the expected draft before navigation'
  def shot(self,name):
+  # WebKitGTK may stop painting an obscured client; activate only this test window.
+  handle=self.request('GET',f'/session/{self.session}/window')
+  self.request('POST',f'/session/{self.session}/window',{'handle':handle})
   (a.evidence/name).write_bytes(base64.b64decode(self.request('GET',f'/session/{self.session}/screenshot')))
  def close(self):
   try:

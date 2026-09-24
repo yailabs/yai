@@ -31,6 +31,7 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
   const [observation, setObservation] = useState<{ identity: string; value: ExecutionObservation }>();
   const result = observation?.identity === identity ? observation.value : undefined; const [error, setError] = useState<string>(); const [busy, setBusy] = useState(false); const [stop, setStop] = useState(false);
   const [resume, setResume] = useState<{ identity: string; submission: string; run: string; digest: string }>();
+  const [reconcile, setReconcile] = useState<{ identity: string; effect: string; generation: number }>();
   const observe = async () => {
     if (!application) return; const stamp = identity; const request = ++sequence.current; setBusy(true); setError(undefined);
     try { const response = await application.execution({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, execution: reference });
@@ -53,8 +54,16 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
     {reference.domain === "controlled_effect" && result && <section aria-label="Controlled effect evidence">
       <p>{!result.progress ? "No effect admission outcome is recorded yet." : result.progress.status === "awaiting_review" ? "Waiting for Review. This observation grants no permission to execute." : result.progress.status === "indeterminate" ? "The recorded effect has no final outcome. Observation never repeats it." : "Current retained effect evidence; historical permission does not authorize another dispatch."}</p>
       <dl className="object-facts"><div><dt>Outcome</dt><dd>{result.progress?.outcome?.replaceAll("_", " ") ?? "Not recorded"}</dd></div></dl>
+      {result.progress?.status === "indeterminate" && result.progress.effect_id && result.observed_generation != null && <Button disabled={busy || !application?.supports("effect.reconcile")} onClick={() => setReconcile({ identity, effect: result.progress!.effect_id!, generation: result.observed_generation! })}>Reconcile outcome…</Button>}
       <details><summary>Effect identities</summary><dl className="object-facts">{Object.entries({ Decision: result.progress?.decision_id, Review: result.progress?.review_id, Effect: result.progress?.effect_id, Receipt: result.progress?.receipt_id }).filter(([, value]) => value != null).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl></details>
     </section>}
+    {reconcile && application && reference.domain === "controlled_effect" && <ApplicationActionDialog title="Reconcile effect outcome" description="Ask YAI to inspect the exact retained effect and record its outcome. Current authority and Resource fences still apply." submitLabel="Reconcile exact effect" close={() => setReconcile(undefined)} enabled={reconcile.identity === identity && reconcile.effect === result?.progress?.effect_id && result?.progress?.status === "indeterminate"} submit={form => application.reconcileEffect({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, operation_ref: reference.operation_ref, effect_ref: reconcile.effect, expected_generation: reconcile.generation, retry_no_effect: form.get("retry") === "on" })} committed={async () => { await observe(); await refresh(platform); }} resync={() => refresh(platform)}>
+      <p>By default, this only reconciles observed evidence. It may record that no effect occurred; it does not request another execution.</p>
+      <label className="checkbox-setting"><input type="checkbox" name="retry" />Allow filesystem recovery only if YAI proves no effect</label>
+      <p>Opting in can write the originally admitted file, only when YAI permits recovery. Process signals are never repeated by reconciliation. Conflicting or uncertain evidence does not authorize a retry.</p>
+      <details><summary>Exact effect</summary><code>{reconcile.effect}</code></details>
+      {reconcile.identity !== identity && <p role="alert">The Case changed. Close and refresh the observation.</p>}
+    </ApplicationActionDialog>}
     {reference.domain === "cognitive_realization" && result && <>
       {result.provider_result && <section aria-label="Retained cognitive result"><p>Recorded model output · candidate material</p><pre className="cognitive-result">{result.provider_result.output}</pre><details><summary>Result identity</summary><code>{result.provider_result.result_id}</code></details></section>}
       {result.attempt_outcomes?.map((outcome, index) => <ConversationAttempt key={outcome.outcome_id ?? index} outcome={outcome} />)}

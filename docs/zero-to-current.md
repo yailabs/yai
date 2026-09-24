@@ -422,6 +422,17 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    generation and file inode survive without a second write. Separate dispatcher
    tests exercise `effect.propose` over exact retained provider candidates;
    these lanes do not claim every interrupted PREPARE/reconciliation boundary.
+   In Studio, Work → Executions → an uncertain controlled effect now offers
+   **Reconcile outcome…**. The default records observed evidence only. The
+   unchecked recovery option permits only owner-qualified filesystem no-effect
+   recovery; it never repeats process signals. The dialog binds the exact
+   Operation/effect and observed Case state; a changed Case disables submission.
+   `tests/studio/effect-actions.mjs` seeds real interrupted PREPAREs with the
+   existing CLI diagnostic failpoint in a disposable home, then operates through
+   Studio and the Host: no-effect leaves the file absent, opted-in recovery writes
+   exact bytes, a lost acknowledgement disables resubmission, and an exact retry
+   preserves the receipt and generation. Hidden/wrong references are refused.
+   The operator Cases and YVEX deployment are not modified by this lane.
 
    `execution.get` also observes an exact Source ID + acquisition attempt under
    the declaring operator's current Case/Participant authority. The Application

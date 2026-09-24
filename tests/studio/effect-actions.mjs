@@ -2,13 +2,15 @@
 // Only a freshly created temporary YAI_HOME is mutated; never operator state.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { createHash } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import os from 'node:os';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
 import path from 'node:path';
 const require = createRequire(path.resolve(import.meta.dirname, '../../studio/package.json'));
 const { chromium } = require('playwright-core');
@@ -19,7 +21,7 @@ const evidence = process.env.STUDIO_EVIDENCE_DIR ?? '/tmp/yai-studio-effects';
 await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
 let telemetry, serial=0, browser, provider, child, releaseProvider, dropAcknowledgement;
-let dispatches=0;
+let dispatches=0, recoveryProposal;
 const exchanges = [];
 function rpc(request) {
  return new Promise((resolve,reject) => {
@@ -58,7 +60,7 @@ try {
  const definition={schema:'yai.resource_definition.v1',attachment_id:'resource:runner',policy_owner:'participant:operator',participant_ids:['participant:operator'],operations:['process_run'],read_prefixes:[],names:['verify'],max_output_bytes:8192,max_items:8,address:{kind:'process_runner',root:processRoot,runners:{verify:{executable,executable_digest:'sha256:'+createHash('sha256').update(await readFile(executable)).digest('hex'),argv:['-I','-B','-c',"import time; print('controlled-effect', time.time_ns())"],working_directory:'work',environment:{},timeout_ms:1000}}}};
  const resourceFile=path.join(home,'runner.json');await writeFile(resourceFile,JSON.stringify(definition));cli('case','resource','import',caseRef,'--file',resourceFile);
  const providerGate=new Promise(resolve=>{releaseProvider=resolve;});
- provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);const active=input.messages.some(message=>String(message.content).includes('YAI typed ContextFrame:'));if(active){dispatches++;await providerGate;}const content=active?JSON.stringify(dispatches===1?{schema:'yai.operation_proposal.filesystem_write.v1',operation:'filesystem.write',resource:'workspace',path:'allowed/resume-proof.txt',content:'one governed write before stop'}:{schema:'yai.case_runtime_turn.v1',outcome:'complete',summary:'continued without repeating the effect'}):'{"probe":true}';res.setHeader('Content-Type','application/json');res.end(JSON.stringify({id:'controlled',object:'chat.completion',model:input.model,choices:[{index:0,message:{role:'assistant',content},finish_reason:'stop'}],usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}}));});
+ provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);const active=input.messages.some(message=>String(message.content).includes('YAI typed ContextFrame:'));if(active){dispatches++;await providerGate;}const content=active?JSON.stringify(recoveryProposal ?? (dispatches===1?{schema:'yai.operation_proposal.filesystem_write.v1',operation:'filesystem.write',resource:'workspace',path:'allowed/resume-proof.txt',content:'one governed write before stop'}:{schema:'yai.case_runtime_turn.v1',outcome:'complete',summary:'continued without repeating the effect'})):'{"probe":true}';res.setHeader('Content-Type','application/json');res.end(JSON.stringify({id:'controlled',object:'chat.completion',model:input.model,choices:[{index:0,message:{role:'assistant',content},finish_reason:'stop'}],usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}}));});
  await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));const endpoint=`http://127.0.0.1:${provider.address().port}/v1/chat/completions`;
  const target=await accepted('provider.register',{tenant_id:'tenant:studio-ui',provider_key:'controlled-execution',adapter:'open_ai_compatible',endpoint,model_id:'controlled-model',credential_ref:'none',locality:'loopback'});
  const started=Date.now();const proof=await fetch(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model:'controlled-model',messages:[{role:'user',content:'probe'}]})}).then(response=>response.json());assert.equal(JSON.parse(proof.choices[0].message.content).probe,true);
@@ -177,7 +179,60 @@ try {
  assert.equal(await history.locator('.decision-reconstruction,.decision-corpus,.decision-evaluation').count(),0,'Refused re-read must not retain prior disclosures');
  for(const operation of ['decision.trajectory.corpus','decision.trajectory.evaluate'])assert.equal((await call(operation,{case_ref:caseRef,participant_ref:'participant:hidden',max_decisions:16})).result_state,'unauthorized');
  assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),historyBefore,'Historical inspection/evaluation must not mutate the Case');
+ // Seed a real PREPARE without dispatch through the existing diagnostic CLI failpoint.
+ // Product interaction below uses typed Host calls; the CLI is fixture setup only.
+ cli('case','attach-provider','--case',caseRef,'--subject','participant:operator','--base-url',endpoint,'--model','controlled-model');
+ for(const retry of [false,true]) {
+  const relative=`allowed/reconcile-${retry}.txt`;
+  recoveryProposal={schema:'yai.operation_proposal.filesystem_write.v1',operation:'filesystem.write',resource:'workspace',path:relative,content:`exact recovery ${retry}`};
+  let crashed;
+  try {await execFileAsync(binary,['effect','filesystem-write','--case',caseRef,'--subject','participant:operator','--attachment','workspace','--prompt','Propose the exact controlled recovery write','--base-url',endpoint,'--model','controlled-model','--failpoint','after_prepare_before_effect'],{env:{...process.env,YAI_HOME:home},timeout:30000});}
+  catch(error){crashed=error;}
+  assert.ok(crashed,'Failpoint must interrupt before external execution');
+  assert.match(crashed.stderr,/controlled_effect_crash_injected: after_prepare_before_effect/);
+  await writeFile(`${evidence}/prepare-${retry}.json`,JSON.stringify({argv:crashed.cmd,exit:crashed.code,stdout:crashed.stdout,stderr:crashed.stderr}));
+  await assert.rejects(readFile(path.join(workspace,relative)),{code:'ENOENT'});
+  const decisions=await accepted('decision.trajectory.corpus',{case_ref:caseRef,participant_ref:'participant:operator',max_decisions:32});
+  let prepared;
+  for(const item of decisions.trajectories){const response=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:{domain:'controlled_effect',operation_ref:item.decision.operation_id}});if(response.result_state==='success' && response.data.progress?.status==='indeterminate'){prepared=response.data;break;}}
+  assert.ok(prepared,'Prepared effect must remain observable after CLI interruption');
+  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+  await page.getByRole('button',{name:'Observe exact execution…',exact:true}).click();
+  await manual.getByLabel('Execution family').selectOption('controlled_effect');await manual.getByLabel('Exact reference').fill(prepared.operation_ref);await manual.getByRole('button',{name:'Observe reference',exact:true}).click();
+  const recovery=page.locator('.execution-history .execution-receipt').filter({hasText:prepared.operation_ref});
+  await recovery.getByRole('button',{name:'Reconcile outcome…',exact:true}).click();
+  form=page.getByRole('dialog',{name:'Reconcile effect outcome',exact:true});
+  assert.equal(await form.getByRole('checkbox').isChecked(),false);
+  if(!retry)for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});const box=await form.boundingBox();assert.ok(box.x>=0 && box.y>=0 && box.x+box.width<=width+1 && box.y+box.height<=height+1,'Recovery dialog must fit');await page.screenshot({path:`${evidence}/reconcile-dialog-${width}x${height}.png`});}
+  await page.setViewportSize({width:1440,height:900});
+  // A dialog opened before a Case change cannot submit against a new snapshot.
+  await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:`reconcile-stale-${retry}`});
+  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+  assert.equal(await form.getByRole('button',{name:'Reconcile exact effect',exact:true}).isEnabled(),false);
+  await form.getByRole('button',{name:'Cancel',exact:true}).click();
+  await recovery.getByRole('button',{name:'Reconcile outcome…',exact:true}).click();
+  if(retry)await form.getByRole('checkbox').check();
+  const noDispatch=dispatches;dropAcknowledgement='effect.reconcile';
+  await form.getByRole('button',{name:'Reconcile exact effect',exact:true}).click();await form.getByText('Confirmation was lost',{exact:true}).waitFor();
+  const reconciled=exchanges.findLast(item=>item.request.operation_ref==='effect.reconcile');
+  assert.equal(reconciled.result.result_state,'success',JSON.stringify(reconciled));
+  assert.equal(reconciled.request.input.retry_no_effect,retry);
+  assert.equal(reconciled.result.data.progress.outcome,retry?'applied':'no_effect');
+  assert.equal(await form.getByRole('button',{name:'Reconcile exact effect',exact:true}).isEnabled(),false);
+  await form.getByRole('button',{name:'Close and inspect state',exact:true}).click();await recovery.getByRole('button',{name:'Refresh observation',exact:true}).click();
+  await recovery.getByText(retry?'applied':'no effect',{exact:true}).waitFor();
+  assert.equal(await recovery.getByRole('button',{name:'Reconcile outcome…',exact:true}).count(),0);
+  const retained=await accepted('case.summary',{case_ref:caseRef});
+  const repeated=await accepted('effect.reconcile',reconciled.request.input);
+  assert.equal(repeated.progress.receipt_id,reconciled.result.data.progress.receipt_id);
+  assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),retained);
+  const hidden=await call('effect.reconcile',{...reconciled.request.input,participant_ref:'participant:hidden'});assert.notEqual(hidden.result_state,'success');assert.equal(hidden.data,undefined);
+  const wrong=await call('effect.reconcile',{...reconciled.request.input,effect_ref:'effect:wrong'});assert.notEqual(wrong.result_state,'success');
+  if(retry)assert.equal(await readFile(path.join(workspace,relative),'utf8'),recoveryProposal.content);else await assert.rejects(readFile(path.join(workspace,relative)),{code:'ENOENT'});
+  assert.equal(dispatches,noDispatch,'Reconciliation must not invoke the provider again');
+  await page.screenshot({path:`${evidence}/reconcile-${retry}.png`});
+ }
  await page.screenshot({path:`${evidence}/work-executions.png`});assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,execution:finished.execution_ref,effect:effect.result.data.execution.operation_ref,proof:['UI controlled Resource effect; lost acknowledgement then exact retry, one dispatch','Configuration digest mismatch refused with no effect','UI process attach positive/absent PID refusal; no signal','UI bounded Case run, real supervised controlled provider','UI exact cooperative stop','Host restart, execution observation and no duplicate provider dispatch','Wrong runner and hidden Participant refused','UI Decision corpus/inspect/evaluate; exact pre-cut and real refusal; no mutation','UI stopped checkpoint resume; lost ACK exact retry; stale/hidden refusal; retained budgets and run identity','Historical Decision to exact current controlled-effect receipt; hidden/unknown refusal and no canonical mutation','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,execution:finished.execution_ref,effect:effect.result.data.execution.operation_ref,proof:['UI controlled Resource effect; lost acknowledgement then exact retry, one dispatch','Configuration digest mismatch refused with no effect','UI process attach positive/absent PID refusal; no signal','UI bounded Case run, real supervised controlled provider','UI exact cooperative stop','Host restart, execution observation and no duplicate provider dispatch','Wrong runner and hidden Participant refused','UI Decision corpus/inspect/evaluate; exact pre-cut and real refusal; no mutation','UI stopped checkpoint resume; lost ACK exact retry; stale/hidden refusal; retained budgets and run identity','Historical Decision to exact current controlled-effect receipt; hidden/unknown refusal and no canonical mutation','UI exact effect reconciliation: observation-only/no-effect and opted-in filesystem recovery; lost ACK/idempotent receipt; stale dialog, hidden/wrong identity refusals','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();child?.kill();releaseProvider?.();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}
