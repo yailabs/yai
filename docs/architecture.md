@@ -1016,6 +1016,26 @@ Surviving C control, filesystem/process carrier, receipt, and observation
 components contain typed or platform properties protected by component tests.
 They are built separately and are not normal product call paths.
 
+### Retained provider candidates and controlled effects
+
+`effect.propose` resolves exact retained result provenance from the Case's
+committed prefix. Operation/normalization-refusal reduction uses that same prefix
+at append and replay; standalone `CaseState::reduce` retains its bounded
+latest-result behavior. Historical lookup does not replace the latest projection,
+change persisted schemas, confer authority or dispatch an effect. Current
+generation, authenticated Participant, Resource and effect-time admission remain
+mandatory. The prefix witness rejects foreign/future results, ambiguous identities
+and mismatched invocation/Participant lineage.
+
+Archaeology: `yai-dev` at `5c1c7b9d0`,
+`src/case/chronology/case_provider_evidence_projection.c` only projects reference
+facts; `src/case/case_effect_continuity_contract.c` explicitly implements no
+continuity engine. Neither supplies historical candidate admission. Current
+Rust commit `cda1375` established the exact-result/invocation check using the
+latest-result projection in its first controlled-effect vertical. That invariant
+is retained, with canonical prefix resolution for subsequent retained candidates;
+no historical runtime/Agent owner is recovered.
+
 ## Current governance intake behavior
 
 [`governance.rs`](../engine/yai-engine/src/governance.rs) owns one source

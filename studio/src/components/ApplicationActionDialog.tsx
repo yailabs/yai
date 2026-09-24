@@ -17,7 +17,7 @@ export function ApplicationActionDialog({ title, description, submitLabel, child
   const root = useModalFocus(() => { if (!submitting.current) close(); });
   const uncertain = result?.result_state === "transport_unavailable";
   const explanation = result?.error?.code === "case_close_requires_cancellation" ? "YAI requires a Case cancellation before final closure. Cancel the Case first, then request closure; YAI will check remaining blockers."
-    : ["normalization_failure_result_mismatch", "operation_provider_lineage_mismatch"].includes(result?.error?.code ?? "") ? "YAI currently requires the latest provider result for a new Resource proposal. This older candidate was not recorded as an Operation."
+    : ["normalization_failure_result_mismatch", "operation_provider_lineage_mismatch"].includes(result?.error?.code ?? "") ? "YAI could not verify the exact candidate provenance. No Operation was recorded; refresh the Case and inspect the execution."
     : result?.error?.code === "workflow_human_input_bounds_invalid" ? "The input exceeds the bounds declared by this Workflow node. Adjust it and submit again."
     : result?.error?.safe_message ?? result?.result_state;
   const send = async (event: React.FormEvent<HTMLFormElement>) => {

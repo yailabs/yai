@@ -1263,6 +1263,14 @@ impl CaseState {
     }
 
     pub fn reduce(&self, transition: &Transition) -> Result<Self, String> {
+        self.reduce_with_history(transition, &[])
+    }
+
+    // Only the store's canonical prefix or the already-replayed prefix may be
+    // supplied here. History resolves candidate lineage, never current authority.
+    pub(crate) fn reduce_with_history(
+        &self, transition: &Transition, history: &[Transition],
+    ) -> Result<Self, String> {
         transition.validate()?;
         if self.case_id != transition.case_id {
             return Err("case_state_case_mismatch".to_string());
@@ -1700,11 +1708,13 @@ impl CaseState {
                 provider_result_id,
                 failure,
             } => {
-                let Some(result) = next.last_provider_result.as_ref() else {
-                    return Err("normalization_failure_without_provider_result".to_string());
-                };
-                if result.result_id != *provider_result_id {
-                    return Err("normalization_failure_result_mismatch".to_string());
+                if !next.last_provider_result.as_ref().is_some_and(|result| result.result_id == *provider_result_id)
+                    && !retained_candidate_matches(history, &next, provider_result_id, None,
+                        transition.source.participant_id.as_deref())
+                {
+                    return Err(if next.last_provider_result.is_none() {
+                        "normalization_failure_without_provider_result"
+                    } else { "normalization_failure_result_mismatch" }.to_string());
                 }
                 next.last_normalization_failure = Some(NormalizationFailureState {
                     provider_result_id: provider_result_id.clone(),
@@ -1755,13 +1765,14 @@ impl CaseState {
                         provider_result_id,
                         provider_invocation_id,
                     } => {
-                        let Some(result) = next.last_provider_result.as_ref() else {
-                            return Err("operation_without_provider_result".to_string());
-                        };
-                        if result.result_id != *provider_result_id
-                            || result.invocation_id != *provider_invocation_id
+                        if !next.last_provider_result.as_ref().is_some_and(|result|
+                            result.result_id == *provider_result_id && result.invocation_id == *provider_invocation_id)
+                            && !retained_candidate_matches(history, &next, provider_result_id,
+                                Some(provider_invocation_id), Some(&operation.participant_id))
                         {
-                            return Err("operation_provider_lineage_mismatch".to_string());
+                            return Err(if next.last_provider_result.is_none() {
+                                "operation_without_provider_result"
+                            } else { "operation_provider_lineage_mismatch" }.to_string());
                         }
                     }
                     OperationOrigin::CompatibilityReview {
@@ -4757,6 +4768,34 @@ fn apply_finalized_effect(
     Ok(())
 }
 
+// The historical result must already precede this reduction in this Case,
+// with its exact invocation and Participant. No future/foreign result or
+// presentation reference can act as the witness.
+fn retained_candidate_matches(
+    history: &[Transition], state: &CaseState, result_ref: &str,
+    invocation_ref: Option<&str>, participant_ref: Option<&str>,
+) -> bool {
+    let mut matches = history.iter().filter(|entry| entry.case_id == state.case_id
+        && entry.sequence <= state.generation).filter_map(|entry| match &entry.payload {
+        TransitionPayload::ProviderResultRecorded { result_id, invocation_id, .. }
+            if result_id == result_ref => Some((entry.sequence, invocation_id)),
+        _ => None,
+    });
+    let Some((sequence, invocation)) = matches.next() else { return false; };
+    if matches.next().is_some() || invocation_ref.is_some_and(|expected| expected != invocation) {
+        return false;
+    }
+    let mut invocations = history.iter().filter(|entry|
+        entry.case_id == state.case_id && entry.sequence < sequence
+    ).filter_map(|entry| match &entry.payload {
+        TransitionPayload::ProviderInvocationStarted { invocation_id, participant_id, .. }
+            if invocation_id == invocation => Some(participant_id.as_str()),
+        _ => None,
+    });
+    let actor = invocations.next();
+    actor.is_some() && actor == participant_ref && invocations.next().is_none()
+}
+
 pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseState, String> {
     if transitions.is_empty() {
         return Err("cannot_replay_empty_case_history".to_string());
@@ -4774,7 +4813,7 @@ pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseStat
     };
     let mut turns = std::collections::BTreeMap::new();
     let mut intents = std::collections::BTreeSet::new();
-    for transition in transitions {
+    for (index, transition) in transitions.iter().enumerate() {
         match &transition.payload {
             TransitionPayload::ConversationTurnCommitted { turn } => {
                 turns.insert(turn.turn_id.as_str(), turn);
@@ -4811,7 +4850,7 @@ pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseStat
             }
             _ => {}
         }
-        state = state.reduce(transition)?;
+        state = state.reduce_with_history(transition, &transitions[..index])?;
     }
     Ok(state)
 }
@@ -4874,6 +4913,36 @@ mod tests {
             provenance: Vec::new(),
             summary: Some("presentation only".to_string()),
         }
+    }
+
+    #[test]
+    fn historical_candidate_witness_rejects_foreign_future_ambiguous_and_wrong_actor() {
+        let mut state = CaseState::new("case:test", CaseLifecycle::Open);
+        state.generation = 5;
+        let invocation = transition(2, TransitionPayload::ProviderInvocationStarted {
+            invocation_id: "invocation:old".into(), participant_id: "participant:operator".into(),
+            provider_id: "provider:test".into(), provider_kind: "fixture".into(),
+            model_id: "model:test".into(), semantic_lineage: None, governance: None,
+        });
+        let result = transition(3, TransitionPayload::ProviderResultRecorded {
+            result_id: "result:old".into(), invocation_id: "invocation:old".into(),
+            provider_id: "provider:test".into(), provider_kind: "fixture".into(),
+            model_id: "model:test".into(), semantic_lineage: None, output: "candidate".into(),
+        });
+        let accepts = |history: &[Transition], invocation_ref, participant| retained_candidate_matches(
+            history, &state, "result:old", invocation_ref, participant);
+        let history = vec![invocation.clone(), result.clone()];
+        assert!(accepts(&history, Some("invocation:old"), Some("participant:operator")));
+        assert!(!accepts(&history, Some("invocation:other"), Some("participant:operator")));
+        assert!(!accepts(&history, None, Some("participant:other")));
+        assert!(!accepts(&history, None, None));
+        let mut foreign = result.clone(); foreign.case_id = "case:other".into();
+        assert!(!accepts(&[invocation.clone(), foreign], None, Some("participant:operator")));
+        let mut future = result.clone(); future.sequence = 6;
+        assert!(!accepts(&[invocation.clone(), future], None, Some("participant:operator")));
+        assert!(!accepts(&[result.clone()], None, Some("participant:operator")));
+        assert!(!accepts(&[invocation.clone(), invocation.clone(), result.clone()], None, Some("participant:operator")));
+        assert!(!accepts(&[invocation, result.clone(), result], None, Some("participant:operator")));
     }
 
     #[test]

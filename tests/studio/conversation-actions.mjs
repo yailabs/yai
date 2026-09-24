@@ -367,9 +367,9 @@ try {
  // Ordinary prose is not silently turned into an operation.
  const prose=page.locator('.turn-ai').first().locator('.candidate-effect');
  await openCandidate(prose);await prose.getByRole('button',{name:'Prepare Resource action…',exact:true}).click();form=page.getByRole('dialog',{name:'Prepare Resource action',exact:true});
- await form.getByRole('button',{name:'Record proposal',exact:true}).click();await form.getByRole('alert').waitFor();
- const archivedRefusal=exchanges.findLast(x=>x.request.operation_ref==='effect.propose');assert.equal(archivedRefusal.result.error.code,'normalization_failure_result_mismatch');await form.getByText('YAI currently requires the latest provider result for a new Resource proposal. This older candidate was not recorded as an Operation.',{exact:true}).waitFor();
- await form.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await prose.getByRole('region',{name:'Recorded Resource action'}).count(),0);
+ await form.getByRole('button',{name:'Record proposal',exact:true}).click();await form.waitFor({state:'hidden'});
+ const archivedRefusal=exchanges.findLast(x=>x.request.operation_ref==='effect.propose');assert.equal(archivedRefusal.result.data.posture,'normalization_refused');
+ await prose.getByRole('alert').waitFor();assert.equal(await prose.getByRole('region',{name:'Recorded Resource action'}).count(),0);
  await composer.fill('Return ordinary prose for the normalization refusal test.');await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.locator('.conversation-exchange').filter({hasText:'Return ordinary prose for the normalization refusal test.'}).locator('.conversation-answer').getByText('Controlled provider response',{exact:true}).waitFor();
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
@@ -381,6 +381,11 @@ try {
  providerContent=JSON.stringify({schema:'yai.operation_proposal.filesystem_write.v1',operation:'filesystem.write',resource:'candidate-workspace',path:'allowed/explicit.txt',content:'EXACT_STUDIO_EFFECT_SENTINEL'});
  await composer.fill('Prepare the controlled file proposal for the test Resource.');await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.locator('.conversation-answer').filter({hasText:'EXACT_STUDIO_EFFECT_SENTINEL'}).waitFor();
+ // Qualify proposing an older exact candidate after a newer response exists.
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ providerContent='Newer response does not replace the retained effect candidate';
+ await composer.fill('Record a newer ordinary response before proposing the prior candidate.');await page.getByRole('button',{name:'Send',exact:true}).click();
+ await page.locator('.conversation-answer').getByText(providerContent,{exact:true}).waitFor();
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
  const candidateAction=page.locator('.turn-ai').filter({has:page.locator('.conversation-answer').filter({hasText:'EXACT_STUDIO_EFFECT_SENTINEL'})}).locator('.candidate-effect');
  const exactCandidateRef=await page.locator('.conversation-answer').filter({hasText:'EXACT_STUDIO_EFFECT_SENTINEL'}).getAttribute('data-result-ref');

@@ -377,12 +377,13 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    resume, hidden/stale refusal, prose normalization refusal and a Review gate
    leaving the file absent. Terminate/resume action variants and reconciliation
    authoring remain unqualified; the whole effect family is not promoted.
-   A real owner-level limitation remains: a new proposal from an older retained
-   result can pass the store history lookup but fail Transition's latest-result
-   lineage fence (`normalization_failure_result_mismatch` or
-   `operation_provider_lineage_mismatch`). Studio explains the refusal and does
-   not reconstruct or alter the candidate. The regression preserves this finding;
-   supporting arbitrary historical candidates requires an engine-owned resolution.
+   An older retained result remains eligible for explicit normalization after a
+   newer response: the engine resolves its exact invocation and Participant in
+   the canonical Case prefix, at commit and replay. Current generation, policy,
+   Resource and effect admission still apply. The latest-result projection is
+   not overwritten, and no result body is copied into new canonical storage.
+   The product regression records a newer response before proposing the older
+   candidate, then proves exact effect bytes, retry identity and CLI replay.
    Dialogs render in the shared document overlay so chat typography/headers cannot
    compress action titles or hide controls. Case refreshes coalesce concurrent
    requests but retain a follow-up read: a mutation arriving during an older

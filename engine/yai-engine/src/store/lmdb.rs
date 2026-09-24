@@ -10835,7 +10835,14 @@ impl LmdbRecordStore {
         transition.validate()?;
 
         let next_state = if let Some(state) = current_state {
-            state.reduce(&transition)?
+            // Historical candidates need canonical lineage, not a replacement
+            // of the latest-result projection. Other reductions need no scan.
+            let history = if matches!(&transition.payload,
+                TransitionPayload::OperationRecorded { operation }
+                    if matches!(operation.origin, OperationOrigin::ProviderResult { .. }))
+                || matches!(&transition.payload, TransitionPayload::OperationNormalizationFailed { .. })
+            { self.list_case_transitions_txn(txn, &transition.case_id)? } else { Vec::new() };
+            state.reduce_with_history(&transition, &history)?
         } else {
             let lifecycle = match &transition.payload {
                 crate::transition::TransitionPayload::CaseOpened { lifecycle }

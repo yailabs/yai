@@ -373,6 +373,18 @@ fn canonical_effect_retry(prepared_only: bool, revoked: bool, process: bool, exp
         provider_id:"provider:fixture".into(),provider_kind:"openai_compatible".into(),
         model_id:"model:fixture".into(),semantic_lineage:Some(lineage.clone()),output:proposal.into(),
     }, vec!["invocation:fixture".into()], None);
+    // A later response must not invalidate the exact retained candidate. The
+    // latest-result projection remains latest while normalization uses history.
+    commit("newer-invocation", TransitionPayload::ProviderInvocationStarted {
+        invocation_id:"invocation:newer".into(), participant_id:"participant:operator".into(),
+        provider_id:"provider:fixture".into(),provider_kind:"openai_compatible".into(),
+        model_id:"model:fixture".into(),semantic_lineage:Some(lineage.clone()),governance:None,
+    }, vec![], None);
+    commit("newer-result", TransitionPayload::ProviderResultRecorded {
+        result_id:"result:newer".into(),invocation_id:"invocation:newer".into(),
+        provider_id:"provider:fixture".into(),provider_kind:"openai_compatible".into(),
+        model_id:"model:fixture".into(),semantic_lineage:Some(lineage.clone()),output:"newer unrelated prose".into(),
+    }, vec!["invocation:newer".into()], None);
     let state = store.get_case_state("case:audit").unwrap().unwrap();
     let normalization = NormalizationContext {
         case_id:"case:audit",participant_id:"participant:operator",provider_result_id:"result:fixture",
@@ -388,6 +400,10 @@ fn canonical_effect_retry(prepared_only: bool, revoked: bool, process: bool, exp
     assert_eq!(f.call("effect.propose", wrong).result_state, ResultState::Unauthorized);
     let mut stale = propose.clone(); stale["expected_generation"] = json!(0);
     assert_eq!(f.call("effect.propose", stale).result_state, ResultState::Stale);
+    let mut unknown = propose.clone(); unknown["candidate_ref"] = json!("result:other-case-or-unknown");
+    let hidden = f.call("effect.propose", unknown);
+    assert_ne!(hidden.result_state, ResultState::Success);
+    assert!(hidden.data.is_none());
     assert_eq!(f.generation(), state.generation);
     let recorded = f.success("effect.propose", propose.clone());
     assert_eq!(recorded["posture"], "recorded");
@@ -395,6 +411,8 @@ fn canonical_effect_retry(prepared_only: bool, revoked: bool, process: bool, exp
     let after_propose = f.generation();
     assert_eq!(f.success("effect.propose", propose), recorded);
     assert_eq!(f.generation(), after_propose);
+    assert_eq!(store.get_case_state("case:audit").unwrap().unwrap().last_provider_result.unwrap().result_id, "result:newer");
+    assert!(store.verify_case_state("case:audit").unwrap());
     assert!(store.get_case_state("case:audit").unwrap().unwrap().effects.is_empty());
     let input = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
         "operation_ref":operation.operation_id,"expected_generation":f.generation()});
