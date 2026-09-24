@@ -82,6 +82,8 @@ Telemetry is a dedicated Product Surface for Host PID/clients, Case Resource
 inventory, bound endpoints and retained submissions. Database/process/HTTP live
 health is **APPLICATION BOUNDARY GAP**: these inventories do not project a current
 probe or process-residency observation. No “running” badge is inferred from a binding.
+Existing provider health is consumed as a dated observation with circuit/failure
+facts, separately from current availability.
 Product tabs now have an overflow selector and distinct geometry; contextual tool
 launchers occupy their own rail rather than covering tabs. Default bottom-panel
 height is reduced while existing local preferences remain intact.

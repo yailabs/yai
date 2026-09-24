@@ -177,6 +177,11 @@ try {
  await page.locator('.live-rail button[aria-label="Telemetry"]').click();
  await page.getByRole('heading',{name:'Telemetry',exact:true}).waitFor();
  assert.ok((await page.locator('#telemetry-host').innerText()).includes(String(telemetry.pid)));
+ const observedSnapshot=await accepted('case.summary',{case_ref:caseRef});
+ const providerHealth=observedSnapshot.compute.targets[0].posture.health;
+ assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(providerHealth.circuit));
+ assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(String(providerHealth.consecutive_failures)));
+ assert.equal(await page.locator('#telemetry-endpoints').getByText(providerHealth.observed_at_unix_ms ? `Observed: ${providerHealth.posture}` : 'Live health unknown',{exact:true}).count(),1);
  await page.locator('.live-rail button[aria-label="Overview"]').click();
  await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
  // Revoked current trust refuses a new model assignment (no bypass in React).

@@ -1559,7 +1559,8 @@ as the new result. Controlled-provider tests do not establish DeepSeek quality.
 Open **Telemetry** in the rail. Verify Host PID, observed uptime, clients and
 endpoint against Host controls. Case Resources and bound models must distinguish
 configuration from live health: availability stays unknown without a qualified
-observation. **Refresh observations** requests current existing projections; it
+observation. Provider health includes its recorded time, circuit and failure count;
+it must not be presented as a probe performed when you opened the tab. **Refresh observations** requests current existing projections; it
 starts no service. This tab does not yet provide an all-process OS inventory or
 live database/service probes.
 

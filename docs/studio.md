@@ -1319,6 +1319,7 @@ Telemetry is a Product Surface consuming existing Host telemetry and Case
 projections. Host PID and client process facts are observations; Resource inventory
 and model endpoints are configuration. They are not database health, endpoint
 reachability or a complete OS process list. Those require a qualified backend
-observation contract. No Studio-side process scan or network probe is introduced.
+observation contract. Existing provider health observations are shown with their
+recorded time, circuit posture and failure count; they do not imply a new probe. No Studio-side process scan or network probe is introduced.
 The existing Application capability entries remain exact: this is another authored
 consumer of Conversation/execution operations, not a new semantic capability.

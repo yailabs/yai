@@ -42,7 +42,13 @@ export function TelemetrySurface({ workspace, platform, actions }: SurfaceRender
       {!workspace.environment.resources.length && <EmptyState title="No Resources attached" body="Attach qualified infrastructure through Environment."/>}
     </section>
     <section id="telemetry-endpoints"><header><h2>Bound model endpoints</h2><span>{workspace.compute.targets.length}</span></header>
-      {workspace.compute.targets.map(target => <button className="telemetry-row" key={target.id} onClick={() => actions.inspect(target.id)}><span><strong>{target.model_id}</strong><small>{target.provider_key} · {target.locality}</small></span><span>{target.endpoint || "Endpoint not disclosed"}</span><Badge>Live health unknown</Badge></button>)}
+      <p className="surface-note">Retained provider observations include their observation time. They are not a new reachability probe.</p>
+      {workspace.compute.targets.map(target => {
+        const health = typeof target.posture === "object" ? target.posture?.health : undefined;
+        return <div key={target.id} className="telemetry-target"><button className="telemetry-row" onClick={() => actions.inspect(target.id)}><span><strong>{target.model_id}</strong><small>{target.provider_key} · {target.locality}</small></span><span>{target.endpoint || "Endpoint not disclosed"}</span><Badge>{health?.observed_at_unix_ms ? `Observed: ${health.posture}` : "Live health unknown"}</Badge></button>
+          {health && <dl aria-label={`Provider observation for ${target.model_id}`}><div><dt>Observed at</dt><dd>{date(health.observed_at_unix_ms)}</dd></div><div><dt>Circuit</dt><dd>{health.circuit}</dd></div><div><dt>Consecutive failures</dt><dd>{health.consecutive_failures}</dd></div>{health.failure_class && <div><dt>Last failure class</dt><dd>{health.failure_class}</dd></div>}</dl>}
+        </div>;
+      })}
       {!workspace.compute.targets.length && <EmptyState title="No model target bound" body="Configure inventory in Providers, then bind a target in Compute."/>}
       <Button onClick={() => actions.openPerspective("Compute")}>Open Compute</Button>
     </section>
