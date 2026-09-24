@@ -1671,3 +1671,17 @@ Ordinary Activity, Work history and Timeline rows omit the technical Case counte
 Historical-cut controls and exact receipts call it **Case state version**: it
 identifies a committed Case state, not a model generation or a Studio build.
 The typed generation fields and stale-state checks remain unchanged.
+
+### Continue explicitly stopped work
+
+In **Work → Executions**, refresh the exact runtime submission. An
+`operator_stopped` checkpoint exposes **Resume stopped work…**. The dialog captures
+the exact run/checkpoint and a new retained submission identity. Limits are totals,
+not fresh allowances: consumed invocations are preserved. If the acknowledgement
+is lost, close and observe the retained continuation; Studio never resubmits it
+automatically. Current authority and checkpoint freshness are enforced by YAI.
+The controlled `effect-actions.mjs` lane tests continuation with remaining budget;
+`STUDIO_RESUME_LIMIT=1` exercises already-consumed budget without another dispatch.
+Both retain the previous run, exact retry and restart observation, and assert
+that the already-applied filesystem effect is not repeated. Other checkpoint
+postures are still not authored in this bounded UI.

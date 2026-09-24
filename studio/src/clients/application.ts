@@ -2,7 +2,7 @@ import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
 import type { ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
-import type { ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput } from "./execution";
+import type { ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderQualificationInput, ProviderBindingInput } from "./compute";
@@ -104,6 +104,7 @@ export class ApplicationAccess implements Disposable {
   execution(input: ExecutionGetInput) { return this.invoke("execution.get", () => this.client.execution(input)); }
   requestResource(input: ResourceRequestInput) { return this.invoke("resource.request", () => this.client.requestResource(input)); }
   attachProcess(input: ProcessAttachmentInput) { return this.invoke("resource.attach_process", () => this.client.attachProcess(input)); }
+  resumeCase(input: CaseResumeInput) { return this.invoke("case.resume", () => this.client.resumeCase(input)); }
   runCase(input: CaseRunInput) { return this.invoke("case.run", () => this.client.runCase(input)); }
   stopCase(input: CaseStopInput) { return this.invoke("case.stop", () => this.client.stopCase(input)); }
   inspectKnowledge(request: KnowledgeRequest) { return this.invoke("knowledge.inspect", () => this.client.inspectKnowledge(request)); }

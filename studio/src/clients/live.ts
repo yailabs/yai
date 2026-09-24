@@ -3,7 +3,7 @@ import type { ProviderModelsInput, ProviderModels } from "./compute";
 import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput, ConversationSubmission } from "./conversation";
 import type { InspectedConversationExecution } from "./executionContext";
-import type { ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput } from "./execution";
+import type { ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
@@ -160,6 +160,7 @@ export class LiveClient {
   execution(input: ExecutionGetInput) { return this.call<ExecutionObservation>("execution.get", input); }
   requestResource(input: ResourceRequestInput) { return this.call<ExecutionSubmission>("resource.request", input); }
   attachProcess(input: ProcessAttachmentInput) { return this.call<unknown>("resource.attach_process", input); }
+  resumeCase(input: CaseResumeInput) { return this.call<ExecutionSubmission>("case.resume", input); }
   runCase(input: CaseRunInput) { return this.call<ExecutionSubmission>("case.run", input); }
   stopCase(input: CaseStopInput) { return this.call<ExecutionObservation>("case.stop", input); }
   inspectKnowledge(request: KnowledgeRequest) { return this.call<KnowledgeView>("knowledge.inspect", { request }); }

@@ -2,7 +2,7 @@
  * This is not an operation registry or authorization decision. Unknown/new IDs stay unqualified. */
 export interface StudioOperationPosture { state: "integrated" | "alternative" | "debt"; detail: string; proof?: string }
 export const studioOperationPostures: Readonly<Record<string, StudioOperationPosture>> = {
-  "case.resume": { state: "debt", detail: "Application supports exact queued-work continuation; Studio still needs checkpoint selection and resume/refusal interaction evidence." },
+  "case.resume": { state: "integrated", detail: "Explicit operator-stopped checkpoint continuation, retained identity and total budgets; lost ACK observation, exact retry and stale/hidden refusal", proof: "tests/studio/effect-actions.mjs" },
   "cognitive.realization.prepare": { state: "debt", detail: "Application prepares an exact plan from retained Turn parts; authored selection and inspection remain unconnected." },
   "cognitive.realize": { state: "debt", detail: "Reconnect-safe exact-plan submission is available; Studio must retain the plan reference and observe instead of redispatching." },
   "cognitive.compose": { state: "debt", detail: "Application admits one explicit composition intent; source-part and prerequisite selection need an authored interaction." },

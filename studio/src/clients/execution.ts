@@ -10,7 +10,7 @@ export interface ExecutionObservation {
   operation_ref?: string; source_ref?: string; attempt?: number; progress_ref?: string;
   state?: string; phase?: string; current_source_phase?: string; observed_generation?: number;
   posture?: string | { state: string; result_ref?: string; receipt_ref?: string; effect_ref?: string; outcome?: string; review_ref?: string; decision_ref?: string; external_execution_started?: boolean };
-  runner?: { run_ref: string; posture: string; stop_requested: boolean };
+  runner?: { run_ref: string; checkpoint_digest: string; posture: string; stop_requested: boolean };
 }
 export interface ExecutionSubmission { created?: boolean; execution: ExecutionObservation; advancement?: string; outcome?: { posture: string; reason?: string } }
 export interface RuntimeBudgets { max_invocations: number; max_operations: number; max_semantic_units: number; max_resident_items: number; max_estimated_input_units: number; max_provider_retries: number; max_runtime_ms: number; stop_on_deny: boolean; continue_after_malformed: boolean }
@@ -35,3 +35,5 @@ export function rememberExecution(key: string, execution: ExecutionReference) {
   sessionStorage.setItem(key, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent("yai:execution-reference", { detail: { key } }));
 }
+
+export interface CaseResumeInput { case_ref: string; participant_ref: string; previous_submission_ref: string; submission_ref: string; run_ref: string; checkpoint_digest: string; budgets: RuntimeBudgets }
