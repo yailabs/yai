@@ -128,7 +128,7 @@ try:
     script("document.querySelector('button[aria-label=\"New terminal\"]').click()")
     wait('return document.querySelectorAll(".terminal-instance-pane [role=tab]").length===2')
     wait('return document.querySelectorAll(".telemetry-shell").length===2')
-    script('document.querySelector(`.telemetry-sidebar-link[href="#telemetry-shells"]`).click()')
+    script('document.querySelector(`.telemetry-sidebar-link[data-section="shells"]`).click()')
     wait('const r=document.querySelector("#telemetry-shells")?.getBoundingClientRect();return r && r.top>=0 && r.top<innerHeight/2')
     shot('native-shell-telemetry')
     script("document.querySelector('.terminal-instance-pane button[title=\"Kill Terminal\"]').click()")

@@ -44,7 +44,7 @@ function Narrative({ workspace, platform, configure, inspect }: { workspace: Cas
       const value = response.data;
       if (response.result_state === "success" && value && value.case_ref === case_ref && value.participant_ref === participant_ref && value.submission_ref === request.submission_ref) {
         setResult(value); setError(undefined); setObserved(Date.now());
-        if (["admitted", "running", "unresolved"].includes(value.posture)) timer = setTimeout(() => void observe(), 2000);
+        if (!value.primary_result && ["admitted", "running"].includes(value.posture)) timer = setTimeout(() => void observe(), 2000);
       } else {
         setResult(undefined); setError(response.error?.safe_message ?? "Narrative observation unavailable or identity mismatch.");
       }

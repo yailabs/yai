@@ -38,6 +38,6 @@ export function conversationExecutionMessage(execution: ConversationExecution): 
   if (execution.attempt_outcomes.some(outcome => outcome.response_status === 413)) {
     return "The model server rejected this request as too large (HTTP 413). The request includes Case context, even for a short message. Check the model deployment’s input limits in Compute. It has not been sent again.";
   }
-  if (execution.posture === "unresolved") return "YAI has not resolved this execution yet. Checking its recorded state…";
+  if (execution.posture === "unresolved") return "YAI has no recorded response or active execution for this request. Checking its status does not send the request again.";
   return "No completed response is available. This execution has not been sent again.";
 }

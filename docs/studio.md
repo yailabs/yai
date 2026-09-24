@@ -1461,3 +1461,18 @@ path: native qualification starts without a Host and checks both the desktop
 executable identity and `supervised_running` before work is accepted. The
 `platform.local_host` and `platform.runtime_host` capability identities and
 existing typed operations remain exact; no new scheduler or authority is added.
+
+Conversation and Overview explanation polling follows only Application `admitted`
+or `running` execution observations without a recorded result. `unresolved` is
+not evidence of active work: the view offers an explicit status check and never
+redispatches it. Terminal responses stop polling within that observation cycle;
+Case updates and manual checks reapply current disclosure. The existing
+`execution.get` read contract remains exact. `conversation-observation.mjs`
+qualifies these presentation behaviors separately from governed Host execution.
+
+Telemetry uses a compact Product Surface with one selected observation section.
+Its toolbar tabs and secondary sidebar share an existing window-local context
+key; keyboard arrows/Home/End use the same selection. Navigation does not alter
+the browser hash or create Case history. Host, Runtime, Shells, Clients, Resources,
+Endpoints and Executions retain their distinct observation scopes. Exact execution
+receipts mount only when that section is selected; selection adds no health probe.

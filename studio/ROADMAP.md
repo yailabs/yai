@@ -98,7 +98,8 @@ The Overview now separates current projected situation, the operational Workflow
 recent committed changes and an explicitly requested model explanation. Explanation
 uses existing governed Conversation SEND and exact execution observation; candidate
 Markdown cannot fetch external content. Real-model narrative quality remains open.
-Telemetry is a dedicated Product Surface for Host PID/clients, Case Resource
+Telemetry uses a compact section workspace with shared tab/sidebar selection
+and keyboard navigation for Host PID/clients, Case Resource
 inventory, bound endpoints and retained submissions. Database/process/HTTP live
 health is **APPLICATION BOUNDARY GAP**: these inventories do not project a current
 probe or process-residency observation. No “running” badge is inferred from a binding.
@@ -270,7 +271,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SO02 | 🟡 PARTIAL | Define/bind human checkpoint workflows, HumanInput, checkpoint patch propose/adopt | Other node authors, effective patched topology/prompt projection open | work-actions.mjs |
 | SO03 | 🟡 PARTIAL | Explicit Handoff offer/accept/decline/result/reconcile | Authored exact refs work; inbox/read projection and richer result navigation open | work-actions.mjs |
 | SO04 | 🟢 ESTABLISHED | Journal from committed history, follow/pause/search/type/component, Inspector/Timeline | Latest 160 disclosure; not a complete ledger browser | navigation-journal.mjs; operational-live.mjs |
-| SC01 | 🟡 PARTIAL | Text SEND, canonical Turn/result display, exact lost-ack recovery and local draft retention | Live token streaming, attachments, explicit cancellation and broader execution diagnosis remain | conversation-actions.mjs |
+| SC01 | 🟡 PARTIAL | Text SEND, canonical Turn/result display, exact lost-ack recovery and local draft retention | Live token streaming, attachments, explicit cancellation and broader execution diagnosis remain; unresolved observations have explicit read-only checks | conversation-actions.mjs; conversation-observation.mjs |
 | SP01 | 🟢 ESTABLISHED | Authored generic target register, measured evidence import, trust and explicit Case binding | Full model/runtime catalog not implied | compute-actions.mjs |
 | SP02 | 🟡 PARTIAL | Full-height deployment workspace with Runtime/Evidence/Platform; selected-target Inspector, timed health/failure observations and bounded refresh | Tenant target inventory and exposed model discovery are typed; per-Case usage aggregation and typed probe action remain open | compute-actions.mjs |
 | SP03 | 🟡 PARTIAL | Cognitive preparation distinguished from provider configuration | Primary conversation suitability and assignment are authored; auxiliary roles and exact planning/realization remain debt | Explicit Compute posture |

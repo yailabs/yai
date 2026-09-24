@@ -1846,3 +1846,16 @@ Case switching and restart. `context_capacity.py --desktop-host PATH` separately
 qualifies actual governed dispatch, capacity refusal, exact retry and retained
 context after restart using a controlled provider. Keep these local results
 separate from the real DeepSeek observation and pending human acceptance.
+
+For an older unresolved Conversation request, **Check status** reads its recorded
+state without sending another message. Overview uses **Check explanation** for
+the same purpose. Neither view labels an unresolved observation as active
+generation or keeps polling it indefinitely. A later authoritative Case update
+or explicit check can reveal a retained result; normal active requests continue
+to be observed until completion.
+
+Telemetry now opens one section at a time. Select Runtime, Shells or Endpoints
+from either the tab row or sidebar and verify both show the same selection.
+Use Left/Right, Home/End on the tab row; at 1000×650 the toolbar and section
+content must remain reachable. Endpoint health still includes its observation
+time, and Resource availability remains unknown when the owner has no live fact.

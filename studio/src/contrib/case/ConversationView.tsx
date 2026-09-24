@@ -70,12 +70,11 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     if (!application?.supports("execution.get")) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
+    const refs = workspace.conversation.turns.slice(-32).filter(turn => turn.execution_request_ref);
+    let inputs: Array<Parameters<typeof application.observeConversation>[0]["execution"]> = refs.map(turn => ({ domain: "cognitive_composition" as const, request_ref: turn.execution_request_ref! }));
+    if (pending) inputs.push({ domain: "conversation", submission_ref: pending.submission_ref });
     const observe = async () => {
-      let active = false;
-      const refs = workspace.conversation.turns.slice(-32).filter(turn => turn.execution_request_ref);
-      const queries = refs.map(turn => ({ domain: "cognitive_composition" as const, request_ref: turn.execution_request_ref! }));
-      const inputs: Array<Parameters<typeof application.observeConversation>[0]["execution"]> = [...queries];
-      if (pending) inputs.push({ domain: "conversation", submission_ref: pending.submission_ref });
+      const active: typeof inputs = [];
       for (const execution of inputs) {
         const result = await application.observeConversation({ case_ref: caseRef, participant_ref: participant, execution });
         if (disposed) return;
@@ -85,7 +84,9 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
             setError("Conversation identity mismatch. Result withheld."); continue;
           }
           accept(value);
-          active ||= ["admitted", "running", "unresolved"].includes(value.posture);
+          // Unresolved means no active carrier or terminal evidence is known.
+          // It is not a queued retry. Events/manual checks may observe it again.
+          if (!value.primary_result && ["admitted", "running"].includes(value.posture)) active.push(execution);
           if (value.observed_generation > workspace.case.generation) void refresh();
           if (execution.domain === "conversation" && pending) {
             // The canonical Turn proves acknowledgement, including after a lost response.
@@ -96,9 +97,10 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
         } else if (result.result_state === "unauthorized") {
           setExecutions(previous => Object.fromEntries(Object.entries(previous).filter(([, value]) => execution.domain === "cognitive_composition" ? value.request_ref !== execution.request_ref : value.submission_ref !== execution.submission_ref)));
           setError(result.error?.safe_message ?? "Execution is no longer visible to this Participant.");
-        } else if (result.result_state === "transport_unavailable" || result.result_state === "stale") active = true;
+        } else if (result.result_state === "transport_unavailable" || result.result_state === "stale") active.push(execution);
       }
-      if (!disposed && active) timer = setTimeout(() => void observe(), 1500);
+      inputs = active;
+      if (!disposed && active.length) timer = setTimeout(() => void observe(), 1500);
     };
     void observe();
     return () => { disposed = true; clearTimeout(timer); };
@@ -143,6 +145,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
         <article className="real-turn turn-human"><header><strong>{turn.participant_ref === participant ? "You" : turn.participant_ref}</strong><small title={`Committed at Case state version ${turn.generation}`}>Committed</small></header>{turn.parts.map((part, index) => <p key={index}>{part.text ?? `[${part.modality} · ${part.media_type}]`}</p>)}</article>
         {execution && <article className="real-turn turn-ai"><header><strong>Model</strong>{!execution.primary_result && <Badge tone={ ["admitted", "running"].includes(execution.posture) ? "info" : "warning"}>{execution.posture.replaceAll("_", " ")}</Badge>}</header>
           <p>{conversationExecutionMessage(execution)}</p>
+          {execution.posture === "unresolved" && <Button type="button" onClick={() => setTick(value => value + 1)}>Check status</Button>}
           <details><summary>Execution details</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}{execution.attempt_outcomes.map((outcome, index) => <pre key={index}>{JSON.stringify(outcome, null, 2)}</pre>)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
         </article>}
       </div>; })}

@@ -210,14 +210,41 @@ try {
  assert.equal(generationRequests,narrativeBefore+1);
  await page.locator('.live-rail button[aria-label="Telemetry"]').click();
  await page.getByRole('heading',{name:'Telemetry',exact:true}).waitFor();
+ const telemetryUrl=page.url();
+ assert.equal(await page.getByRole('tabpanel').count(),1);
+ assert.equal(await page.locator('#telemetry-runtime').isVisible(),false);
  assert.ok((await page.locator('#telemetry-host').innerText()).includes(String(telemetry.pid)));
+ await page.getByRole('tab',{name:'Host',exact:true}).focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await page.getByRole('tab',{name:'Runtime',exact:true}).getAttribute('aria-selected'),'true');
  assert.equal(await page.locator('#telemetry-runtime').getByText('PID',{exact:true}).locator('..').locator('dd').innerText(),String(telemetry.runtime_observation.pid));
  assert.equal(await page.locator('#telemetry-runtime').getByText('Active workers at observation',{exact:true}).locator('..').locator('dd').innerText(),String(telemetry.runtime_observation.active_workers));
  const observedSnapshot=await accepted('case.summary',{case_ref:caseRef});
  const providerHealth=observedSnapshot.compute.targets[0].posture.health;
+ await page.getByRole('tab',{name:'Endpoints',exact:true}).click();
  assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(providerHealth.circuit));
  assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(String(providerHealth.consecutive_failures)));
  assert.equal(await page.locator('#telemetry-endpoints').getByText(providerHealth.observed_at_unix_ms ? `Observed: ${providerHealth.posture}` : 'Live health unknown',{exact:true}).count(),1);
+ await page.locator('.telemetry-sidebar-link[data-section="clients"]').click();
+ assert.equal(await page.getByRole('tab',{name:'Clients',exact:true}).getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('#telemetry-clients').isVisible(),true);
+ assert.equal(page.url(),telemetryUrl,'Telemetry navigation must not mutate browser hash');
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+  await page.setViewportSize({width,height});
+  assert.equal(await page.getByRole('tabpanel').count(),1);
+  const geometry=await page.locator('.telemetry-surface').evaluate(element=>({width:element.clientWidth,scroll:element.scrollWidth}));
+  assert.ok(geometry.scroll<=geometry.width+1,'Telemetry must not overflow the Work Surface');
+  await page.screenshot({path:`${evidence}/telemetry-${width}x${height}.png`});
+ }
+ await page.getByRole('tab',{name:'Clients',exact:true}).focus();await page.keyboard.press('End');
+ assert.equal(await page.getByRole('tab',{name:'Executions',exact:true}).getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('#telemetry-executions .execution-history').isVisible(),true);
+ const lastTab=await page.getByRole('tab',{name:'Executions',exact:true}).boundingBox();
+ const tabStrip=await page.getByRole('tablist',{name:'Telemetry sections'}).boundingBox();
+ assert.ok(lastTab.x+lastTab.width<=tabStrip.x+tabStrip.width+1,'Keyboard focus reveals the last narrow tab');
+ await page.keyboard.press('Home');
+ assert.equal(await page.getByRole('tab',{name:'Host',exact:true}).getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('#telemetry-executions .execution-history').count(),0,'Hidden telemetry execution receipts are not mounted');
+ await page.setViewportSize({width:1440,height:900});
  await page.locator('.live-rail button[aria-label="Overview"]').click();
  await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
  // Revoked current trust refuses a new model assignment (no bypass in React).
