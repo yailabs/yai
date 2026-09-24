@@ -157,7 +157,7 @@ fn host_operation(operation: &str, invocation: &Invocation) -> Result<CliData, C
                     "the foreground Host has no finite JSON result; use `yai host status --json`",
                 ));
             }
-            crate::command_adapters::runtime_instance::serve_application_host(&home)
+            crate::serve_application_host(&home)
                 .map_err(|error| domain_error("host_serve_failed", error))?;
             return Ok(CliData::AlreadyRendered);
         }

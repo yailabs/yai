@@ -6,6 +6,8 @@ edition = "2021"
 [[bin]]
 name = "yai"
 path = "src/main.rs"
+# The executable delegates to the library; all product tests live there.
+test = false
 
 [dependencies]
 replai = { git = "https://github.com/mothx9/replai", rev = "6230713c3c80140e609f836918811835bd847da4" }

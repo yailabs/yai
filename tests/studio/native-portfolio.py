@@ -2,7 +2,7 @@
 """Native portfolio qualification: read-only existing Cases or fresh-profile event/restart proof."""
 import argparse,base64,hashlib,json,os,shutil,socket,subprocess,sys,tempfile,time,urllib.request
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,default=Path(__file__).resolve().parents[2]);p.add_argument('--binary',type=Path,required=True);p.add_argument('--yai',type=Path,required=True);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--cases',nargs=2,required=True);p.add_argument('--fresh-profile',action='store_true',help='Create disposable manifest Cases and qualify CLI update fanout/restart; never mutate the supplied YAI_HOME');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,default=Path(__file__).resolve().parents[2]);p.add_argument('--binary',type=Path,required=True);p.add_argument('--yai',type=Path,required=True);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--cases',nargs=2,required=True);p.add_argument('--fresh-profile',action='store_true',help='Create disposable manifest Cases and qualify CLI update fanout/restart; never mutate the supplied YAI_HOME');p.add_argument('--desktop-autostart',action='store_true',help='Fresh profile only: the first native Studio starts the supervised Host');a=p.parse_args();assert not a.desktop_autostart or a.fresh_profile
 owned_root=None;host_started=False
 if a.fresh_profile:
  manifest=json.loads((a.repo/'tests/qualification/behavioral-corpus/portfolio.json').read_text())
@@ -94,25 +94,44 @@ try:
            desktop_binary=str(a.binary.resolve()),desktop_sha256=digest(a.binary),
            evidence_class='native_local_product',provider='not_invoked',material_pre_state='fresh manifest-derived disposable profile' if a.fresh_profile else 'existing operator Cases; only unsent window-local drafts'))
  if a.fresh_profile:
-  host_started=True;cli('host','start');host=Host(home)
+  host_started=True
   emit(dict(manifest=manifest))
-  call('identity.bootstrap',dict(tenant_id=manifest['tenant'],organization_ref=manifest['organization']))
-  for ref in a.cases:
-   call('case.create',dict(case_ref=ref,tenant_id=manifest['tenant']))
-   call('participant.role.add',dict(case_ref=ref,participant_ref=manifest['participant'],role='operator'))
-   call('participant.principal.link',dict(case_ref=ref,participant_ref=manifest['participant'],principal_ref='self'))
+  if a.desktop_autostart:
+   cli('init','--tenant',manifest['tenant'],'--organization',manifest['organization'])
+   for ref in a.cases:
+    cli('case','create',ref,'--tenant',manifest['tenant'])
+    cli('case','participant','role','add',ref,'--participant',manifest['participant'],'--role','operator')
+    cli('case','participant','link-principal',ref,'--principal','self','--participant',manifest['participant'])
+   assert status()['state']=='stopped', 'No prestarted Host may hide desktop auto-start defects'
+   first=Client(0);clients.append(first);host=Host(home)
+   deadline=time.monotonic()+15
+   while True:
+    started=status()
+    if started['runtime_supervision']=='supervised_running':break
+    assert time.monotonic()<deadline, 'Desktop Host did not supervise the existing RuntimeInstance'
+    time.sleep(.1)
+   assert Path(f"/proc/{started['pid']}/exe").resolve()==a.binary.resolve(), 'Desktop binary must own the Host'
+  else:
+   cli('host','start');host=Host(home)
+   call('identity.bootstrap',dict(tenant_id=manifest['tenant'],organization_ref=manifest['organization']))
+   for ref in a.cases:
+    call('case.create',dict(case_ref=ref,tenant_id=manifest['tenant']))
+    call('participant.role.add',dict(case_ref=ref,participant_ref=manifest['participant'],role='operator'))
+    call('participant.principal.link',dict(case_ref=ref,participant_ref=manifest['participant'],principal_ref='self'))
  else:host=Host(home)
  baseline=status();assert baseline['state']=='running'
  before={ref:summary(ref) for ref in a.cases};labels={ref:value['case']['display_name'] for ref,value in before.items()}
- first=Client(0);clients.append(first);first.open(a.cases[0],labels[a.cases[0]]);assert first.draft()=='';first.type('UNSENT_NATIVE_ALPHA')
+ if not a.desktop_autostart:
+  first=Client(0);clients.append(first)
+ first.open(a.cases[0],labels[a.cases[0]]);assert first.draft()=='';first.type('UNSENT_NATIVE_ALPHA')
  second=Client(1);clients.append(second);second.open(a.cases[1],labels[a.cases[1]]);assert second.draft()=='';second.type('UNSENT_NATIVE_BETA')
  deadline=time.monotonic()+10
  while True:
   attached=status()
-  if attached['connected_clients']>=baseline['connected_clients']+2:break
+  if attached['connected_clients']>=(2 if a.desktop_autostart else baseline['connected_clients']+2):break
   assert time.monotonic()<deadline;time.sleep(.1)
  assert attached['pid']==baseline['pid'] and attached['instance_id']==baseline['instance_id']
- old_clients={client['client_id'] for client in baseline['clients']}
+ old_clients=set() if a.desktop_autostart else {client['client_id'] for client in baseline['clients']}
  new_studios=[client for client in attached['clients'] if client['client_kind']=='studio' and client['client_id'] not in old_clients]
  assert len(new_studios)==2, 'Exactly two new native Studio attachments required'
  assert len({client['pid'] for client in new_studios})==2, 'Native Studios must have different process identities'
@@ -138,7 +157,7 @@ try:
   cli('host','restart');host=Host(home);restarted=status()
   assert restarted['instance_id']!=baseline['instance_id'] and restarted['pid']!=baseline['pid']
   for client in clients:
-   client.wait('return document.querySelector(".kernel-status")?.innerText.includes("YAI ●")')
+   client.wait('return document.querySelector(".host-status")?.dataset.state === "live"')
   # A second post-restart mutation proves fresh subscriptions, not cached UI.
   cli('case','participant','role','add','--case',a.cases[0],'--participant',manifest['participant'],'--role','native-reconnected-observer')
   recovered=summary(a.cases[0]);assert recovered['case']['generation']==advanced['case']['generation']+1

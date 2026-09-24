@@ -392,7 +392,7 @@ fn main() {
                     .unwrap_or_else(|| PathBuf::from("."))
                     .join(".yai")
             });
-        std::process::exit(match yai_host::serve(home) {
+        std::process::exit(match yai::serve_application_host(&home) {
             Ok(()) => 0,
             Err(error) => {
                 eprintln!("YAI Local Host failed: {error}");

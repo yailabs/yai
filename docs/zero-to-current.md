@@ -1836,3 +1836,13 @@ inspect the model context. The answer must remain candidate text with its exact
 execution; it must not appear in the infrastructure Case. Do not send another
 question merely to inspect this result. Full operational-Case inference and
 `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` remain unchanged.
+
+For native-start acceptance, stop only a disposable qualification Host and start
+Studio against that profile. Settings > YAI Host must report the existing runtime
+as supervised once identity is enrolled; merely showing an available Application
+service is insufficient. `tests/studio/native-portfolio.py --fresh-profile
+--desktop-autostart` exercises this path with two native clients, CLI mutation,
+Case switching and restart. `context_capacity.py --desktop-host PATH` separately
+qualifies actual governed dispatch, capacity refusal, exact retry and retained
+context after restart using a controlled provider. Keep these local results
+separate from the real DeepSeek observation and pending human acceptance.

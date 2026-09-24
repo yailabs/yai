@@ -18,3 +18,4 @@ serde_json = "1"
 portable-pty = "0.9.0"
 yai-application = { path = "../../application/yai-application" }
 yai-host = { path = "../../application/yai-host" }
+yai = { path = "../../cmd/yai" }

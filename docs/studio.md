@@ -1452,3 +1452,12 @@ Workspace and status bar share that observation across navigation; Host loss or
 capability refresh invalidates it. Late reads cannot replace newer checks or
 cross Host/Tenant/target identity. Catalog timestamps are explicit; this is not
 continuous monitoring, residency evidence or a new capability.
+
+Native Host auto-start uses the same Rust product-process composition as
+`yai host serve`, including the existing RuntimeInstance supervisor. The desktop
+links the narrow `yai::serve_application_host` entry; it does not execute or
+parse CLI commands. An existing CLI-started Host is insufficient proof of this
+path: native qualification starts without a Host and checks both the desktop
+executable identity and `supervised_running` before work is accepted. The
+`platform.local_host` and `platform.runtime_host` capability identities and
+existing typed operations remain exact; no new scheduler or authority is added.

@@ -364,8 +364,14 @@ lifecycle/client library. Multiple Studio processes attach to the same Host,
 and closing a Studio process removes only its ephemeral attachment and PTYs.
 
 `RuntimeInstance` remains the existing tenant-fair multi-Case scheduler. The
-execution-lifecycle composition connects normal `yai host serve`
-to that same typed scheduler, in the resident process. Before local enrollment
+execution-lifecycle composition connects both normal `yai host serve` and the
+native desktop's `--yai-local-host-serve` entry to that same typed scheduler in
+the resident process. `cmd/yai/src/lib.rs` exposes this existing product-process
+composition as a Rust library; Tauri calls its typed `serve_application_host`
+entry directly. The CLI binary delegates its registry entry through the same
+library. No desktop command parsing, CLI subprocess or second scheduler is
+introduced. The existing scheduler/runner implementation remains in its current
+source owner; this boundary does not claim a broader source relocation. Before local enrollment
 it waits for identity rather than bootstrapping authority. If a separately
 launched runtime already owns a live lease/process identity, the Host observes
 it without acquiring a competing lease or stopping it on Host shutdown. For a
@@ -395,6 +401,17 @@ exposing its private lease or compatibility-journal fields. This bounded queue
 property alone does not establish provider/effect recovery. The separate
 real-process execution tests qualify each domain's terminal or indeterminate
 posture, including loss of the Host while a provider request is in flight.
+
+Native auto-start qualification must begin with no resident Host. Attaching to
+a CLI-started Host cannot prove that the desktop executable composes scheduling.
+`native-portfolio.py --fresh-profile --desktop-autostart` checks the executable
+identity and supervised posture; the context-capacity lane can also select
+`--desktop-host` to exercise actual dispatch, refusal and restart through that
+composition. Historical `yai-dev` controller code at `5c1c7b9d0` (changed in
+`dda93ee3a`) and its runtime-binary surface test were re-inspected: its daemon
+fork/kill and Session/provider coupling are not recovered. The current Rust
+singleton, lease and graceful-drain mechanisms already preserve the applicable
+process-lifecycle properties and remain the sole owners.
 
 The Case runner checkpoint contract is shared below presentation in
 `application/yai-application/src/runtime_execution.rs`; the existing runner and

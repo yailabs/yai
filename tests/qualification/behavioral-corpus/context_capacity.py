@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--yai", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--studio-url", help="Optional running isolated Studio Vite for the actual Host UI read")
+    parser.add_argument("--desktop-host", type=Path, help="Run the native desktop Host composition instead of the CLI foreground Host")
     args = parser.parse_args()
     binary = str(args.yai.resolve())
     run = f"context-capacity-{time.time_ns()}"
@@ -99,12 +100,29 @@ def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     endpoint = f"http://127.0.0.1:{server.server_port}"
+    native_process = None
+    def start_host():
+        nonlocal native_process
+        if not args.desktop_host:
+            cli("host", "start")
+            return
+        command = [str(args.desktop_host.resolve()), "--yai-local-host-serve"]
+        native_process = subprocess.Popen(command, env={**os.environ, "YAI_HOME":str(home)},
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        emit(command=command, native_pid=native_process.pid,
+            desktop_sha256=hashlib.sha256(args.desktop_host.read_bytes()).hexdigest())
+        deadline = time.monotonic() + 15
+        while not (home / "run/host/discovery.json").exists():
+            assert native_process.poll() is None, "Desktop Host exited during startup"
+            assert time.monotonic() < deadline, "Desktop Host startup timed out"
+            time.sleep(.05)
+
     started = False
     try:
         emit(prestate="fresh isolated profile", home=str(home), evidence_class="deterministic_local_product",
              binary_sha256=hashlib.sha256(Path(binary).read_bytes()).hexdigest())
         started = True
-        cli("host", "start")
+        start_host()
         host = Host(home)
 
         def call(operation, inputs, expected="success"):
@@ -141,6 +159,16 @@ def main():
             suite_ref="studio.operator.conversation.v1", run_ref=run, evidence_refs=["evidence:controlled-probe"]))
         call("cognitive.binding.set", dict(scope, role="primary", capability="primary_conversation",
             candidates=[dict(target_ref=target, semantic_evidence_ref=suitability["evidence_id"])], replace=False))
+
+        if args.desktop_host:
+            deadline = time.monotonic() + 15
+            while True:
+                telemetry = cli("host", "status")["data"]["value"]
+                if telemetry["runtime_supervision"] == "supervised_running":
+                    assert telemetry["pid"] == native_process.pid
+                    break
+                assert time.monotonic() < deadline, telemetry
+                time.sleep(.1)
 
         def send(identity):
             generation = call("case.summary", dict(case_ref=case))["case"]["generation"]
@@ -198,7 +226,12 @@ def main():
         assert call("conversation.send", refused_inputs)["created"] is False
         assert len(dispatches) == 2 and len(preflights) == 2
         instance = host.discovery["instance_id"]
-        cli("host", "restart")
+        if args.desktop_host:
+            cli("host", "stop")
+            assert native_process.wait(timeout=15) == 0
+            start_host()
+        else:
+            cli("host", "restart")
         host = Host(home)
         assert host.discovery["instance_id"] != instance
         reopened = call("execution.get", dict(query, include_context=True))
@@ -234,6 +267,8 @@ def main():
         server.server_close()
         if started:
             cli("host", "stop")
+            if native_process:
+                assert native_process.wait(timeout=15) == 0
         shutil.rmtree(home)
         evidence.close()
 
