@@ -152,11 +152,44 @@ try {
  await page.getByText(/The model server rejected this request as too large/).waitFor();
  assert.equal(generationRequests-baselineRequests,3);
  assert.equal(await page.locator('.turn-ai > p').filter({hasText:'Controlled provider response'}).count(),2);
+ // Overview narration reuses governed SEND; no provider shortcut or draft replacement.
+ rejectOversized=false;
+ await page.setViewportSize({width:1440,height:900});
+ await composer.fill('Conversation draft survives narrative generation');
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+ const narrative=page.getByRole('region',{name:'Model explanation'});
+ const narrativeBefore=generationRequests;
+ dropAcknowledgement='conversation.send';
+ await narrative.getByRole('button',{name:'Generate explanation',exact:true}).click();
+ await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
+ assert.equal(generationRequests,narrativeBefore+1);
+ assert.equal(await composer.inputValue(),'Conversation draft survives narrative generation');
+ const narrativeSend=exchanges.findLast(x=>x.request.operation_ref==='conversation.send');
+ assert.match(new TextDecoder().decode(new Uint8Array(narrativeSend.request.input.parts[0].bytes)),/storia operativa/);
+ const narrativeRetry=await accepted('conversation.send',narrativeSend.request.input);
+ assert.equal(narrativeRetry.created,false);assert.equal(generationRequests,narrativeBefore+1);
+ await page.locator('.live-rail button[aria-label="Memory"]').click();
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+ await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
+ assert.equal(generationRequests,narrativeBefore+1,'Reopen must only observe');
+ await narrative.getByRole('button',{name:'Check explanation',exact:true}).click();
+ assert.equal(generationRequests,narrativeBefore+1);
+ await page.locator('.live-rail button[aria-label="Telemetry"]').click();
+ await page.getByRole('heading',{name:'Telemetry',exact:true}).waitFor();
+ assert.ok((await page.locator('#telemetry-host').innerText()).includes(String(telemetry.pid)));
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+ await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
  // Revoked current trust refuses a new model assignment (no bypass in React).
  await accepted('provider.trust.set',{target_ref:target.target_id,posture:'denied'});
  const rejected=await call('cognitive.binding.set',{case_ref:caseRef,participant_ref:'participant:operator',role:'primary',capability:'primary_conversation',candidates:[{target_ref:target.target_id,semantic_evidence_ref:attested.data.evidence_id}],replace:true});
  assert.notEqual(rejected.result_state,'success');
+ const beforeRefusal=generationRequests;
+ await narrative.getByRole('button',{name:'Generate a new explanation',exact:true}).click();
+ await page.waitForFunction(()=>{const n=document.querySelector('.overview-narrative');return n && (n.querySelector('[role="alert"]') || n.querySelector('.narrative-text')?.textContent.includes('No completed response'));});
+ assert.equal(generationRequests,beforeRefusal,'Revoked trust must not dispatch narrative inference');
+ assert.equal(await narrative.locator('.narrative-text').filter({hasText:'Controlled provider response'}).count(),0);
+
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID']}));
 } finally {await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

@@ -1537,3 +1537,35 @@ CLI-origin Resource action's exact receipt through the Host Application boundary
 Expected refs must come from the original product result. The suite also checks
 repeat observation and unauthorized disclosure refusal. Its structural CAN_DO
 coverage is not model-driven task execution or natural-language evaluation.
+
+
+### Rich Overview, model explanation and Telemetry
+
+In the current native build, open **Tech Infra Inference Service → Overview**.
+Check current Sources, Workflow progression, Reviews, bindings, exact operational
+prompts and recent changes. These sections render authoritative projections without
+requiring a model. Main product headings/status do not display the technical
+Generation counter; exact cuts remain available in technical evidence.
+
+With a qualified primary conversation model bound, **Generate explanation** sends
+an explicit governed request for a readable Case story. It creates retained
+Conversation/execution history; opening Overview alone does not send anything.
+Inspect its context/evidence, follow disclosed object links, leave and reopen the
+tab: the existing result must be observed without another inference. Conversation
+drafts must survive. After a lost acknowledgement, check the exact submission before
+retrying; retry preserves its identity. A refusal must not display an older answer
+as the new result. Controlled-provider tests do not establish DeepSeek quality.
+
+Open **Telemetry** in the rail. Verify Host PID, observed uptime, clients and
+endpoint against Host controls. Case Resources and bound models must distinguish
+configuration from live health: availability stays unknown without a qualified
+observation. **Refresh observations** requests current existing projections; it
+starts no service. This tab does not yet provide an all-process OS inventory or
+live database/service probes.
+
+At narrow widths, use **Switch open Surface** to reach overflowing tabs. Float,
+move, dock and close Conversation/Inspector independently; drafts and pinned
+selection must survive. Reset Layout uses a smaller default bottom panel. Existing
+saved layouts retain their dimensions. Validate at 1600×960, 1440×900, 1280×800 and
+1000×650. Human acceptance remains `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` until
+reported against the published build.

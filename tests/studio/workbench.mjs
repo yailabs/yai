@@ -53,7 +53,7 @@ try {
   if (await shell.getAttribute("data-case-source") !== "fixture") throw new Error("fixture data posture missing");
   if (await shell.getAttribute("data-host") !== "web") throw new Error("web host posture missing");
   if (await page.locator(".desktop-resize-handle").count()) throw new Error("browser mode exposed native resize handles");
-  if (JSON.stringify(await page.locator(".live-rail > button").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))) !== JSON.stringify(["Overview", "Environment", "Knowledge", "Memory", "Authority", "Work", "Compute", "Providers", "YVEX"])) throw new Error("registered core/platform navigation missing or reordered");
+  if (JSON.stringify(await page.locator(".live-rail > button").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))) !== JSON.stringify(["Overview", "Environment", "Knowledge", "Memory", "Authority", "Work", "Compute", "Providers", "YVEX", "Telemetry"])) throw new Error("registered core/platform navigation missing or reordered");
   if (await page.locator(".live-sidebar [data-view-container='Overview']").count() !== 1) throw new Error("registered Sidebar View missing");
   await page.getByText("Terminal requires desktop host").waitFor();
   report("One Workbench renders registered Activity Bar, Sidebar, Panel and browser host posture");

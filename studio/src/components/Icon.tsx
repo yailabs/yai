@@ -1,4 +1,6 @@
 const paths = {
+  message: "M4 4h16v12H9l-5 4z",
+  activity: "M3 12h4l3-7 4 14 3-7h4",
   case: "M3 6h6l2 2h10v12H3z M3 6V4h6l2 2",
   sources: "M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z",
   file: "M6 3h8l4 4v14H6z M14 3v5h4 M9 12h6 M9 16h6",

@@ -19,7 +19,7 @@ export class PlatformServices extends DisposableStore {
   readonly configuration = this.add(new ConfigurationService({
     "workbench.sidebar.width": 204,
     "workbench.auxiliary.width": 320,
-    "workbench.panel.heightRatio": 0.36,
+    "workbench.panel.heightRatio": 0.24,
     "workbench.openPreview": true,
     "workbench.rail.hidden": [],
     "workbench.rail.order": [],

@@ -9,6 +9,8 @@ import { perspectiveInput, surfaceTypes } from "./surfaces/inputs";
 import { JournalPanel } from "./case/JournalPanel";
 import { IdentityAccess, ManageAccess } from "./settings/WorkbenchAccess";
 
+const TelemetryNavigation = lazy(() => import("./case/TelemetrySurface").then(module => ({ default: module.TelemetryNavigation })));
+const TelemetrySurface = lazy(() => import("./case/TelemetrySurface").then(module => ({ default: module.TelemetrySurface })));
 const SettingsSurface = lazy(() => import("./settings/SettingsSurface").then(module => ({ default: module.SettingsSurface })));
 const TableSurface = lazy(() => import("./surfaces/TableSurface"));
 const PdfSurface = lazy(() => import("./surfaces/PdfSurface"));
@@ -48,6 +50,9 @@ export const builtInContributions: readonly StudioContribution[] = [
     id: "yai.work-surfaces",
     register({ workbench, platform }) {
       return [
+        workbench.registerViewContainer({ id: "Telemetry", title: "Telemetry", icon: "activity", order: 23, rail: { section: "platform", fixed: false, defaultPinned: true }, surface: { id: "surface:telemetry", identity: "surface:telemetry", title: "Telemetry", icon: "activity", pinned: true, viewId: "Telemetry", surfaceType: "platform.telemetry" } }),
+        workbench.registerView({ id: "Telemetry.navigation", containerId: "Telemetry", title: "Telemetry", order: 0, component: TelemetryNavigation }),
+        workbench.registerSurfaceRenderer({ type: "platform.telemetry", role: "system", archetype: "product", capabilities: ["singleton", "navigable"], component: TelemetrySurface }),
         workbench.registerQuickOpen({ id: "case.projected-objects", items: caseOpenTargets }),
         workbench.registerActivityFooter({ id: "studio.identity", order: 0, component: IdentityAccess }),
         workbench.registerActivityFooter({ id: "studio.manage", order: 1, component: ManageAccess }),
@@ -72,7 +77,7 @@ export const builtInContributions: readonly StudioContribution[] = [
         workbench.settings.register({ id: "workbench.openPreview", title: "Open material in preview", description: "Single-click reuses one preview tab. Double-click pins the Surface.", section: "Workbench", scope: "local", control: "boolean", defaultValue: true, available: true }),
         workbench.settings.register({ id: "workbench.sidebar.width", title: "Explorer width", description: "Width in pixels. Dragging the Explorer divider updates the same preference.", section: "Workbench", scope: "local", control: "number", defaultValue: 204, available: true }),
         workbench.settings.register({ id: "workbench.auxiliary.width", title: "Context panel width", description: "Width in pixels for Conversation, Inspector and Activity.", section: "Workbench", scope: "local", control: "number", defaultValue: 320, available: true }),
-        workbench.settings.register({ id: "workbench.panel.heightRatio", title: "Bottom panel height", description: "Fraction of window height, from 0.20 to 0.72. Maximize remains temporary.", section: "Workbench", scope: "local", control: "number", defaultValue: .36, available: true }),
+        workbench.settings.register({ id: "workbench.panel.heightRatio", title: "Bottom panel height", description: "Fraction of window height, from 0.20 to 0.72. Maximize remains temporary.", section: "Workbench", scope: "local", control: "number", defaultValue: .24, available: true }),
         workbench.settings.register({ id: "general.caseContinuity", title: "Case continuity", description: "Back and Forward traverse local Studio navigation. Closing a tab or window does not close the durable Case.", section: "General", scope: "local", control: "information", available: true }),
         workbench.settings.register({ id: "appearance.reducedMotion", title: "Reduce motion", description: "Minimize nonessential Workbench transitions.", section: "Appearance", scope: "local", control: "boolean", defaultValue: false, available: true }),
         workbench.settings.register({ id: "terminal.scrollback", title: "Terminal scrollback", description: "Maximum number of lines retained by a local terminal renderer.", section: "Terminal", scope: "local", control: "number", defaultValue: 5000, available: platform.host.capabilities.terminalAvailable, unavailableReason: "Requires the desktop host" }),

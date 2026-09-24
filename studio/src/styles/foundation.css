@@ -780,3 +780,26 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .context-tool-launcher button { padding: 4px 9px; border: 0; background: transparent; color: var(--yai-text-muted); font-size: 11px; border-radius: 5px; }
 .context-tool-launcher button[aria-pressed="true"] { background: var(--yai-selected); color: var(--yai-text); }
 @media(max-width:1100px) { .context-deck[data-docked="true"] { width: min(var(--right-width), 300px); flex-basis: min(var(--right-width), 300px); } }
+
+/* One Surface owner, with explicit material/product/canvas presentation. */
+.surface-tabbar { display:flex; flex:0 0 38px; min-width:0; background:var(--yai-panel); border-bottom:1px solid var(--yai-divider); }
+.surface-tabbar .surface-tabs { flex:1 1 auto; min-width:0; height:38px; }
+.surface-tabbar .surface-tab > button[role=tab] { height:38px; }
+.surface-switcher { flex:0 0 34px; width:34px; min-width:34px; border:0; border-left:1px solid var(--yai-divider); border-radius:0; color:var(--yai-text-muted); background:var(--yai-panel); font-size:0; cursor:pointer; }
+.surface-switcher option { font-size:13px; }
+.surface-tab[data-archetype="product"] { margin:4px 2px; border:0; border-radius:6px; }
+.surface-tabbar .surface-tab[data-archetype="product"] > button[role=tab] { height:30px; min-width:90px; background:transparent; border-radius:6px; }
+.surface-tab[data-archetype="product"][data-active=true] { box-shadow:none; background:var(--yai-selected); }
+.surface-tab[data-archetype="product"] > button[role=tab][aria-selected=true]::before { display:none; }
+.surface-tab[data-archetype="canvas"] > button[role=tab] > svg { color:var(--yai-accent); }
+.surface-tab-close { opacity:0; }
+.surface-tab:hover .surface-tab-close, .surface-tab:focus-within .surface-tab-close, .surface-tab[data-active=true] .surface-tab-close { opacity:1; }
+.surface-switcher:focus-visible { outline:1px solid var(--yai-accent); outline-offset:-3px; }
+
+/* A dedicated tool rail never overlays the Surface tabs. */
+.context-tool-launcher { position:static; flex:0 0 38px; width:38px; align-self:stretch; flex-direction:column; align-items:center; padding:8px 3px; gap:8px; border-radius:0; border:0; border-left:1px solid var(--yai-divider); z-index:auto; }
+.context-tool-launcher button { width:30px; height:30px; padding:0; display:grid; place-items:center; }
+.context-tool-floating { border-radius:14px; border-color:var(--yai-border); }
+.context-tool-floating .context-tool-toolbar { min-height:40px; }
+.context-tool-docked .context-tool-toolbar { min-height:28px; }
+.context-tool-content .inspector-group { padding-block:12px; border-bottom:1px solid var(--yai-divider); }

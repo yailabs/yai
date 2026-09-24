@@ -21,6 +21,7 @@ p.add_argument('--binary', type=Path, required=True)
 p.add_argument('--case', default='case:studio-live-qualification')
 p.add_argument('--evidence', type=Path, required=True)
 p.add_argument('--context-tools', action='store_true')
+p.add_argument('--operational-overview', action='store_true')
 a = p.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/validation'))
 from behavioral_corpus import Host
@@ -69,6 +70,20 @@ try:
     before = host.call('case.summary', {'case_ref':a.case}, f'native-before:{time.time_ns()}')
     assert before['result_state'] == 'success'
     (a.evidence/'case-before.json').write_text(json.dumps(before))
+    if a.operational_overview:
+        script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
+        wait('return document.querySelector(`section[aria-label="Current Case situation"]`)')
+        assert script('return !document.querySelector(".overview-identity").textContent.includes("Generation")')
+        assert script('return Boolean(document.querySelector(`section[aria-label="Model explanation"]`))')
+        shot('native-rich-overview')
+        script('document.querySelector(`.live-rail button[aria-label="Telemetry"]`).click()')
+        wait('return document.querySelector("#telemetry-host")')
+        assert script('return [...document.querySelectorAll("#telemetry-host dl > div")].some(row=>row.querySelector("dt")?.textContent==="PID" && /^[0-9]+$/.test(row.querySelector("dd")?.textContent))')
+        assert script('return document.querySelectorAll("#telemetry-resources button.telemetry-row").length') == len(before['data']['environment']['resources'])
+        shot('native-telemetry')
+        script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
+        wait('return document.querySelector(".case-overview")')
+        print(json.dumps({'result':'PASS','proof':'Native rich Overview, explicit narrative control, observed Host PID and exact Case Resource inventory'}))
     # Use the Workbench's ordinary Terminal tab/command; no direct IPC invocation.
     script('const tab=[...document.querySelectorAll("button")].find(x=>x.textContent==="Terminal" && x.closest(".live-bottom")); if(tab)tab.click(); else document.dispatchEvent(new KeyboardEvent("keydown",{key:"`",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')
@@ -96,7 +111,7 @@ try:
     wait('return document.querySelector(".xterm-helper-textarea")')
     assert script('return document.querySelector(".kernel-status").innerText')==generation
     if a.context_tools:
-        script('const button=[...document.querySelectorAll(".live-context .segmented button")].find(b=>b.textContent==="Conversation");button.click()')
+        script('const button=[...document.querySelectorAll(".live-context .segmented button")].find(b=>b.title==="Conversation");button.click()')
         wait('return document.querySelector(`textarea[aria-label="Message to the Case"]`)')
         composer=request('POST',f'/session/{session}/element',{'using':'css selector','value':'textarea[aria-label="Message to the Case"]'})['element-6066-11e4-a52e-4f735466cecf']
         request('POST',f'/session/{session}/element/{composer}/value',{'text':'NATIVE_UNSENT_CONTEXT_DRAFT'})

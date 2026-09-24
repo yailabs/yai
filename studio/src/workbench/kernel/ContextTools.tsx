@@ -26,10 +26,10 @@ export function ContextTools({ layout, views, context, active, select, visible, 
     width: index === 0 ? 400 : 340, height: index === 0 ? 620 : 440});
   return <>
     {visible && hasFloats && <nav className="context-tool-launcher" aria-label="Context tools">
-      {views.map(view => <button key={view.id} aria-label={`Open ${view.title} tool`} aria-pressed={Boolean(states[view.id]?.open && (states[view.id]?.floating || active === view.id))} onClick={() => choose(view.id)}>{view.title}</button>)}
+      {views.map(view => <button key={view.id} aria-label={`Open ${view.title} tool`} aria-pressed={Boolean(states[view.id]?.open && (states[view.id]?.floating || active === view.id))} title={view.title} onClick={() => choose(view.id)}><Icon name={view.followsSelection ? "search" : view.id === "Activity" ? "activity" : "message"} size={17}/></button>)}
     </nav>}
     <aside hidden={!visible} className="live-context context-deck" data-docked={docked} id="case-conversation">
-      {docked && <header><div className="segmented">{views.map(view => <button key={view.id} aria-pressed={active === view.id} onClick={() => choose(view.id)}>{view.title}</button>)}</div><IconButton aria-label="Close context panel" onClick={() => { close(); focusSurface(); }}><Icon name="right" /></IconButton></header>}
+      {docked && <header><div className="segmented">{views.map(view => <button key={view.id} aria-pressed={active === view.id} title={view.title} onClick={() => choose(view.id)}><Icon name={view.followsSelection ? "search" : view.id === "Activity" ? "activity" : "message"} size={17}/></button>)}</div><IconButton aria-label="Close context panel" onClick={() => { close(); focusSurface(); }}><Icon name="right" /></IconButton></header>}
       {views.filter(view => view.id === active || states[view.id]).map(view => {
         const state = layout.get(view.id), floating = state.floating, index = views.findIndex(item => item.id === view.id);
         const bounds = fitTool(state.bounds ?? initialBounds(index), viewport);

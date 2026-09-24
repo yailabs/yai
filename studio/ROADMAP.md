@@ -74,6 +74,18 @@ Independent docked/floating Conversation and Inspector are qualified in fixture,
 real-Host and native WebKitGTK lanes. Exact serialized-request preflight and explicit
 archived context inspection now have controlled Host/UI/refusal/restart evidence;
 successful real infrastructure-Case inference remains open.
+The Overview now separates current projected situation, the operational Workflow,
+recent committed changes and an explicitly requested model explanation. Explanation
+uses existing governed Conversation SEND and exact execution observation; candidate
+Markdown cannot fetch external content. Real-model narrative quality remains open.
+Telemetry is a dedicated Product Surface for Host PID/clients, Case Resource
+inventory, bound endpoints and retained submissions. Database/process/HTTP live
+health is **APPLICATION BOUNDARY GAP**: these inventories do not project a current
+probe or process-residency observation. No “running” badge is inferred from a binding.
+Product tabs now have an overflow selector and distinct geometry; contextual tool
+launchers occupy their own rail rather than covering tabs. Default bottom-panel
+height is reduced while existing local preferences remain intact.
+
 **NEXT:** qualify the internal service readiness question end to end, context closure,
 parallel/multi-client Case isolation and recovery through the actual Studio.
 **THEN:** extend the corpus and hardware matrix from observed product findings.

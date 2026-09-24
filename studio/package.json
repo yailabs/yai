@@ -29,6 +29,7 @@
     "test:policy-intake": "node ../tests/studio/policy-intake.mjs",
     "test:editing": "node ../tests/studio/editing.mjs",
     "test:focus": "node ../tests/studio/focus-layout.mjs",
+    "test:overview": "node ../tests/studio/operational-overview.mjs",
     "test:context-tools": "node ../tests/studio/context-tools.mjs",
     "test:capabilities": "node ../tests/studio/capability-parity.mjs && python3 ../tools/validation/check_studio_roadmap.py",
     "test:execution": "node ../tests/studio/execution-actions.mjs && node ../tests/studio/effect-actions.mjs && node ../tests/studio/resource-actions.mjs",

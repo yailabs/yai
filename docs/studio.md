@@ -1302,3 +1302,23 @@ arrangement; this is not a shared or persisted Case View. Cards are constrained
 to the viewport on resize. Their move/resize handles accept arrow keys, close
 returns focus to the Work Surface, and Focus Work Surface temporarily hides all
 contextual tools without disposing them. Reset Layout restores the docked layout.
+
+
+### Operational Overview and Telemetry
+
+Overview composes current qualified Case facts, Workflow prompts, Source links and
+recent committed history. Its separately requested model explanation uses the
+existing `conversation.send` and `execution.get` operations. It persists the exact
+submission envelope before dispatch, observes on reopen and never automatically
+regenerates or redispatches. Candidate text is not authority. Its Markdown supports
+readable structure; links can inspect only refs disclosed in the current Case
+projection, with no remote images or external navigation. A changed Case cut is
+explicitly distinguished from the retained explanation.
+
+Telemetry is a Product Surface consuming existing Host telemetry and Case
+projections. Host PID and client process facts are observations; Resource inventory
+and model endpoints are configuration. They are not database health, endpoint
+reachability or a complete OS process list. Those require a qualified backend
+observation contract. No Studio-side process scan or network probe is introduced.
+The existing Application capability entries remain exact: this is another authored
+consumer of Conversation/execution operations, not a new semantic capability.
