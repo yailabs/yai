@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ApplicationAccess } from "../../clients/application";
-import type { ProviderModelsInput } from "../../clients/compute";
+import type { ProviderConnectionModelsInput } from "../../clients/compute";
 import { Button } from "../../components/primitives";
 
 /** Discovery is presentation metadata. Only provider.register retains a target. */
@@ -8,7 +8,7 @@ export function ProviderRegistrationFields({ application, tenant, yvex }: {
   application: ApplicationAccess; tenant: string; yvex: boolean;
 }) {
   const [endpoint, setEndpoint] = useState("");
-  const [locality, setLocality] = useState<ProviderModelsInput["locality"]>("loopback");
+  const [locality, setLocality] = useState<ProviderConnectionModelsInput["locality"]>("loopback");
   const [credential, setCredential] = useState("none");
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState("");
@@ -36,7 +36,7 @@ export function ProviderRegistrationFields({ application, tenant, yvex }: {
   return <>
     <label>Provider / runtime label<input autoFocus required name="key" placeholder={yvex ? "YVEX deployment" : "Local inference"} /></label>
     <label>Endpoint<input required type="url" name="endpoint" placeholder="http://127.0.0.1:8001" value={endpoint} onChange={event => { invalidate(); setEndpoint(event.target.value); }} /></label>
-    <label>Locality<select name="locality" value={locality} onChange={event => { invalidate(); setLocality(event.target.value as ProviderModelsInput["locality"]); }}><option value="loopback">Loopback</option><option value="private_network">Private network</option><option value="remote">Remote</option></select></label>
+    <label>Locality<select name="locality" value={locality} onChange={event => { invalidate(); setLocality(event.target.value as ProviderConnectionModelsInput["locality"]); }}><option value="loopback">Loopback</option><option value="private_network">Private network</option><option value="remote">Remote</option></select></label>
     <Button type="button" disabled={pending || !endpoint.trim() || !application.supports("provider.models")} onClick={discover}>{pending ? "Discovering…" : "Discover exposed models"}</Button>
     {error && <p role="alert">{error}</p>}
     {models.length > 0 && <p role="status">{models.length} exposed model(s). Discovery does not qualify inference.</p>}

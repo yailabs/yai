@@ -937,6 +937,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         TENANT
     ),
     op!(
+        "yai.provider.models",
+        ["provider", "models"],
+        "Observe exposed model identities for an authorized registered target",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("target", Some("--target"))],
+        TENANT
+    ),
+    op!(
         "yai.provider.show",
         ["provider", "show"],
         "Show configuration, qualification, governance, and health separately",
@@ -3675,7 +3686,7 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
         || operation_id.starts_with("yai.tenant.")
     {
         "identity.tenant"
-    } else if matches!(operation_id, "yai.provider.list" | "yai.provider.show")
+    } else if matches!(operation_id, "yai.provider.list" | "yai.provider.show" | "yai.provider.models")
         || operation_id == "yai.case.provider.show"
     {
         "provider.inspect"

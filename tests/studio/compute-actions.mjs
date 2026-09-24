@@ -2,7 +2,8 @@
 // Only a freshly created temporary YAI_HOME is mutated; never operator state.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { createServer } from 'node:http';
@@ -18,6 +19,7 @@ await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
 let telemetry, serial=0, browser, provider, dropAcknowledgement, holdModelResponse=false, heldModelResponse;
 const exchanges = [];
+let catalogModels = [{id:"controlled-text-model"}];
 function rpc(request) {
  return new Promise((resolve,reject) => {
   const socket = net.createConnection(telemetry.endpoint); let buffer='', handshaken=false;
@@ -42,7 +44,7 @@ try {
  await accepted('identity.bootstrap',{tenant_id:'tenant:studio-ui',organization_ref:'organization:yailabs'});
  const caseRef='case:studio-policy-actions';
  await accepted('case.create',{tenant_id:'tenant:studio-ui',case_ref:caseRef});await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'operator'});await accepted('participant.principal.link',{case_ref:caseRef,participant_ref:'participant:operator',principal_ref:'self'});
- provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;res.setHeader('Content-Type','application/json');if(req.url==='/v1/models')res.end(JSON.stringify({data:[{id:'controlled-text-model'}]}));else if(req.url==='/v1/chat/completions'){const value=JSON.parse(body);res.end(JSON.stringify({id:'controlled-response',model:value.model,choices:[{message:{role:'assistant',content:'Controlled provider response'}}]}));}else{res.statusCode=404;res.end('{}');}});
+ provider=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;res.setHeader('Content-Type','application/json');if(req.url==='/v1/models')res.end(JSON.stringify({data:catalogModels}));else if(req.url==='/v1/chat/completions'){const value=JSON.parse(body);res.end(JSON.stringify({id:'controlled-response',model:value.model,choices:[{message:{role:'assistant',content:'Controlled provider response'}}]}));}else{res.statusCode=404;res.end('{}');}});
  await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));const endpoint=`http://127.0.0.1:${provider.address().port}`;
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
  const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(10000);
@@ -127,6 +129,35 @@ try {
  await page.locator('.inspector-view').getByRole('heading',{name:'unbound-inventory-target',exact:true}).waitFor();
  await page.locator('.inspector-view').getByText('Not bound',{exact:true}).waitFor();
  await page.getByRole('region',{name:'Observed deployment health'}).waitFor();
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.getByText('Model exposed',{exact:true}).waitFor();
+ const catalogRead=exchanges.filter(item=>item.request.operation_ref==='provider.models').at(-1);
+ assert.equal(catalogRead.request.input.target_ref,inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').id);
+ assert.equal(catalogRead.request.input.endpoint,undefined,'Saved connection resolved by YAI');
+ const cliResult=await promisify(execFile)(binary,['provider','models',catalogRead.request.input.target_ref,'--tenant','tenant:studio-ui','--json'],{env:{...process.env,YAI_HOME:home},timeout:30000});
+ const cliCatalog=JSON.parse(cliResult.stdout).data.value;
+ assert.deepEqual(cliCatalog.models,catalogRead.result.data.models,'CLI and Studio observe the same exact model identities');
+ catalogModels=[];
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.getByRole('alert').filter({hasText:'No models exposed.'}).waitFor();
+ catalogModels=[{id:'different-model'}];
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.getByText('Model not exposed',{exact:true}).waitFor();
+ assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Empty catalog replaces previous positive observation');
+ catalogModels=[{id:'controlled-text-model'}];
+ holdModelResponse=true;heldModelResponse=undefined;
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ const catalogDeadline=Date.now()+10000;
+ while(!heldModelResponse && Date.now()<catalogDeadline) await new Promise(resolve=>setTimeout(resolve,20));
+ assert.ok(heldModelResponse,"Catalog response arrived within the bounded test deadline");
+ const otherTarget=inventory.targets.find(item=>item.id!==catalogRead.request.input.target_ref);
+ await page.locator('.compute-target').getByRole('button',{name:otherTarget.provider_key,exact:true}).click();
+ heldModelResponse();
+ await page.waitForTimeout(50);
+ assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Late catalog cannot describe another selected deployment');
+ await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
+
+
  assert.equal(await page.locator('.platform-surface.live-page').count(),0,'Platform uses full workspace, not document page');
  await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Platform',exact:true}).click();
  await page.getByText('No typed management connection',{exact:true}).first().waitFor();

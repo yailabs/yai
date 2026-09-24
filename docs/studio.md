@@ -1428,3 +1428,14 @@ wire capacity observations: pinned items, selected optional items, omissions and
 owner-authored reasons. Studio does not classify authority or estimate tokens from
 semantic units. This retains the existing execution.get disclosure/generation
 fence and introduces no new capability; absent archived decisions remain unknown.
+
+
+Registered deployment catalog checks use `provider.models` with Tenant and exact
+`target_ref`. Application resolves the retained endpoint/locality/credential
+reference after owner authorization; Studio never reconstructs a connection from
+its redacted inventory. The original explicit-connection input remains supported
+for registration. Ambiguous mixed inputs refuse. Responses bind the target and
+observation time. Catalog presence is metadata, not engine residency, qualification,
+capacity admission or a provider-health mutation. `yai provider models TARGET
+--tenant TENANT` uses the same typed dispatcher. Workspace checks are explicit,
+read-only, and discarded on deployment movement/unmount.

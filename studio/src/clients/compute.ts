@@ -39,5 +39,6 @@ export interface CognitiveBinding { binding_id: string; participant_id: string; 
 export interface SuitabilityInput { target_ref: string; capability: "primary_conversation"; suite_ref: string; run_ref: string; evidence_refs: string[] }
 export interface CognitiveBindingInput { case_ref: string; participant_ref: string; role: "primary"; capability: "primary_conversation"; candidates: Array<{ target_ref: string; semantic_evidence_ref: string }>; replace: boolean }
 
-export interface ProviderModelsInput { tenant_id: string; endpoint: string; locality: ProviderRegistration["locality"]; credential_ref: string }
-export interface ProviderModels { models: string[]; scope: "currently_exposed"; authority: "provider_metadata_only" }
+export interface ProviderConnectionModelsInput { tenant_id: string; endpoint: string; locality: ProviderRegistration["locality"]; credential_ref: string }
+export type ProviderModelsInput = ProviderConnectionModelsInput | { tenant_id: string; target_ref: string };
+export interface ProviderModels { target_ref?: string | null; observed_at_unix_ms?: number; models: string[]; scope: "currently_exposed"; authority: "provider_metadata_only" }

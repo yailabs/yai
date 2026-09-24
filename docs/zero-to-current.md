@@ -1796,3 +1796,14 @@ input tokens with observed target capacity, then inspect **Pinned by YAI** and
 the archived Working State decisions. Semantic units are not tokenizer counts.
 This is read-only diagnosis: it cannot unpin policy/state, recompile Recall or
 resend a rejected request. An unavailable archived decision list stays unknown.
+
+
+In Providers or YVEX, select a registered deployment and choose **Check exposed
+model** in Runtime. Confirm the exact model observation and timestamp. A reachable
+endpoint listing other models must show **Model not exposed**; an empty catalog
+is a YAI refusal shown as **No models exposed**. Both replace any
+previous positive observation. A failed read must not preserve an apparent success.
+No prompt, trust change or Case binding is performed. The corresponding CLI read
+is `yai provider models TARGET --tenant TENANT --json`; compare `models` and
+`target_ref`, allowing observation timestamps to differ. An older Host that does
+not support the registered-target input refuses explicitly until upgraded.

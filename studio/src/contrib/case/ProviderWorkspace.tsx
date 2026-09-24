@@ -1,3 +1,5 @@
+import { DeploymentModelObservation } from "./DeploymentModelObservation";
+import type { ApplicationAccess } from "../../clients/application";
 import { useState, type ReactNode } from "react";
 import type { CasePresentation } from "../../clients/dataSource";
 import type { WorkbenchActions } from "../../workbench/kernel/types";
@@ -11,8 +13,8 @@ const reasons: Record<string, string> = {
   request_capacity_refused: "The prepared request could not be admitted against the target capacity. No automatic truncation or resend is performed.",
   qualification_probe_failed: "The last synthetic probe did not establish a usable response from this exact target.",
 };
-export function ProviderWorkspace({ scope, workspace, targets, omitted = 0, error, ready, refreshedAt, refreshing, refresh, connect, canConnect, controls, actions }: {
-  scope: "tenant" | "yvex"; workspace: CasePresentation; targets: Target[]; omitted?: number; error?: string;
+export function ProviderWorkspace({ scope, workspace, application, targets, omitted = 0, error, ready, refreshedAt, refreshing, refresh, connect, canConnect, controls, actions }: {
+  scope: "tenant" | "yvex"; workspace: CasePresentation; application?: ApplicationAccess; targets: Target[]; omitted?: number; error?: string;
   ready: boolean; refreshedAt?: number; refreshing: boolean; refresh(): void; connect(): void; canConnect: boolean;
   controls(id: string): ReactNode; actions: WorkbenchActions;
 }) {
@@ -39,6 +41,7 @@ export function ProviderWorkspace({ scope, workspace, targets, omitted = 0, erro
           <nav className="deployment-sections" aria-label="Deployment sections">{["Runtime", "Evidence", "Platform"].map(name => <button key={name} aria-pressed={section === name} onClick={() => setSection(name)}>{name}</button>)}</nav>
           <div className="deployment-content">
           {section === "Runtime" && <>
+            {workspace.case.tenant_ref && <DeploymentModelObservation key={item.id} application={application} tenant={workspace.case.tenant_ref} target={item.id} model={item.model_id} />}
             <section className="deployment-health" aria-label="Observed deployment health"><header><h3>Observed health</h3><Badge tone={tone}>{health?.posture ?? "Not observed"}</Badge></header>
               <p>{health?.failure_class ? reasons[health.failure_class] ?? `YAI recorded: ${health.failure_class.replaceAll("_", " ")}.` : health?.posture === "healthy" ? "The last qualified observation reported a healthy target." : "No failure explanation is exposed in the current observation."}</p>
               <dl><div><dt>Last observation</dt><dd>{time(health?.observed_at_unix_ms)}</dd></div><div><dt>Circuit</dt><dd>{health?.circuit ?? "Unknown"}</dd></div><div><dt>Consecutive failures</dt><dd>{health?.consecutive_failures ?? "Unknown"}</dd></div></dl>

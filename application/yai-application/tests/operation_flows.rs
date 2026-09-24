@@ -1302,8 +1302,16 @@ fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_c
     assert_ne!(f.call("provider.models", hidden).result_state, ResultState::Success);
     let mut wrong_locality = input.clone(); wrong_locality["locality"] = json!("remote");
     assert_ne!(f.call("provider.models", wrong_locality).result_state, ResultState::Success);
+    let target = f.success("provider.register", json!({"tenant_id":"tenant:audit", "provider_key":"catalog-target",
+        "adapter":"open_ai_compatible", "endpoint":endpoint, "model_id":"qualified-model-a", "credential_ref":"none", "locality":"loopback"}));
+    for denied in [
+        json!({"tenant_id":"tenant:hidden","target_ref":target["target_id"]}),
+        json!({"tenant_id":"tenant:audit","target_ref":"provider-target:missing"}),
+        json!({"tenant_id":"tenant:audit","target_ref":target["target_id"],"endpoint":endpoint}),
+    ] { let result=f.call("provider.models",denied); assert_ne!(result.result_state,ResultState::Success); assert!(result.data.is_none()); }
     let generation = f.generation();
     let peer = std::thread::spawn(move || {
+        for _ in 0..2 {
         let (mut stream, _) = listener.accept().unwrap();
         stream.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
         let mut reader = BufReader::new(stream.try_clone().unwrap());
@@ -1312,8 +1320,13 @@ fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_c
         loop { line.clear();reader.read_line(&mut line).unwrap();if line == "\r\n" { break } }
         let body = r#"{"data":[{"id":"qualified-model-a"}]}"#;
         write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+        }
     });
     let result = f.success("provider.models", input);
+    let registered=f.success("provider.models",json!({"tenant_id":"tenant:audit","target_ref":target["target_id"]}));
+    assert_eq!(registered["models"],result["models"]);
+    assert_eq!(registered["target_ref"],target["target_id"]);
+    assert!(registered["observed_at_unix_ms"].as_u64().unwrap()>0);
     peer.join().unwrap();
     assert_eq!(result["models"],json!(["qualified-model-a"]));
     assert_eq!(result["authority"],"provider_metadata_only");

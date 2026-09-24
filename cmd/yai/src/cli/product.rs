@@ -24,6 +24,10 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             "application.capabilities",
             serde_json::json!({}),
         ),
+        "yai.provider.models" => application_operation("provider.models", serde_json::json!({
+            "tenant_id": invocation.flag("--tenant").ok_or_else(|| CliError::usage("--tenant is required"))?,
+            "target_ref": invocation.positional("target").ok_or_else(|| CliError::usage("target is required"))?,
+        })),
         "yai.meta.version" => version(),
         "yai.meta.completion" => completion(invocation),
         "yai.doctor" => doctor(),
