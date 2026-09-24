@@ -1,5 +1,10 @@
 import type { ConversationExecution } from "./conversation";
-import type { WorkingState } from "./memory";
+import type { WorkingEntry, WorkingState } from "./memory";
+
+export interface PreparedFrame {
+  frame_id: string; task: string; entries: WorkingEntry[];
+  semantic_instructions: string[]; model_independent_constraints: string[];
+}
 
 export interface InputObservation {
   invocation_id: string; case_id: string; participant_id: string; case_generation: number;
@@ -18,7 +23,7 @@ export interface PreparedContext {
   observed_generation: number; total_invocations: number; omitted_invocations: number;
   invocations: Array<{
     invocation_ref: string; lineage: { case_generation: number; rendered_input_id: string };
-    working_state: WorkingState | null; projection: unknown; frame: unknown;
+    working_state: WorkingState | null; projection: unknown; frame: PreparedFrame | null;
     input_observation: InputObservation | null; unavailable_reason: string | null;
   }>;
 }

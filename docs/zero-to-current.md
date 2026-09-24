@@ -1923,3 +1923,10 @@ bytes, failure and observation time. Unrecorded fields stay unrecorded; a
 missing response is never presented as an HTTP success. **Exact transport
 evidence** retains the original observation. Delivery uncertainty explicitly
 warns that execution may have occurred; opening these details never retries it.
+
+**Inspect model context → Prepared model input** browses the exact archived
+frame by entry kind or text/reference. It shows the task, typed content,
+provenance and YAI-supplied instructions/constraints. These filters are local
+presentation only: they do not omit input, rerun Recall or send a request.
+A prepared frame is not proof of provider delivery. Stale/disclosure-refused
+reads withhold the browser along with the rest of the context.

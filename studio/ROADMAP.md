@@ -94,6 +94,11 @@ Independent docked/floating Conversation and Inspector are qualified in fixture,
 real-Host and native WebKitGTK lanes. Exact serialized-request preflight and explicit
 archived context inspection now have controlled Host/UI/refusal/restart evidence;
 successful real infrastructure-Case inference remains open.
+Conversation can browse the archived prepared frame by kind/text with exact
+content, provenance and supplied instructions. This is read-only disclosure,
+not context editing or evidence of delivery. Real infrastructure inspection
+retains its 11,170-token / 4,096-capacity refusal and 28 pinned entries out of 29;
+compact JSON is already used, so UI filtering is not a capacity workaround.
 The Overview now separates current projected situation, the operational Workflow,
 recent committed changes and an explicitly requested model explanation. Explanation
 uses existing governed Conversation SEND and exact execution observation; candidate

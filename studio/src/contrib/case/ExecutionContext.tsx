@@ -3,6 +3,7 @@ import type { ApplicationAccess } from "../../clients/application";
 import type { ConversationExecution } from "../../clients/conversation";
 import type { PreparedContext } from "../../clients/executionContext";
 import { Button } from "../../components/primitives";
+import { PreparedInput } from "./PreparedInput";
 import "./ExecutionContext.css";
 
 /** Explicit archived read: never invoke Recall anew or retry a provider request. */
@@ -61,6 +62,7 @@ export function ExecutionContext({ application, execution, generation }: {
             {input?.refusal && <p role="status">Not dispatched: {input.refusal.replaceAll("_", " ")}</p>}
             {capacity?.token_capacity_compatible === false && <p>YAI refused this prepared request. Pinned state cannot be removed here. A larger qualified target or an owner-qualified context preparation is required; nothing is truncated or resent by this view.</p>}
             {input && <p>Observed {new Date(input.observed_at_unix_ms).toLocaleString()}. Capacity is not a resource reservation.</p>}
+            {entry.frame && <PreparedInput key={entry.frame.frame_id} frame={entry.frame} />}
             <details><summary>Required state, recalled evidence and omissions</summary>
               {working?.entries.map(item => { const decision = decisions?.find(value => value.item_id === item.entry_id); return <div className="execution-context-entry" key={item.entry_id}><strong>{item.value.kind.replaceAll("_", " ")}</strong><small>{item.posture.replaceAll("_", " ")}</small><code>{item.entry_id}</code>{decision && <><span>{decision.disposition === "pinned" ? "Pinned by YAI" : "Optional selected"} · {decision.semantic_units} semantic units (not tokens)</span><details><summary>Selection reasons</summary><ul>{decision.reasons.map(reason => <li key={reason}>{reason.replaceAll("_", " ")}</li>)}</ul></details></>}</div>; })}
               {decisions?.filter(item => item.disposition === "omitted").map(item => <div className="execution-context-entry" key={item.item_id}><strong>Omitted</strong><code>{item.item_id}</code><ul>{item.reasons.map(reason => <li key={reason}>{reason.replaceAll("_", " ")}</li>)}</ul></div>)}

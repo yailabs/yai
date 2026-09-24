@@ -65,6 +65,26 @@ try {
   assert.equal(await page.locator('dt').filter({hasText:/^Pinned by YAI$/}).evaluate(node=>node.nextElementSibling.textContent),`${pinned} items`);
 
   assert.equal(calls[0].request.input.include_context, true);
+  const frame=calls[0].result.data.prepared_context.invocations[0].frame;
+  await page.getByText(`Prepared model input · ${frame.entries.length} entries`,{exact:true}).click();
+  assert.equal(await page.locator('.prepared-input-task').textContent(),frame.task);
+  assert.equal(await page.locator('.prepared-input-entry').count(),frame.entries.length);
+  const kind=frame.entries[0].value.kind;
+  await page.getByLabel('Entry kind',{exact:true}).selectOption(kind);
+  const selected=frame.entries.filter(entry=>entry.value.kind===kind);
+  assert.equal(await page.locator('.prepared-input-entry').count(),selected.length);
+  const prepared=page.locator('.prepared-input-entry').first();
+  assert.equal(await prepared.locator(':scope > summary').evaluate(node=>getComputedStyle(node).display),'grid','Kind and posture need separate readable rows');
+  await prepared.locator(':scope > summary').click();
+  assert.deepEqual(JSON.parse(await prepared.getByLabel('Exact prepared value').textContent()),selected[0].value.value);
+  await prepared.getByText('Provenance',{exact:true}).click();
+  assert.deepEqual(await prepared.locator('li code').allTextContents(),selected[0].provenance.map(item=>item.source_ref));
+  await page.getByLabel('Find in prepared input',{exact:true}).fill('NO_SUCH_DISCLOSED_CONTENT_813');
+  assert.equal(await page.locator('.prepared-input-entry').count(),0);
+  await page.getByLabel('Find in prepared input',{exact:true}).fill('');
+  await page.getByLabel('Entry kind',{exact:true}).selectOption('');
+  await page.getByText('Instructions and constraints supplied by YAI',{exact:true}).click();
+  assert.equal(calls.length,1,'Browsing archived input must not rerun Recall, dispatch or read new material');
   await page.getByText('Required state, recalled evidence and omissions',{exact:true}).click();
   const firstEntry=working.entries[0];
   const firstDecision=working.decisions.find(item=>item.item_id===firstEntry.entry_id);
@@ -82,6 +102,7 @@ try {
   await page.evaluate(generation=>window.renderContextAtGeneration(generation-1),profile.execution.observed_generation);
   await page.getByRole('alert').filter({hasText:'Context changed.'}).waitFor();
   assert.equal(await page.getByText(capacityLabel,{exact:true}).count(),0,'Stale context must be withheld');
+  assert.equal(await page.locator('.prepared-input').count(),0,'Stale prepared content must also be withheld');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({result:'PASS',proof:['explicit real Host read','exact wire digest','capacity and archived context','four viewport matrix']}));
 } finally {

@@ -143,7 +143,7 @@ try:
   case=before[a.cases[0]]
   turns=case['conversation']['turns'];assert turns, 'Select an existing Case with a retained model answer'
   for turn in turns:
-   observed=call('execution.get',dict(case_ref=a.cases[0],participant_ref=case['case']['participant_ref'],execution=dict(domain='cognitive_composition',request_ref=turn['execution_request_ref'])))
+   observed=call('execution.get',dict(case_ref=a.cases[0],participant_ref=case['case']['participant_ref'],execution=dict(domain='cognitive_composition',request_ref=turn['execution_request_ref']),include_context=True))
    if not observed.get('primary_result'):continue
    result=observed['primary_result']
    first.wait('return [...document.querySelectorAll(".conversation-answer")].some(n=>n.dataset.resultRef===arguments[0] && n.textContent.trim())',result['result_id'])
@@ -151,6 +151,13 @@ try:
    assert details['source']==result['output'], 'Original candidate changed during rendering'
    assert details['attempts']==observed['attempt_outcomes'], 'Displayed receipt differs from authoritative observation'
    emit(dict(proof='Native answer and readable receipt preserve authoritative result; no provider submission',result_ref=result['result_id'],attempts=len(details['attempts'])))
+   prepared=next((entry for entry in observed.get('prepared_context',{}).get('invocations',[]) if entry.get('frame')),None)
+   if prepared:
+    first.js('const article=[...document.querySelectorAll(".turn-ai")].find(n=>n.querySelector(".conversation-answer")?.dataset.resultRef===arguments[0]); article.querySelector(".execution-context button").click()',result['result_id'])
+    first.wait('const article=[...document.querySelectorAll(".turn-ai")].find(n=>n.querySelector(".conversation-answer")?.dataset.resultRef===arguments[0]); return article?.querySelector(".prepared-input-task")?.textContent===arguments[1]',result['result_id'],prepared['frame']['task'])
+    first.js('const article=[...document.querySelectorAll(".turn-ai")].find(n=>n.querySelector(".conversation-answer")?.dataset.resultRef===arguments[0]); const input=article.querySelector(".prepared-input"); input.open=true; input.scrollIntoView({block:"start"})',result['result_id'])
+    assert first.js('const article=[...document.querySelectorAll(".turn-ai")].find(n=>n.querySelector(".conversation-answer")?.dataset.resultRef===arguments[0]); return article.querySelectorAll(".prepared-input-entry").length',result['result_id'])==len(prepared['frame']['entries'])
+    first.shot('native-prepared-input.png')
   assert first.js('return Boolean(document.querySelector(".conversation-answer"))'), 'No retained result rendered'
   first.js('document.querySelector(".conversation-attempt")?.scrollIntoView({block:"center"})')
   first.shot('native-retained-details.png')

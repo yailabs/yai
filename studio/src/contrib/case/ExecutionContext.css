@@ -9,3 +9,11 @@
 .execution-context-entry { display: grid; gap: 3px; padding-block: 9px; border-bottom: 1px solid var(--border-subtle, #24262a); }
 .execution-context-entry small { color: var(--text-muted, #999fa8); }
 .execution-context-entry code { font-size: 11px; overflow-wrap: anywhere; }
+.prepared-input-filters { display: grid; gap: 8px; margin-block: 12px; }
+.prepared-input-filters label { display: grid; gap: 4px; }
+.prepared-input-filters :is(select,input) { width: 100%; min-width: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; }
+.execution-context .prepared-input-task { white-space: pre-wrap; }
+.prepared-input-entry { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.execution-context .prepared-input-entry > summary { display: grid; gap: 3px; width: 100%; font-size: 12px; }
+.prepared-input-entry summary small { display: block; margin-top: 3px; color: var(--text-muted); }
+.prepared-input li + li { margin-top: 6px; }
