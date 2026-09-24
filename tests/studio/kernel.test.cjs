@@ -407,6 +407,38 @@ test("application discovery follows Host instances and gates operations without 
   access.dispose();assert.equal(notify,undefined);
 });
 
+test("registered model observations isolate Tenant/target and reject late reads after Host loss", async () => {
+  const {ApplicationAccess}=require(path.join(studio,'clients/application.js'));
+  const {providerCatalogKey}=require(path.join(studio,'clients/compute.js'));
+  let state={state:'live',telemetry:{instance_id:'host:A'}}, notify;
+  const pending=[];
+  const catalog={schema:'yai.application_capability_catalog.v1',application_protocol:'yai.studio.application.v1',capabilities:[],operations:[{operation_id:'provider.models',meaning:'catalog',impact:'derived',authority:'owner'}]};
+  const client={applicationCapabilities:async()=>({result_state:'success',data:catalog}),discoverProviderModels:input=>new Promise((resolve,reject)=>pending.push({input,resolve,reject}))};
+  const host={snapshot:()=>state,subscribe:fn=>{notify=fn;return{dispose(){}}},capabilities:{nativeDesktop:true}};
+  const access=new ApplicationAccess(client,host);await Promise.resolve();
+  const input={tenant_id:'tenant:a',target_ref:'target:a'}, key=providerCatalogKey(input.tenant_id,input.target_ref);
+  const reply=(model,target='target:a')=>({result_state:'success',data:{target_ref:target,models:[model],observed_at_unix_ms:12345}});
+  const first=access.discoverProviderModels(input), second=access.discoverProviderModels(input);
+  pending[1].resolve(reply('NEW'));await second;
+  pending[0].resolve(reply('OLD'));await first;
+  assert.deepEqual(access.snapshot().providerCatalogs[key].models,['NEW']);
+  const other=access.discoverProviderModels({...input,tenant_id:'tenant:b'});
+  pending[2].resolve(reply('TENANT_B'));await other;
+  assert.deepEqual(access.snapshot().providerCatalogs[key].models,['NEW']);
+  assert.deepEqual(access.snapshot().providerCatalogs[providerCatalogKey('tenant:b','target:a')].models,['TENANT_B']);
+  const bad=access.discoverProviderModels(input);pending[3].resolve(reply('WRONG','target:b'));await bad;
+  assert.equal(access.snapshot().providerCatalogs[key].state,'unavailable');
+  const lost=access.discoverProviderModels(input);pending[4].reject(Error('transport lost'));await assert.rejects(lost);
+  assert.equal(access.snapshot().providerCatalogs[key].state,'unavailable');
+  const late=access.discoverProviderModels(input);
+  state={state:'unavailable'};notify();
+  pending[5].resolve(reply('HOST_A'));await late;
+  assert.equal(access.snapshot().providerCatalogs,undefined);
+  state={state:'live',telemetry:{instance_id:'host:B'}};notify();await Promise.resolve();
+  assert.equal(access.snapshot().providerCatalogs,undefined,'Restart must not retain apparent connectivity');
+  access.dispose();
+});
+
 test("typed application actions preserve exact inputs and never retry lost transport acknowledgements", async () => {
   const { LiveClient }=require(path.join(studio,'clients/live.js'));
   const oldWindow=global.window; const requests=[];

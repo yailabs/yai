@@ -1807,3 +1807,32 @@ No prompt, trust change or Case binding is performed. The corresponding CLI read
 is `yai provider models TARGET --tenant TENANT --json`; compare `models` and
 `target_ref`, allowing observation timestamps to differ. An older Host that does
 not support the registered-target input refuses explicitly until upgraded.
+
+
+For the Case-bound target, **Check exposed model** also updates the status bar:
+**Catalog reachable** describes the observed endpoint response; **Exposed**
+describes the assigned model's presence at that time. Hover for the timestamp.
+Checking an unbound inventory target must not change this Case's footer. An empty
+catalog or failed check replaces the previous positive state, and Host loss or
+contract refresh clears both workspace and footer observations. Navigation alone
+does not send another probe. None of these labels means engine residency or
+that the current Case fits the model context.
+
+
+The small persistent `case:qualification-deepseek-4k` now retains one real
+DeepSeek result through Host/Application. Its exact preflight counted 2043 input
+tokens against 4096 sequence capacity; this does not establish that the populated
+infrastructure Case fits. [Retained external observation](../labs/external-runtime/runs/20260924-deepseek-4k/manifest.json)
+includes the original SEND, result, disclosed context, exact-payload retry and
+hidden-Participant refusal. The generic new-question corpus was also tried on
+the completed submission and correctly refused its changed expected generation;
+that failed harness run is retained, not counted as a product regression or PASS.
+The separate exact-original-payload retry passed with one attempt and unchanged
+Case state. Studio context inspection passed at four sizes through the real Host;
+initial SEND was a qualification client, not a desktop-composer acceptance.
+
+Operator check: open this Case in Studio, read its retained Conversation and
+inspect the model context. The answer must remain candidate text with its exact
+execution; it must not appear in the infrastructure Case. Do not send another
+question merely to inspect this result. Full operational-Case inference and
+`HUMAN_GOLDEN_CASE = PENDING_OPERATOR` remain unchanged.

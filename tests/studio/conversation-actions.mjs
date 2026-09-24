@@ -105,6 +105,14 @@ try {
  await page.getByRole('main').getByRole('button',{name:'Assign conversation model',exact:true}).click();form=page.getByRole('dialog',{name:'Assign conversation model'});
  await form.getByRole('button',{name:'Assign model',exact:true}).click();await form.waitFor({state:'hidden'});
  let snapshot=await accepted('case.summary',{case_ref:caseRef});assert.equal(snapshot.compute.cognitive_bindings[0].target_id,target.target_id);
+ await page.locator('.model-status').filter({hasText:'Assigned: controlled-text-model'}).waitFor();
+ await page.locator('.live-rail button[aria-label="Providers"]').click();
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.locator('.model-status').filter({hasText:'Exposed: controlled-text-model'}).waitFor();
+ assert.match(await page.locator('.model-status').getAttribute('title'),/does not establish engine residency or capacity/);
+ await page.locator('.live-rail button[aria-label="Compute"]').click();
+ assert.equal(await page.locator('.model-status').textContent(),'Exposed: controlled-text-model','Observation survives navigation without another probe');
+
  assert.equal(snapshot.compute.targets[0].semantic_evidence[0].evidence_id,attested.data.evidence_id);
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  const composer=page.getByRole('textbox',{name:'Message to the Case'});

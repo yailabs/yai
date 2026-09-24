@@ -131,6 +131,7 @@ try {
  await page.getByRole('region',{name:'Observed deployment health'}).waitFor();
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
  await page.getByText('Model exposed',{exact:true}).waitFor();
+ assert.equal((await page.locator('.provider-status').textContent()).includes('Catalog reachable'),false,'Unbound deployment observation must not change Case provider status');
  const catalogRead=exchanges.filter(item=>item.request.operation_ref==='provider.models').at(-1);
  assert.equal(catalogRead.request.input.target_ref,inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').id);
  assert.equal(catalogRead.request.input.endpoint,undefined,'Saved connection resolved by YAI');
@@ -155,6 +156,21 @@ try {
  heldModelResponse();
  await page.waitForTimeout(50);
  assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Late catalog cannot describe another selected deployment');
+ // Now observe the actual Case-bound target; the footer and workspace share one result.
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.getByText('Model exposed',{exact:true}).waitFor();
+ await page.locator('.provider-status').filter({hasText:'Catalog reachable'}).waitFor();
+ assert.match(await page.locator('.provider-status').getAttribute('title'),/Catalog observed:/);
+ catalogModels=[];
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.locator('.provider-status').filter({hasText:'No models exposed'}).waitFor();
+ assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'unavailable');
+ catalogModels=[{id:'controlled-text-model'}];
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.locator('.provider-status').filter({hasText:'Catalog reachable'}).waitFor();
+ await page.evaluate(()=>window.qualificationPlatform.application.refresh());
+ await page.locator('.provider-status').filter({hasText:'Last health:'}).waitFor();
+ assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Host contract refresh clears both consumers');
  await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
 
 
@@ -223,6 +239,6 @@ try {
  assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
  await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Shared provider footer observation, exact target isolation and invalidation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

@@ -1,0 +1,87 @@
+{
+  "run_id": "deepseek-4k-1790277487285317591",
+  "evidence_class": "external_governed_host",
+  "setup_source_sha": "3f485f94d1fbc95ba126780b4fca37c4ebe7517f",
+  "case_ref": "case:qualification-deepseek-4k",
+  "endpoint": "http://127.0.0.1:18001",
+  "model": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "result_ref": "provider-result:cognitive:3fec89d77050221f",
+  "context_observation": "provider-input:a46b0c32ddaca87b",
+  "input_tokens": 2043,
+  "sequence_capacity": 4096,
+  "serialized_body_bytes": 8078,
+  "host_status": {
+    "schema": "yai.cli.result.v1",
+    "operation_id": "yai.host.status",
+    "capability_id": "platform.local_host",
+    "status": "ok",
+    "data": {
+      "kind": "native_json",
+      "value": {
+        "application_readiness": "success",
+        "build": "fc4babc6eb47170223dc86c379c855b075ad3b65",
+        "client_kinds": {
+          "studio": 1
+        },
+        "clients": [
+          {
+            "client_id": "studio:2827331:2",
+            "client_kind": "studio",
+            "connected_at_unix_ms": 1790271673862,
+            "last_seen_unix_ms": 1790278401452,
+            "pid": 2827331
+          }
+        ],
+        "connected_clients": 1,
+        "endpoint": "/home/mothx/.yai/run/host/application.sock",
+        "endpoint_posture": "private_same_user",
+        "event_sequence": 9,
+        "instance_id": "host-instance:b8e49396b46104b6",
+        "last_activity_unix_ms": 1790278402192,
+        "pid": 2267115,
+        "process_identity": "linux-process-v1:43f4d23b-d6a4-482a-bdd5-d0be71043087:2267115:18498819",
+        "protocol": "yai.local_host.v1",
+        "runtime_observation": {
+          "active_workers": 0,
+          "available_workers": 2,
+          "heartbeat_at_unix_ms": 1790278401519,
+          "instance_id": "runtime-instance:local-default",
+          "lifecycle": "running",
+          "observed_at_unix_ms": 1790278402155,
+          "pid": 2267115,
+          "process_identity": "linux-proc-v1:43f4d23b-d6a4-482a-bdd5-d0be71043087:18498819",
+          "worker_capacity": 2
+        },
+        "runtime_supervision": "supervised_running",
+        "schema": "yai.local_host.telemetry.v1",
+        "started_at_unix_ms": 1790260999901,
+        "state": "running",
+        "transport": "unix_domain_socket",
+        "uptime_ms": 17402291,
+        "version": "0.1.0",
+        "yai_home": "/home/mothx/.yai",
+        "yai_home_identity": "yai-home:5b899471f38c1148"
+      }
+    }
+  },
+  "limitations": [
+    "Small qualification Case, not the populated infrastructure Case",
+    "Initial SEND through qualification Host client, not Studio composer",
+    "Studio context inspection uses real Host through test Tauri adapter",
+    "No model-quality or human acceptance verdict",
+    "Generic new-question corpus reused on completed submission correctly refused changed expected_generation; exact-payload retry separately passed",
+    "UI screenshots retained in temporary evidence, not duplicated here"
+  ],
+  "artifacts": {
+    "profile.json": "f6cde75d2d736161846300716fc258c090e8a403bc66f9c7212e92d5989b8e89",
+    "exchanges.jsonl": "9386ea657a30c210c3139fc3afd766e4d4c77f8a8125503200359c07fe668b32",
+    "follow-up.jsonl": "846e732fc0d5be1d549e9bca05600964d673b847215d005686d798ba1c700b9c",
+    "corpus-command.jsonl": "9be284aefb6c0d6ee96018f61dfe8aa7aa9dfed9a4f4eb8937497126e3040fde",
+    "corpus.jsonl": "619e08915545eae9ab4db0ef7f3186bdda03351c9b0c18daab3a6b683c6862ce",
+    "retry-command.jsonl": "9c67d1f03c6068f5744d05053a8fc790cf34d092d2eed45611b824e8fca8e6a7",
+    "retry-exchanges.json": "555d3216f155275c2a34f3c1046c3b29e9ed863299a58448ea6b0fae1e886a3f",
+    "verify_retry.py": "211592cf223cc7c2690ebc634a92d29a5a1a9ddc305e552653e5727c4d1a548a",
+    "host-command.jsonl": "4846444ef86e70a9b51226af492b71b882c1504b252413835fb9baaca0f44c43",
+    "ui-profile.json.ui-exchanges.json": "c9d5574e0b6614ba7e1d0c6b212264f40986f0742ff38ac69516c7fd473002e5"
+  }
+}

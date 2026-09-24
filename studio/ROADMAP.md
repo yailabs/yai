@@ -183,6 +183,23 @@ regenerate its human matrix. Never infer authority from discoverability.
 
 ## Capability board
 
+### Latest YVEX public contract delta
+
+YVEX `models2` at `671a5befa0c20f6e07248b0223fad4ec531c15bd`
+adds a restricted remote identity/status bootstrap beyond the earlier producer
+cut below. Its public management contract admits `device.describe` and
+`host.status` over a dedicated forced-command SSH listener with independently
+approved Ed25519 host-key pinning and enrolled client keys. This is newly
+consumable producer functionality, not yet a published YAI Application/CLI or
+Studio interaction. Ordinary login SSH and the inference endpoint are not
+substitutes. Remote load/unload, start/stop, logs and memory reads remain outside
+that bootstrap contract; do not present their controls as operational.
+
+The inference track may use a separate small qualification Case with the
+current 4096-token deployment. A positive small-Case result does not close the
+populated infrastructure Case acceptance. Exact preflight and archived context
+remain mandatory; no arbitrary truncation or weakening of mandatory W state.
+
 ### Case portfolio and machine qualification
 
 The [versioned portfolio](../tests/qualification/behavioral-corpus/portfolio.json)
@@ -193,6 +210,7 @@ selection and evidence, not an alternative capability catalog.
 |---|---|---|
 | `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Seven acquired Sources, seven Resources (discovery, filesystem, database, HTTP, process and MCP), two policy bindings, seven human checkpoints and 296 Knowledge units observed through Host at state version 85. One bounded process receipt is retained; repeating its request reuses the exact receipt without another effect. Host restart preserves the Case and exact documentary Recall. Controlled HTTP/MCP peers are stopped; retained observations are not service health. Overview renders exact checkpoint prompts and Source links at four viewport sizes. Remote management and real governed inference remain open. |
 | `case:yai-enterprise-launch` / retired | Operator-requested cancellation and closure; history retained | Closed at state version 57. Earlier release-assessment evidence does not qualify the replacement infrastructure Case. Do not recreate or resume it automatically. |
+| `case:qualification-deepseek-4k` / single | Persistent small external-inference qualification; do not confuse with operational infra evidence | One governed DeepSeek result completed at 2043 input tokens / 4096 sequence capacity. Exact retry preserves state version 12 and one attempt; hidden Participant read refuses. [Raw observation](../labs/external-runtime/runs/20260924-deepseek-4k/manifest.json) retains exact target/context and limits. Initial SEND used a Host qualification client; Studio context inspection passed separately. Human/model-quality and full infra acceptance remain open. |
 | `case:studio-live-qualification` / single | Persistent technical oracle; preserve operator additions | Existing heterogeneous qualification world retained; no cleanup or recreation by portfolio runner. |
 | `behavioral-alpha` + `behavioral-beta` / parallel | Fresh isolated profile reconstructed from manifest; remove only after Host stop, or explicitly retain | Concurrent independent clients, role isolation, repeated mutation, stale snapshot refusal and restart equivalence qualified by `make test-behavioral-portfolio`. This is product behavior, not model competence. |
 | Retired enterprise / historical multi-client | Same durable Case, independent views and local drafts | Studio Workflow binding advanced 54 → 55; two Host-backed browser Workbenches received events and refetched, Journal pause/resume preserved its cut. Three existing native clients separately reattached after Host restart. Combined native mutation/restart delivery is separately qualified on disposable portfolio Cases below. |

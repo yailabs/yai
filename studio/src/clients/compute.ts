@@ -42,3 +42,12 @@ export interface CognitiveBindingInput { case_ref: string; participant_ref: stri
 export interface ProviderConnectionModelsInput { tenant_id: string; endpoint: string; locality: ProviderRegistration["locality"]; credential_ref: string }
 export type ProviderModelsInput = ProviderConnectionModelsInput | { tenant_id: string; target_ref: string };
 export interface ProviderModels { target_ref?: string | null; observed_at_unix_ms?: number; models: string[]; scope: "currently_exposed"; authority: "provider_metadata_only" }
+
+/** Window-local, timestamped catalog metadata. Host loss invalidates it. */
+export type ProviderCatalogObservation =
+  | { state: "checking" }
+  | { state: "observed"; models: string[]; at: number }
+  | { state: "unavailable"; reason: string; empty: boolean };
+export function providerCatalogKey(tenant: string, target: string): string {
+  return JSON.stringify([tenant, target]);
+}

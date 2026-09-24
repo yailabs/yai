@@ -540,6 +540,15 @@ and [HTTP profile](https://github.com/yailabs/yvex/blob/9f64194814a6d65e8a30e99b
 | Native media generation | Typed directional capabilities and admitted media-engine results/progress | Do not promise HTTP multimedia parity: the reviewed compatibility profile refuses multimodal input and image/audio endpoint families. Case output/evidence admission and a typed media route must be qualified. |
 | Remote machines | Local host/runtime facts do not establish network identity or remote trust | Enrollment, discovery, bootstrap, authenticated management and revocation remain shared YAI/producer contract work. |
 
+A subsequent public delta at YVEX
+[`671a5befa0c20f6e07248b0223fad4ec531c15bd`](https://github.com/yailabs/yvex/blob/671a5befa0c20f6e07248b0223fad4ec531c15bd/docs/contracts/remote-management.md)
+adds `device.describe` and `host.status` through a dedicated restricted SSH
+bootstrap. It requires independently approved host-key pinning, enrolled peer
+keys and a forced protocol command. This does not permit ordinary remote-shell
+administration or remote lifecycle/log/model controls. Shared YAI consumption
+and Studio interaction remain unqualified; producer availability is recorded
+separately from client coverage.
+
 Compilation has coordinated computation and parameter/package lanes. Package
 lineage joins executable specialization before an engine is loaded. A future
 pipeline UI must preserve this structure rather than draw a fictitious universal
@@ -1438,4 +1447,8 @@ for registration. Ambiguous mixed inputs refuse. Responses bind the target and
 observation time. Catalog presence is metadata, not engine residency, qualification,
 capacity admission or a provider-health mutation. `yai provider models TARGET
 --tenant TENANT` uses the same typed dispatcher. Workspace checks are explicit,
-read-only, and discarded on deployment movement/unmount.
+read-only, and keyed by exact Tenant/target in bounded window-local state.
+Workspace and status bar share that observation across navigation; Host loss or
+capability refresh invalidates it. Late reads cannot replace newer checks or
+cross Host/Tenant/target identity. Catalog timestamps are explicit; this is not
+continuous monitoring, residency evidence or a new capability.

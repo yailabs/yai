@@ -1,5 +1,5 @@
 import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
-import type { ProviderModelsInput } from "./compute";
+import { providerCatalogKey, type ProviderCatalogObservation, type ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
 import type { ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
@@ -62,6 +62,7 @@ export interface CaseCapabilityView {
 export interface ApplicationAvailability {
   state: "checking" | "available" | "unavailable";
   catalog?: ApplicationCatalog; reason?: string;
+  providerCatalogs?: Readonly<Record<string, ProviderCatalogObservation>>;
 }
 
 export function isApplicationCatalog(value: unknown): value is ApplicationCatalog {
@@ -139,7 +140,36 @@ export class ApplicationAccess implements Disposable {
   attestProvider(input: SuitabilityInput) { return this.invoke("provider.suitability.record", () => this.client.attestProvider(input)); }
   bindCognition(input: CognitiveBindingInput) { return this.invoke("cognitive.binding.set", () => this.client.bindCognition(input)); }
   providerInventory(tenant: string) { return this.invoke("provider.inventory", () => this.client.providerInventory(tenant)); }
-  discoverProviderModels(input: ProviderModelsInput) { return this.invoke("provider.models", () => this.client.discoverProviderModels(input)); }
+  async discoverProviderModels(input: ProviderModelsInput) {
+    const invoke = () => this.invoke("provider.models", () => this.client.discoverProviderModels(input));
+    if (!("target_ref" in input)) return invoke();
+    const key = providerCatalogKey(input.tenant_id, input.target_ref);
+    const epoch = this.epoch;
+    const pending: ProviderCatalogObservation = { state: "checking" };
+    const publish = (observation: ProviderCatalogObservation) => {
+      // Bound window-local metadata; no persistence, extra probe or Case mutation.
+      const entries = Object.entries(this.value.providerCatalogs ?? {}).filter(([id]) => id !== key).slice(-63);
+      this.publish({ ...this.value, providerCatalogs: Object.fromEntries([...entries, [key, observation]]) });
+    };
+    publish(pending);
+    const current = () => epoch === this.epoch && this.value.providerCatalogs?.[key] === pending;
+    try {
+      const result = await invoke();
+      if (current()) {
+        const data = result.data;
+        if (result.result_state === "success" && data?.target_ref === input.target_ref
+          && Array.isArray(data.models) && data.models.every(model => typeof model === "string")
+          && typeof data.observed_at_unix_ms === "number" && Number.isSafeInteger(data.observed_at_unix_ms)) {
+          publish({ state: "observed", models: data.models, at: data.observed_at_unix_ms });
+        } else publish({ state: "unavailable", empty: result.error?.code.startsWith("provider_catalog_empty") ?? false,
+          reason: result.error?.safe_message ?? "The Host returned no matching timestamped target catalog." });
+      }
+      return result;
+    } catch (error) {
+      if (current()) publish({ state: "unavailable", empty: false, reason: "Catalog observation unavailable. Check the Host connection and retry." });
+      throw error;
+    }
+  }
   registerProvider(input: ProviderRegistration) { return this.invoke("provider.register", () => this.client.registerProvider(input)); }
   qualifyProvider(input: ProviderQualificationInput) { return this.invoke("provider.qualify", () => this.client.qualifyProvider(input)); }
   trustProvider(input: { target_ref: string; posture: "approved" | "denied" }) { return this.invoke("provider.trust.set", () => this.client.trustProvider(input)); }
