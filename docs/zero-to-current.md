@@ -1907,3 +1907,12 @@ Operator check: reopen the native qualification Case and inspect its retained
 answer/context without sending again. Switching to the infrastructure Case must
 not carry over its Conversation. The latter's full 4K context refusal remains
 open. Human acceptance is still `PENDING_OPERATOR`.
+
+Conversation now renders a retained model answer as safe Markdown: headings,
+lists, code blocks and tables remain readable in the contextual panel. Like the
+Overview explanation, it does not load remote images or execute HTML; links only
+inspect exact objects already disclosed in the current Case projection. Open
+**Execution details → Original response** to compare the unmodified candidate
+text. Formatting grants no authority and never runs a command shown in a code
+block. Reopening the native 4K qualification Case exercises this on an existing
+real answer without another provider request.

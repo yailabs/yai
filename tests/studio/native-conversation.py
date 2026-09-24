@@ -136,7 +136,8 @@ try:
         raise TimeoutError('Observation deadline; submission may remain active. Do not resend it.')
     assert execution['primary_result']['selection']['selected_target_id'] == a.target
     output = execution['primary_result']['output']
-    wait('return [...document.querySelectorAll(".turn-ai > p")].some(node=>node.textContent===arguments[0])',output)
+    wait('return [...document.querySelectorAll(".conversation-response-source")].some(node=>node.textContent===arguments[0])',output)
+    wait('return [...document.querySelectorAll(".conversation-answer")].some(node=>node.dataset.resultRef===arguments[0] && node.textContent.trim())',execution['primary_result']['result_id'])
     context = call('execution.get', {**query,'include_context':True})
     emit(result='PASS', proof='One real native Studio SEND; exact canonical result displayed; no automatic redispatch',
         request_ref=execution['request_ref'], result_ref=execution['primary_result']['result_id'], output=output)

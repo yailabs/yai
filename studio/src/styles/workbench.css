@@ -3073,6 +3073,18 @@ summary {
 .conversation-operational .turn-human header { color: var(--text-muted); }
 .conversation-operational .turn-ai { padding-top: 22px; }
 .conversation-operational .turn-ai > header > strong { color: var(--text); font-weight: 600; }
+.conversation-answer { font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.conversation-answer :is(h1,h2,h3,h4,h5,h6) { margin: 18px 0 8px; font-size: 14px; line-height: 1.4; font-weight: 600; color: var(--text); }
+.conversation-answer > :first-child { margin-top: 10px; }
+.conversation-operational .conversation-answer p { white-space: normal; }
+.conversation-answer :is(ul,ol) { padding-left: 22px; margin: 10px 0; }
+.conversation-answer li + li { margin-top: 5px; }
+.conversation-answer pre { overflow-x: auto; white-space: pre; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.conversation-answer code { font-size: 12px; }
+.conversation-answer :not(pre) > code { padding: 1px 4px; background: var(--surface); border-radius: 3px; }
+.conversation-answer table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin-top: 12px; }
+.conversation-answer :is(th,td) { padding: 6px 9px; border: 1px solid var(--border); text-align: left; }
+.conversation-answer blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid var(--border); color: var(--text-muted); }
 .conversation-operational details { font-size: 11px; overflow-wrap: anywhere; margin-top: 12px; color: var(--text-muted); }
 .conversation-operational details summary { cursor: pointer; width: fit-content; }
 .conversation-operational details pre { white-space: pre-wrap; }

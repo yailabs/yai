@@ -137,7 +137,7 @@ try {
   assert.equal(observed.primary_result,null);
  }
  holdResponse=false;releaseResponse();releaseResponse=undefined;
- await page.locator('.turn-ai').getByText('Controlled provider response',{exact:true}).waitFor();
+ await page.locator('.conversation-answer').getByText('Controlled provider response',{exact:true}).waitFor();
  const fastSubmission=exchanges.filter(x=>x.request.operation_ref==='conversation.send').at(-1);
  assert.equal(fastSubmission.request.input.memory_search_mode,'fast');
  assert.equal(fastSubmission.result.data.memory_search.requested,'fast');
@@ -150,8 +150,8 @@ try {
  // Exact retry after lost acknowledgement and read-only recovery must not redispatch.
  dropAcknowledgement='conversation.send';await composer.fill('Second exact Studio message');await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.getByRole('button',{name:'Float Conversation',exact:true}).click();
- await page.waitForFunction(()=>document.querySelectorAll('.turn-ai > p').length===2);
- await page.waitForFunction(()=>[...document.querySelectorAll('.turn-ai > p')].every(p=>p.textContent==='Controlled provider response'));
+ await page.waitForFunction(()=>document.querySelectorAll('.conversation-answer > p').length===2);
+ await page.waitForFunction(()=>[...document.querySelectorAll('.conversation-answer > p')].every(p=>p.textContent==='Controlled provider response'));
  const committedRefs=(await accepted('case.summary',{case_ref:caseRef})).conversation.turns.map(turn=>turn.execution_request_ref);
  await page.getByRole('button',{name:'Close Conversation tool',exact:true}).click();
  await page.getByRole('button',{name:'Open Conversation tool',exact:true}).click();
@@ -172,7 +172,7 @@ try {
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).conversation.turns.length,2);
  // Leave/re-enter the auxiliary view: results reconstructed from canonical intent refs.
  await page.getByRole('button',{name:'Inspector',exact:true}).click();await page.getByRole('button',{name:'Conversation',exact:true}).click();
- await page.waitForFunction(()=>document.querySelectorAll('.turn-ai > p').length===2);
+ await page.waitForFunction(()=>document.querySelectorAll('.conversation-answer > p').length===2);
  assert.equal(await composer.inputValue(),'Draft survives stale generation');
  await composer.focus();
  assert.equal(await composer.evaluate(node=>getComputedStyle(node).outlineStyle),'none');
@@ -197,7 +197,7 @@ try {
  await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.getByText(/The model server rejected this request as too large/).waitFor();
  assert.equal(generationRequests-baselineRequests,3);
- assert.equal(await page.locator('.turn-ai > p').filter({hasText:'Controlled provider response'}).count(),2);
+ assert.equal(await page.locator('.conversation-answer > p').filter({hasText:'Controlled provider response'}).count(),2);
  // Overview narration reuses governed SEND; no provider shortcut or draft replacement.
  rejectOversized=false;
  await page.setViewportSize({width:1440,height:900});

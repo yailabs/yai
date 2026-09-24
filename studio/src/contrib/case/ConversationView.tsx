@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { AuxiliaryViewProps } from "../../workbench/kernel/types";
 import { Badge, Button } from "../../components/primitives";
 import { Icon } from "../../components/Icon";
 import { conversationExecutionMessage, conversationStorageKey, makeConversationSend, type ConversationExecution, type ConversationSendInput } from "../../clients/conversation";
 import { useApplicationAvailability } from "./applicationActions";
 import { ExecutionContext } from "./ExecutionContext";
+
+const NarrativeText = lazy(() => import("./NarrativeText"));
 
 export function ConversationView(props: AuxiliaryViewProps) {
   return <Conversation key={`${props.workspace.case.case_ref}:${props.workspace.case.participant_ref}`} {...props} />;
@@ -144,9 +146,9 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
       {workspace.conversation.turns.map(turn => { const execution = executions[turn.id]; return <div className="conversation-exchange" key={turn.id}>
         <article className="real-turn turn-human"><header><strong>{turn.participant_ref === participant ? "You" : turn.participant_ref}</strong><small title={`Committed at Case state version ${turn.generation}`}>Committed</small></header>{turn.parts.map((part, index) => <p key={index}>{part.text ?? `[${part.modality} · ${part.media_type}]`}</p>)}</article>
         {execution && <article className="real-turn turn-ai"><header><strong>Model</strong>{!execution.primary_result && <Badge tone={ ["admitted", "running"].includes(execution.posture) ? "info" : "warning"}>{execution.posture.replaceAll("_", " ")}</Badge>}</header>
-          <p>{conversationExecutionMessage(execution)}</p>
+          {execution.primary_result ? <div className="conversation-answer" data-result-ref={execution.primary_result.result_id}><Suspense fallback={<p>{execution.primary_result.output}</p>}><NarrativeText text={execution.primary_result.output} inspect={ref => actions.inspect(ref)} references={[caseRef, ...workspace.environment.sources.map(item => item.id), ...workspace.environment.resources.map(item => item.id), ...workspace.environment.files.map(item => item.id), ...workspace.knowledge.units.map(item => item.id), ...workspace.authority.policies.map(item => item.id), ...workspace.work.nodes.map(item => item.node_id), ...workspace.memory.timeline.map(item => item.id)]} /></Suspense></div> : <p>{conversationExecutionMessage(execution)}</p>}
           {execution.posture === "unresolved" && <Button type="button" onClick={() => setTick(value => value + 1)}>Check status</Button>}
-          <details><summary>Execution details</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}{execution.attempt_outcomes.map((outcome, index) => <pre key={index}>{JSON.stringify(outcome, null, 2)}</pre>)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
+          <details><summary>Execution details</summary><code>{execution.request_ref}</code>{execution.primary_result && <><code>{execution.primary_result.result_id}</code><details><summary>Original response</summary><pre className="conversation-response-source">{execution.primary_result.output}</pre></details></>}{execution.attempt_outcomes.map((outcome, index) => <pre key={index}>{JSON.stringify(outcome, null, 2)}</pre>)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
         </article>}
       </div>; })}
     </div>
