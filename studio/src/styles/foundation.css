@@ -812,3 +812,14 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .decision-history form label { flex:1; min-width:180px; }
 .decision-history code, .decision-history dd, .decision-history .fact-row small { overflow-wrap:anywhere; }
 .decision-history .object-facts { grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); }
+
+/* Connection status separates the application Host from a Case model assignment. */
+.kernel-status > div.status-connections { max-width: 72%; gap: 10px; }
+.kernel-status .status-connections button { height: 20px; min-width: 0; padding: 0 3px; border: 0; background: transparent; color: var(--yai-text-secondary); font: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kernel-status .status-connections .host-status, .kernel-status .status-connections .telemetry-status { flex-shrink: 0; }
+.kernel-status .status-connections .host-status[data-state="live"] { color: var(--yai-success); }
+.kernel-status .status-connections .host-status[data-state="unavailable"], .kernel-status .status-connections .host-status[data-state="stopped"] { color: var(--yai-error); }
+.kernel-status .model-status { max-width: 32vw; }
+.kernel-status .model-status[data-assigned="false"] { color: var(--yai-warning); }
+.kernel-status .status-connections button:hover { background: var(--yai-raised); }
+.kernel-status .status-connections button:focus-visible { outline: 1px solid var(--yai-focus); outline-offset: -1px; }

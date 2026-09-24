@@ -81,6 +81,10 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   useEffect(() => navigation.subscribe(() => invalidateSurfaces((value) => value + 1)).dispose, [navigation]);
   useEffect(() => platform.host.subscribe(setHostState).dispose, [platform.host]);
   useEffect(() => () => windowSession.dispose(), [windowSession]);
+  const conversationBinding = workspace.compute.cognitive_bindings?.find(binding => binding.participant_id === workspace.case.participant_ref && binding.role === "primary");
+  const conversationTarget = workspace.compute.targets.find(target => target.id === conversationBinding?.target_id);
+  const modelLabel = conversationTarget ? `Model: ${conversationTarget.model_id}` : workspace.compute.targets.length ? "Assign conversation model" : "No model bound";
+  const modelDetail = conversationTarget ? `Assigned to this Participant: ${conversationTarget.model_id}. Assignment does not establish current reachability. Open Compute for qualification and execution details.` : "Open Compute to configure a governed conversation target for this Case.";
   const dirtyCount = windowSession.dirtyCount;
   useEffect(() => { void window.__TAURI__?.core.invoke("desktop_set_dirty", { dirty: dirtyCount > 0 }); }, [dirtyCount]);
   useEffect(() => {
@@ -326,7 +330,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     </div>
     <footer className="kernel-status" aria-label="Workbench status">
       <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>{activeInput?.title ?? activeContainer}</span></div>
-      <div><button className="host-status" data-state={hostState.state} onClick={() => openSettings("yai-host")} title="Open Settings > YAI Host">YAI {hostState.state === "live" ? "●" : hostState.state}</button>{workspace.presentation.dataKind === "fixture" && <span>Fixture data</span>}<span>{workspace.case.participant_ref}</span></div>
+      <div className="status-connections"><button className="host-status" data-state={hostState.state} onClick={() => openSettings("yai-host")} title="YAI application Host connection · Open Settings > YAI Host">YAI Host · {hostState.state === "live" ? "Connected" : hostState.state}</button><button className="model-status" data-assigned={Boolean(conversationTarget)} onClick={() => openPerspective("Compute")} title={modelDetail}>{modelLabel}</button><button className="telemetry-status" onClick={() => openPerspective("Telemetry")} title="Inspect Host, runtime, Resources and observed execution state">Telemetry</button>{stream !== "live" && <span title="Case update stream">{stream === "fixture" ? "Fixture data" : `Case ${stream}`}</span>}</div>
     </footer>
     {editingNotice && <div className="editing-notice" role="alert"><span>{editingNotice}</span><IconButton aria-label="Dismiss editing notice" onClick={() => platform.editing.dismiss()}><Icon name="close" /></IconButton></div>}
     {searchMode === "commands" && <WorkbenchSearch title="Command Palette" placeholder="Type a command" items={commandItems()} onClose={() => setSearchMode(undefined)} />}

@@ -11,6 +11,14 @@ const errors=[];page.on('pageerror',error=>errors.push(String(error)));
 try {
  await page.goto(`${process.env.STUDIO_TEST_URL??'http://127.0.0.1:1434'}/?fixture=developer`);
  await page.getByRole('region',{name:'Current Case situation'}).waitFor();
+ const status=page.getByRole('contentinfo',{name:'Workbench status'});
+ assert.equal(await status.getByText(/Generation/).count(),0);
+ await status.getByRole('button',{name:'Telemetry',exact:true}).click();
+ await page.getByRole('heading',{name:'Telemetry',exact:true}).waitFor();
+ await status.locator('.model-status').click();
+ await page.getByRole('heading',{name:'Compute',exact:true}).waitFor();
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+
  assert.equal(await page.locator('.overview-identity').getByText(/Generation/).count(),0);
  assert.equal(await page.getByRole('region',{name:'Model explanation'}).getByRole('button',{name:'Generate explanation',exact:true}).isDisabled(),true);
  for(const name of ['Environment','Knowledge','Memory','Authority','Work','Compute','Providers','YVEX','Telemetry']) {
@@ -25,6 +33,9 @@ try {
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
   await page.setViewportSize({width,height});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  for(const button of await status.locator('button').all()) {
+   const bounds=await button.boundingBox();assert.ok(bounds && bounds.width>0 && bounds.x>=0 && bounds.x+bounds.width<=width);
+  }
   const box=await selector.boundingBox();assert.ok(box && box.x>=0 && box.x+box.width<=width);
   await page.screenshot({path:`${output}/telemetry-${width}x${height}.png`});
  }

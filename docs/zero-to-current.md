@@ -1729,3 +1729,10 @@ including lost acknowledgement, exact retry, conflicting configuration, hidden
 Case refusal, declaration/acquisition of a real Source, exact editor bytes,
 CLI retry of the same definitions without new state and canonical replay. Process-runner executable identity and write bounds
 remain outside this bounded form.
+
+The Workbench status bar distinguishes the YAI Host connection from the current
+Participant's conversation model assignment. Click the Host entry for Host
+settings, the model entry for Compute, or Telemetry for current qualified
+observations. A model assignment is not a live reachability claim. Case stream
+reconnection/unavailability remains separately visible; fixture data stays
+explicit. The status bar does not expose the internal Case generation counter.
