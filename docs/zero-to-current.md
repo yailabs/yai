@@ -1614,6 +1614,20 @@ including empty-after-close, and checks that the Case state remains unchanged.
 
 ### Native Case portfolio and bounded storage
 
+For mutation/recovery qualification, pass `--fresh-profile` with
+`--cases case:behavioral-alpha case:behavioral-beta`. This mode ignores any
+operator `YAI_HOME` and allocates its own profile from the versioned portfolio
+manifest. It qualifies CLI → Host → two independently launched native Studio
+Journals, exact role-request replay, Host restart, fresh attachment identities,
+post-restart update delivery, unsent draft retention and parallel Case isolation.
+The runner stops its Host before deleting only its newly allocated profile.
+Prefer `xvfb-run -a` when the operator is using the physical desktop, to isolate
+automated native keyboard focus. The runner verifies the typed draft before
+navigation and retains failure screenshots/identity instead of retrying a failed
+assertion silently. Neither this lane nor read-only Case switching proves real
+model inference.
+
+
 `tests/studio/native-portfolio.py` is the opt-in native two-client lane. Supply an
 explicit existing `YAI_HOME`, desktop binary, CLI binary, two distinct `--cases`
 and a fresh `--evidence` directory. It opens independent WebKitGTK/Tauri processes,
