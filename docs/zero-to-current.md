@@ -1788,3 +1788,11 @@ pending discovery identity, so a late catalog cannot populate another connection
 Manual exact identity remains an explicit alternative for endpoints without a
 catalog. Credential references and compatibility settings are advanced options;
 no secret is entered. Discovery retains no target, binding or qualification.
+
+
+In Conversation → Execution details → Inspect model context, compare exact
+input tokens with observed target capacity, then inspect **Pinned by YAI** and
+**Optional selected**. Selection reasons and omitted item identities come from
+the archived Working State decisions. Semantic units are not tokenizer counts.
+This is read-only diagnosis: it cannot unpin policy/state, recompile Recall or
+resend a rejected request. An unavailable archived decision list stays unknown.

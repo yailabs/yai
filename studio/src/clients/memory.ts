@@ -26,6 +26,7 @@ export interface WorkingEntry { entry_id: string; posture: string; value: { kind
 export interface WorkingState {
   [key: string]: unknown;
   working_state_id: string; case_id: string; case_generation: number; participant_id: string; request: WorkingStateRequest["compilation"];
+  decisions?: Array<{ item_id: string; class: string; disposition: "pinned" | "retained" | "reintroduced" | "omitted"; semantic_units: number; reasons: string[] }>;
   entries: WorkingEntry[]; bounds: { selected_items: number; selected_semantic_units: number; omitted_items: number; omitted_by_locality: number; omitted_by_budget: number };
   recall?: { recall_closure_complete: boolean; limitations: string[]; omitted_recall_candidates: number };
 }

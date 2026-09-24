@@ -1421,3 +1421,10 @@ catalog support. Existing `provider.models` and `provider.register` contracts an
 `provider.inspect`/`provider.governance` capability identities remain exact; this
 change adds no backend operation. Compute and Conversation interaction suites
 exercise the real Host boundary, including delayed-catalog rejection.
+
+
+Archived execution context projects Working State selection decisions alongside
+wire capacity observations: pinned items, selected optional items, omissions and
+owner-authored reasons. Studio does not classify authority or estimate tokens from
+semantic units. This retains the existing execution.get disclosure/generation
+fence and introduces no new capability; absent archived decisions remain unknown.

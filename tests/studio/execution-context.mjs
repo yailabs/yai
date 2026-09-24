@@ -54,12 +54,24 @@ try {
   }, profile);
   assert.equal(calls.length, 0, 'Context is inspected only on explicit request');
   await page.getByRole('button', {name:'Inspect model context',exact:true}).click();
-  await page.getByText('Fits observed capacity',{exact:true}).waitFor();
+  const capacityLabel=profile.capacity_compatible===false?'Does not fit':'Fits observed capacity';
+  await page.getByText(capacityLabel,{exact:true}).waitFor();
   assert.equal(calls.length, 1);
   const observation=calls[0].result.data.prepared_context.invocations[0].input_observation;
   assert.equal(observation.serialized_request_digest, profile.digest);
+  const working=calls[0].result.data.prepared_context.invocations[0].working_state;
+  const pinned=working.decisions.filter(item=>item.disposition==='pinned').length;
+  assert.ok(pinned>0,'Real owner retains mandatory state');
+  assert.equal(await page.locator('dt').filter({hasText:/^Pinned by YAI$/}).evaluate(node=>node.nextElementSibling.textContent),`${pinned} items`);
+
   assert.equal(calls[0].request.input.include_context, true);
   await page.getByText('Required state, recalled evidence and omissions',{exact:true}).click();
+  const firstEntry=working.entries[0];
+  const firstDecision=working.decisions.find(item=>item.item_id===firstEntry.entry_id);
+  assert.ok(firstDecision?.reasons.length,'Selected entry retains owner reasons');
+  const renderedEntry=page.locator('.execution-context-entry').filter({has:page.locator('code').getByText(firstEntry.entry_id,{exact:true})});
+  await renderedEntry.getByText('Selection reasons',{exact:true}).click();
+  assert.deepEqual(await renderedEntry.locator('li').allTextContents(),firstDecision.reasons.map(reason=>reason.replaceAll('_',' ')));
   await page.getByText('Exact frame and transport evidence',{exact:true}).click();
   await page.evaluate(()=>document.querySelector('.conversation-view').scrollTop=0);
   for (const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
@@ -69,7 +81,7 @@ try {
   }
   await page.evaluate(generation=>window.renderContextAtGeneration(generation-1),profile.execution.observed_generation);
   await page.getByRole('alert').filter({hasText:'Context changed.'}).waitFor();
-  assert.equal(await page.getByText('Fits observed capacity',{exact:true}).count(),0,'Stale context must be withheld');
+  assert.equal(await page.getByText(capacityLabel,{exact:true}).count(),0,'Stale context must be withheld');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({result:'PASS',proof:['explicit real Host read','exact wire digest','capacity and archived context','four viewport matrix']}));
 } finally {

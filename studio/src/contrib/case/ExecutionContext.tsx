@@ -41,11 +41,16 @@ export function ExecutionContext({ application, execution, generation }: {
     {visible?.data && <>
       {!visible.data.invocations.length && <p>No prepared invocation is retained for this execution.</p>}
       {visible.data.invocations.map(entry => { const input = entry.input_observation; const capacity = input?.capacity; const working = entry.working_state;
+        const decisions = working?.decisions;
+        const pinned = decisions?.filter(item => item.disposition === "pinned");
+        const optional = decisions?.filter(item => item.disposition === "retained" || item.disposition === "reintroduced");
         return <div key={entry.invocation_ref}>
           <p>Prepared at Case state version {entry.lineage.case_generation}. Disclosure checked at Case state version {visible.data!.observed_generation}.</p>
           {entry.unavailable_reason ? <p>{entry.unavailable_reason.replaceAll("_", " ")}</p> : <>
             <dl>
               <dt>Selected evidence/state</dt><dd>{working?.bounds.selected_items ?? "Unknown"} items</dd>
+              <dt>Pinned by YAI</dt><dd>{pinned?.length ?? "Unknown"} items</dd>
+              <dt>Optional selected</dt><dd>{optional?.length ?? "Unknown"} items</dd>
               <dt>Omitted</dt><dd>{working?.bounds.omitted_items ?? "Unknown"} items</dd>
               <dt>Serialized request</dt><dd>{input ? `${input.serialized_request_bytes.toLocaleString()} bytes` : "Not retained"}</dd>
               <dt>Input tokens</dt><dd>{capacity?.input_tokens?.toLocaleString() ?? "Unknown"}</dd>
@@ -54,9 +59,11 @@ export function ExecutionContext({ application, execution, generation }: {
               <dt>Capacity check</dt><dd>{capacity?.token_capacity_compatible == null ? "Unknown" : capacity.token_capacity_compatible ? "Fits observed capacity" : "Does not fit"}</dd>
             </dl>
             {input?.refusal && <p role="status">Not dispatched: {input.refusal.replaceAll("_", " ")}</p>}
+            {capacity?.token_capacity_compatible === false && <p>YAI refused this prepared request. Pinned state cannot be removed here. A larger qualified target or an owner-qualified context preparation is required; nothing is truncated or resent by this view.</p>}
             {input && <p>Observed {new Date(input.observed_at_unix_ms).toLocaleString()}. Capacity is not a resource reservation.</p>}
             <details><summary>Required state, recalled evidence and omissions</summary>
-              {working?.entries.map(item => <div className="execution-context-entry" key={item.entry_id}><strong>{item.value.kind.replaceAll("_", " ")}</strong><small>{item.posture.replaceAll("_", " ")}</small><code>{item.entry_id}</code></div>)}
+              {working?.entries.map(item => { const decision = decisions?.find(value => value.item_id === item.entry_id); return <div className="execution-context-entry" key={item.entry_id}><strong>{item.value.kind.replaceAll("_", " ")}</strong><small>{item.posture.replaceAll("_", " ")}</small><code>{item.entry_id}</code>{decision && <><span>{decision.disposition === "pinned" ? "Pinned by YAI" : "Optional selected"} · {decision.semantic_units} semantic units (not tokens)</span><details><summary>Selection reasons</summary><ul>{decision.reasons.map(reason => <li key={reason}>{reason.replaceAll("_", " ")}</li>)}</ul></details></>}</div>; })}
+              {decisions?.filter(item => item.disposition === "omitted").map(item => <div className="execution-context-entry" key={item.item_id}><strong>Omitted</strong><code>{item.item_id}</code><ul>{item.reasons.map(reason => <li key={reason}>{reason.replaceAll("_", " ")}</li>)}</ul></div>)}
               <details><summary>Full Working State evidence</summary><pre>{JSON.stringify(working, null, 2)}</pre></details>
             </details>
             <details><summary>Exact frame and transport evidence</summary><pre>{JSON.stringify({ lineage: entry.lineage, frame: entry.frame, input }, null, 2)}</pre></details>
