@@ -3,7 +3,7 @@ import type { ProviderModelsInput, ProviderModels } from "./compute";
 import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput, ConversationSubmission } from "./conversation";
 import type { InspectedConversationExecution } from "./executionContext";
-import type { CognitivePrepareInput, CognitiveRealizeInput, CognitivePlan } from "./cognitive";
+import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput, CognitivePlan } from "./cognitive";
 import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, EffectProposal, ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
@@ -97,7 +97,7 @@ export interface LiveWorkspace {
     edges: LiveEdge[];
   };
   compute: { cognitive_bindings?: CognitiveBinding[]; status: string; message: string; targets: Array<{ id: string; provider_key: string; adapter: string; model_id: string; locality: string; endpoint: string; posture?: ProviderPosture | string; management: string; extension_adapter_id?: string | null; semantic_evidence?: SemanticEvidence[] }> };
-  conversation: { read_only: boolean; turns: Array<{ id: string; thread_ref: string; participant_ref: string; generation: number; execution_request_ref?: string | null; parts: Array<{ modality: string; media_type: string; text?: string }> }> };
+  conversation: { read_only: boolean; turns: Array<{ id: string; thread_ref: string; participant_ref: string; generation: number; execution_request_ref?: string | null; parts: Array<{ part_ref?: string; modality: string; media_type: string; text?: string }> }> };
   freshness: { generation: number; resync_operation: string };
 }
 
@@ -162,6 +162,7 @@ export class LiveClient {
   acquireSource(input: SourceAcquireInput) { return this.call<ExecutionSubmission>("source.acquire", input); }
   resumeSource(input: SourceResumeInput) { return this.call<ExecutionSubmission>("source.resume", input); }
   execution(input: ExecutionGetInput) { return this.call<ExecutionObservation>("execution.get", input); }
+  composeCognition(input: CognitiveComposeInput) { return this.call<ConversationSubmission>("cognitive.compose", input); }
   prepareCognition(input: CognitivePrepareInput) { return this.call<CognitivePlan>("cognitive.realization.prepare", input); }
   realizeCognition(input: CognitiveRealizeInput) { return this.call<ExecutionObservation>("cognitive.realize", input); }
   requestResource(input: ResourceRequestInput) { return this.call<ExecutionSubmission>("resource.request", input); }

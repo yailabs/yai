@@ -2,7 +2,7 @@ import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
 import { providerCatalogKey, type ProviderCatalogObservation, type ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
-import type { CognitivePrepareInput, CognitiveRealizeInput } from "./cognitive";
+import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput } from "./cognitive";
 import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
@@ -120,6 +120,7 @@ export class ApplicationAccess implements Disposable {
   acquireSource(input: SourceAcquireInput) { return this.invoke("source.acquire", () => this.client.acquireSource(input)); }
   resumeSource(input: SourceResumeInput) { return this.invoke("source.resume", () => this.client.resumeSource(input)); }
   execution(input: ExecutionGetInput) { return this.invoke("execution.get", () => this.client.execution(input)); }
+  composeCognition(input: CognitiveComposeInput) { return this.invoke("cognitive.compose", () => this.client.composeCognition(input)); }
   prepareCognition(input: CognitivePrepareInput) { return this.invoke("cognitive.realization.prepare", () => this.client.prepareCognition(input)); }
   realizeCognition(input: CognitiveRealizeInput) { return this.invoke("cognitive.realize", () => this.client.realizeCognition(input)); }
   requestResource(input: ResourceRequestInput) { return this.invoke("resource.request", () => this.client.requestResource(input)); }

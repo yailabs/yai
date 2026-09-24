@@ -2000,3 +2000,13 @@ references. `cognitive.compose` requires non-empty exact source parts and retain
 one intent per Turn. Part disclosure does not grant execution authority.
 The Application composition test checks exact projected identity/content,
 unavailable-Case refusal, reopen continuity and one admitted intent on retry.
+
+Studio Conversation offers **Run retained message…** for committed text Turns
+that have no execution intent. It uses every disclosed `part_ref`, confirms the
+current Case state and submits `cognitive.compose`; it never creates a duplicate
+user Turn. A Host without part identities leaves the action unavailable.
+`tests/studio/conversation-actions.mjs` imports a real CLI draft, commits it without
+execution, and then qualifies Studio submission, stale/hidden refusal, lost
+acknowledgement, exact retry, one provider dispatch and the retained answer.
+The confirmation remains mounted while a canonical refresh reveals the intent.
+Part subset selection and multimedia prerequisite authoring remain unqualified.

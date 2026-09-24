@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { AuxiliaryViewProps } from "../../workbench/kernel/types";
 import { Badge, Button } from "../../components/primitives";
+import { ApplicationActionDialog } from "../../components/ApplicationActionDialog";
 import { Icon } from "../../components/Icon";
 import { conversationExecutionMessage, conversationStorageKey, makeConversationSend, type ConversationExecution, type ConversationSendInput } from "../../clients/conversation";
 import { useApplicationAvailability } from "./applicationActions";
@@ -147,6 +148,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
       {!workspace.conversation.turns.length && <div className="conversation-welcome"><span className="conversation-monogram" aria-hidden="true">YAI</span><h2>Let’s work on this Case.</h2><p>Ask a question. Explore an idea.</p></div>}
       {workspace.conversation.turns.map(turn => { const execution = executions[turn.id]; return <div className="conversation-exchange" key={turn.id}>
         <article className="real-turn turn-human"><header><strong>{turn.participant_ref === participant ? "You" : turn.participant_ref}</strong><small title={`Committed at Case state version ${turn.generation}`}>Committed</small></header>{turn.parts.map((part, index) => <p key={index}>{part.text ?? `[${part.modality} · ${part.media_type}]`}</p>)}</article>
+        {turn.parts.length > 0 && turn.parts.every(part => part.modality === "text") && <RetainedMessageAction workspace={workspace} platform={platform} turnRef={turn.id} hasIntent={Boolean(turn.execution_request_ref || execution)} partRefs={turn.parts.map(part => part.part_ref)} />}
         {execution && <article className="real-turn turn-ai"><header><strong>Model</strong>{!execution.primary_result && <Badge tone={ ["admitted", "running"].includes(execution.posture) ? "info" : "warning"}>{execution.posture.replaceAll("_", " ")}</Badge>}</header>
           {execution.primary_result ? <div className="conversation-answer" data-result-ref={execution.primary_result.result_id}><Suspense fallback={<p>{execution.primary_result.output}</p>}><NarrativeText text={execution.primary_result.output} inspect={ref => actions.inspect(ref)} references={[caseRef, ...workspace.environment.sources.map(item => item.id), ...workspace.environment.resources.map(item => item.id), ...workspace.environment.files.map(item => item.id), ...workspace.knowledge.units.map(item => item.id), ...workspace.authority.policies.map(item => item.id), ...workspace.work.nodes.map(item => item.node_id), ...workspace.memory.timeline.map(item => item.id)]} /></Suspense></div> : <p>{conversationExecutionMessage(execution)}</p>}
           {execution.posture === "unresolved" && <Button type="button" onClick={() => setTick(value => value + 1)}>Check status</Button>}
@@ -178,5 +180,22 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
         <Button className="conversation-send" aria-label={busy ? "Sending…" : "Send"} title="Send message" type="submit" disabled={busy || !canSend || !draft.trim()}><span aria-hidden="true">{busy ? "…" : "↑"}</span></Button>
       </div>}
     </form>
+  </div>;
+}
+
+/** Commit and execution are separate: a CLI-imported Turn need not have SEND intent. */
+function RetainedMessageAction({ workspace, platform, turnRef, partRefs, hasIntent }: Pick<AuxiliaryViewProps, "workspace" | "platform"> & { turnRef: string; partRefs: Array<string | undefined>; hasIntent: boolean }) {
+  const application = platform.application;
+  const [pending, setPending] = useState<number>();
+  const exactParts = partRefs.length > 0 && partRefs.every((ref): ref is string => typeof ref === "string" && ref.length > 0) ? partRefs : undefined;
+  const refresh = () => platform.commands.executeCommand("studio.case.refresh").then(() => undefined);
+  if (hasIntent && pending == null) return null;
+  return <div className="retained-message-action">{!hasIntent && <Button disabled={!application?.supports("cognitive.compose") || !exactParts} onClick={() => setPending(workspace.case.generation)}>Run retained message…</Button>}
+    {!exactParts && <small>Exact input references are unavailable from this Host. Refresh after updating it.</small>}
+    {pending != null && application && <ApplicationActionDialog title="Run retained message" description="Ask the current Case model to process this already committed message. YAI prepares current Recall and Working State, checks authority and target capacity, then executes or refuses. This does not create another user message." submitLabel="Run this message" close={() => { setPending(undefined); void refresh(); }} enabled={!hasIntent && pending === workspace.case.generation && Boolean(exactParts)} submit={() => { if (!exactParts) throw Error("Exact part identities unavailable"); return application.composeCognition({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, source_turn_ref: turnRef, source_part_refs: exactParts, prerequisite: null, expected_generation: pending }); }} committed={refresh} resync={refresh}>
+      <p>All text parts of this retained message are used. No transcription or image prerequisite is inferred. The resulting answer remains candidate material.</p>
+      <p>If confirmation is lost, close this dialog and inspect the recorded execution. Studio does not automatically submit it again.</p>
+      {hasIntent ? <p role="status">YAI has recorded an execution for this message. Close and inspect its current state.</p> : pending !== workspace.case.generation && <p role="alert">The Case changed. Close and reopen this action.</p>}
+    </ApplicationActionDialog>}
   </div>;
 }

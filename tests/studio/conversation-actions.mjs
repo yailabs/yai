@@ -449,6 +449,51 @@ try {
  const waitingReview=exchanges.findLast(x=>x.request.operation_ref==='effect.submit');const reviewDecision=await accepted('decision.trajectory.inspect',{case_ref:caseRef,participant_ref:'participant:operator',decision_ref:waitingReview.result.data.progress.decision_id});assert.equal(waitingReview.result.data.progress.status,'awaiting_review',JSON.stringify(reviewDecision.decision));assert.ok(waitingReview.result.data.progress.review_id);await assert.rejects(stat(path.join(effectRoot,'allowed/review.txt')));
  await reviewedCandidate.getByText('Waiting for Review. This observation grants no permission to execute.',{exact:true}).waitFor();
  providerContent='Controlled provider response';
+ // A canonical CLI-imported message has no inference intent until Studio explicitly submits it.
+ cli('case','conversation','draft','create',caseRef,'retained-studio-input','--participant','participant:operator');
+ cli('case','conversation','draft','add-text',caseRef,'retained-studio-input','--text','Retained message for explicit Studio composition');
+ cli('case','conversation','draft','send',caseRef,'retained-studio-input');
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ const retainedExchange=page.locator('.conversation-exchange').filter({hasText:'Retained message for explicit Studio composition'});
+ await retainedExchange.getByRole('button',{name:'Run retained message…',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Run retained message',exact:true});
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});const box=await form.boundingBox();assert.ok(box.x>=0 && box.y>=0 && box.x+box.width<=width+1 && box.y+box.height<=height+1);await page.screenshot({path:`${evidence}/retained-message-dialog-${width}x${height}.png`});}
+ await page.setViewportSize({width:1440,height:900});
+ const beforeCompose=await accepted('case.summary',{case_ref:caseRef});
+ const retainedTurn=beforeCompose.conversation.turns.find(turn=>turn.parts.some(part=>part.text==='Retained message for explicit Studio composition'));
+ assert.ok(retainedTurn);assert.equal(retainedTurn.execution_request_ref,null);
+ await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'compose-stale-check'});
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ assert.equal(await form.getByRole('button',{name:'Run this message',exact:true}).isEnabled(),false);
+ await form.getByRole('button',{name:'Cancel',exact:true}).click();
+ const composeInput={case_ref:caseRef,participant_ref:'participant:operator',source_turn_ref:retainedTurn.id,source_part_refs:retainedTurn.parts.map(part=>part.part_ref),prerequisite:null,expected_generation:beforeCompose.case.generation};
+ assert.equal((await call('cognitive.compose',composeInput)).result_state,'stale');
+ assert.notEqual((await call('cognitive.compose',{...composeInput,participant_ref:'participant:hidden'})).result_state,'success');
+ const beforeComposeDispatch=generationRequests;
+ providerContent='Retained message executed once';holdResponse=true;dropAcknowledgement='cognitive.compose';
+ await retainedExchange.getByRole('button',{name:'Run retained message…',exact:true}).click();
+ await form.getByRole('button',{name:'Run this message',exact:true}).click();
+ await form.getByText('Confirmation was lost',{exact:true}).waitFor();
+ assert.equal(await form.getByRole('button',{name:'Run this message',exact:true}).isEnabled(),false);
+ const composed=exchanges.findLast(item=>item.request.operation_ref==='cognitive.compose');
+ assert.equal(composed.result.result_state,'success',JSON.stringify(composed));
+ assert.equal(composed.result.data.execution.turn_ref,retainedTurn.id);
+ assert.deepEqual(composed.request.input.source_part_refs,retainedTurn.parts.map(part=>part.part_ref));
+ const composeDeadline=Date.now()+10000;
+ while(!releaseResponse){assert.ok(Date.now()<composeDeadline);await new Promise(resolve=>setTimeout(resolve,20));}
+ assert.equal(generationRequests,beforeComposeDispatch+1);
+ await form.getByRole('button',{name:'Close and inspect state',exact:true}).click();
+ holdResponse=false;releaseResponse();releaseResponse=undefined;
+ await retainedExchange.locator('.conversation-answer').getByText('Retained message executed once',{exact:true}).waitFor();
+ assert.equal(await retainedExchange.getByRole('button',{name:'Run retained message…',exact:true}).count(),0);
+ const afterCompose=await accepted('case.summary',{case_ref:caseRef});
+ assert.equal(afterCompose.conversation.turns.length,beforeCompose.conversation.turns.length,'Composition must not create another Turn');
+ const composeRetry=await accepted('cognitive.compose',composed.request.input);
+ assert.equal(composeRetry.created,false);assert.equal(composeRetry.execution.request_ref,composed.result.data.execution.request_ref);
+ assert.equal(generationRequests,beforeComposeDispatch+1);
+ assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),afterCompose,'Exact retry preserves canonical history');
+ await page.screenshot({path:`${evidence}/retained-message-composed.png`});
+ providerContent='Controlled provider response';
  await accepted('provider.trust.set',{target_ref:target.target_id,posture:'denied'});
  const rejected=await call('cognitive.binding.set',{case_ref:caseRef,participant_ref:'participant:operator',role:'primary',capability:'primary_conversation',candidates:[{target_ref:target.target_id,semantic_evidence_ref:attested.data.evidence_id}],replace:true});
  assert.notEqual(rejected.result_state,'success');
@@ -468,7 +513,7 @@ try {
 
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID','Retained Turn plan preparation without inference','Explicit exact-plan realization and lost ACK recovery','Stale plan and incompatible input refusal','Current trust excludes model route','Reopen observes without redispatch','Explicit candidate normalization, prose refusal, lost-ACK exact proposal recovery, governed file write, stale/hidden refusal, exact retry preserves inode and Case','Process suspension exact retry does not repeat the signal; required Review prevents file write']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID','Retained Turn plan preparation without inference','Explicit exact-plan realization and lost ACK recovery','Stale plan and incompatible input refusal','Current trust excludes model route','Reopen observes without redispatch','Explicit candidate normalization, prose refusal, lost-ACK exact proposal recovery, governed file write, stale/hidden refusal, exact retry preserves inode and Case','CLI committed Turn explicitly composed in Studio; stale and hidden refusal, lost ACK, one result and no duplicate Turn/dispatch','Process suspension exact retry does not repeat the signal; required Review prevents file write']}));
 } finally {
  if(effectChild && effectChild.exitCode===null){effectChild.kill('SIGCONT');effectChild.kill('SIGTERM');}
  releaseSummary?.();releaseResponse?.();await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

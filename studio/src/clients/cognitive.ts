@@ -12,3 +12,10 @@ export interface CognitivePlan {
   selected_binding_id?: string; semantic_evidence_id?: string; unresolved_reason?: string;
   arbitration?: { candidates: Array<{ target_id: string; role: string; exclusions: string[] }> };
 }
+
+/** Explicit intent for an existing Turn; source parts must be exact disclosed identities. */
+export interface CognitiveComposeInput {
+  case_ref: string; participant_ref: string; source_turn_ref: string;
+  source_part_refs: string[]; expected_generation: number;
+  prerequisite: { capability: Exclude<CognitiveCapability, "primary_conversation">; source_part_ids: string[] } | null;
+}
