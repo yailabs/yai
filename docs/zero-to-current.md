@@ -1990,3 +1990,13 @@ provenance and YAI-supplied instructions/constraints. These filters are local
 presentation only: they do not omit input, rerun Recall or send a request.
 A prepared frame is not proof of provider delivery. Stale/disclosure-refused
 reads withhold the browser along with the rest of the context.
+
+### Retained Conversation part identity
+
+`case.summary` discloses each committed Conversation part's canonical `part_ref`
+alongside its modality, media type and text. Clients can pass these existing
+identities to explicit composition; they must not hash content or invent part
+references. `cognitive.compose` requires non-empty exact source parts and retains
+one intent per Turn. Part disclosure does not grant execution authority.
+The Application composition test checks exact projected identity/content,
+unavailable-Case refusal, reopen continuity and one admitted intent on retry.

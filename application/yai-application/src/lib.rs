@@ -2888,6 +2888,7 @@ fn case_snapshot(
                     _ => None,
                 }),
                 "parts": turn.ordered_parts.iter().map(|part| json!({
+                    "part_ref": part.part_id,
                     "modality": part.object.modality,
                     "media_type": part.object.media_type,
                     "text": part.object.inline_text

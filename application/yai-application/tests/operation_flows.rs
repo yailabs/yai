@@ -128,6 +128,13 @@ fn cognitive_composition_admits_once_and_observes_existing_turn_after_reopen() {
     let committed = yai_application::cognitive_execution::commit_conversation_draft_with_intent(
         &f.home, &auth, &store, &draft, None, None).unwrap();
     let generation = f.generation();
+    let projection = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    assert_eq!(projection["conversation"]["turns"][0]["id"], committed.turn.turn_id);
+    assert_eq!(projection["conversation"]["turns"][0]["parts"][0]["part_ref"], committed.turn.ordered_parts[0].part_id);
+    assert_eq!(projection["conversation"]["turns"][0]["parts"][0]["text"], "exact existing Turn");
+    let invisible = f.call("case.summary", json!({"case_ref":"case:not-visible"}));
+    assert_ne!(invisible.result_state, ResultState::Success);
+    assert!(invisible.data.is_none());
     let input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
         "source_turn_ref":committed.turn.turn_id, "source_part_refs":[committed.turn.ordered_parts[0].part_id],
         "prerequisite":null, "expected_generation":generation});
@@ -149,6 +156,7 @@ fn cognitive_composition_admits_once_and_observes_existing_turn_after_reopen() {
     }
     f.app = LocalApplication::from_yai_home(&f.home);
     let retry = f.success("cognitive.compose", input);
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"}))["conversation"]["turns"][0]["parts"], projection["conversation"]["turns"][0]["parts"]);
     assert_eq!(retry["created"], false);
     assert_eq!(retry["execution"]["request_ref"], first["execution"]["request_ref"]);
     let mut wrong_case = observe.clone(); wrong_case["case_ref"] = json!("case:absent");
