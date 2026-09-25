@@ -1663,6 +1663,16 @@ local provider and a disposable profile. The optional `--studio-url` argument to
 explicit Studio inspection at four viewport sizes. This lane is not external
 DeepSeek/YVEX inference or human acceptance.
 
+The Application `operation_flows` regression
+`working_state_zero_optional_budget_preserves_required_closure_without_case_mutation`
+checks a separate prerequisite: a zero optional-derived allowance retains exact
+required Recall groups and pinned current entries. An impossible semantic budget
+and an undisclosed Participant refuse without returning W or changing Case state;
+repeated compilation preserves W identity (timing measurements may differ).
+This is not automatic fitting to target tokens: semantic units and exact serialized
+token accounting remain separate. The current capacity refusal must not be
+presented as successful context adaptation.
+
 ### Infrastructure Case: composed authority check
 
 Keep multiple real policies bound when qualifying Resource requests. A policy's

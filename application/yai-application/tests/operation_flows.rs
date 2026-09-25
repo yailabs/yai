@@ -971,6 +971,63 @@ fn recall_and_working_state_are_real_qualified_results_and_reject_stale_inputs()
 }
 
 #[test]
+fn working_state_zero_optional_budget_preserves_required_closure_without_case_mutation() {
+    use yai_core_engine::semantic_state::{CompilationRequest, SemanticPurpose, SemanticScope, WorkingStateRequest};
+    let f = Fixture::new("working-budget");
+    let submitted = f.success("conversation.send", json!({
+        "case_ref":"case:audit", "participant_ref":"participant:operator",
+        "thread_ref":"thread:budget", "submission_ref":"send:budget",
+        "expected_generation":f.generation(),
+        "parts":[{"modality":"text", "media_type":"text/plain;charset=utf-8",
+            "bytes":b"Inspect release evidence and current operator authority".to_vec()}]
+    }));
+    let turn = submitted["execution"]["turn_ref"].as_str().unwrap();
+    let before = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    let mut request = WorkingStateRequest {
+        case_id:"case:audit".into(), expected_generation:f.generation(),
+        compilation:CompilationRequest {
+            scope:SemanticScope::model("participant:operator", SemanticPurpose::Inspection),
+            intent:"Inspect release evidence and current operator authority".into(),
+            output_contract_id:yai_core_engine::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units:131072, max_derived_items:8, resource_refs:vec![],
+            required_refs:vec!["participant:operator".into(), turn.into()],
+            previous_item_ids:vec![], view_selection_id:None,
+        },
+        recall_query:Some("release evidence operator authority".into()), at:None,
+        recall_required_refs:vec![turn.into()], recall_bounds:Default::default(),
+        max_output_bytes:1024*1024,
+    };
+    let full = f.success("semantic.working_state.compile", json!({"request":request}));
+    request.compilation.max_derived_items = 0;
+    let bounded = f.success("semantic.working_state.compile", json!({"request":request}));
+    let full_entries = full["working_state"]["entries"].as_array().unwrap();
+    let bounded_entries = bounded["working_state"]["entries"].as_array().unwrap();
+    assert!(bounded_entries.iter().any(|entry| entry["value"]["kind"] == "recalled_evidence"));
+    // Retained evidence groups are byte-for-byte whole; qualification metadata
+    // changes legitimately because it identifies the different compilation.
+    for entry in bounded_entries.iter().filter(|entry| entry["entry_id"] != "recall:qualification") {
+        assert!(full_entries.contains(entry), "Reduced budget changed an admitted entry: {entry:#}");
+    }
+    for decision in full["working_state"]["decisions"].as_array().unwrap().iter()
+        .filter(|decision| decision["disposition"] == "pinned" && decision["item_id"] != "recall:qualification") {
+        assert!(bounded_entries.iter().any(|entry| entry["entry_id"] == decision["item_id"]),
+            "Lost mandatory entry: {decision:#}");
+    }
+    assert_eq!(f.success("semantic.working_state.compile", json!({"request":request}))["working_state"], bounded["working_state"]);
+    request.compilation.max_semantic_units = 1;
+    let too_small = f.call("semantic.working_state.compile", json!({"request":request}));
+    assert_ne!(too_small.result_state, ResultState::Success, "Mandatory state must not be truncated");
+    assert!(too_small.data.is_none());
+    assert!(too_small.error.as_ref().unwrap().message.contains("residency_budget_below_mandatory_state"), "{too_small:?}");
+    request.compilation.max_semantic_units = 131072;
+    request.compilation.scope.participant_id = "participant:hidden".into();
+    let hidden = f.call("semantic.working_state.compile", json!({"request":request}));
+    assert_ne!(hidden.result_state, ResultState::Success);
+    assert!(hidden.data.is_none());
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), before);
+}
+
+#[test]
 fn fast_search_preparation_is_w_bound_non_authoritative_and_currently_unavailable() {
     use yai_core_engine::semantic_state::{CompilationRequest, SemanticPurpose, SemanticScope,
         WorkingStateRequest};
