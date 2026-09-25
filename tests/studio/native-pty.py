@@ -23,6 +23,7 @@ p.add_argument('--evidence', type=Path, required=True)
 p.add_argument('--context-tools', action='store_true')
 p.add_argument('--operational-overview', action='store_true')
 p.add_argument('--decision-history', action='store_true')
+p.add_argument('--execution-discovery', action='store_true', help='Read one retained process result through native Work and compare with Host; no dispatch')
 a = p.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/validation'))
 from behavioral_corpus import Host
@@ -102,6 +103,37 @@ try:
         script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
         wait('return document.querySelector(".case-overview")')
         print(json.dumps({'result':'PASS','proof':'Native Work exact historical Decision identity/reason equals typed Host read','decision_ref':decision_ref}))
+    if a.execution_discovery:
+        participant=before['data']['case']['participant_ref']
+        catalog=host.call('execution.list',{'case_ref':a.case,'participant_ref':participant,'limit':32},f'native-catalog:{time.time_ns()}')
+        assert catalog['result_state']=='success'
+        (a.evidence/'execution-catalog.json').write_text(json.dumps(catalog))
+        expected=None
+        for entry in catalog['data']['entries']:
+            ref=entry['execution']
+            if ref['domain']!='resource_request':continue
+            observed=host.call('execution.get',{'case_ref':a.case,'participant_ref':participant,'execution':ref,'include_output':True},f'native-process:{time.time_ns()}')
+            if observed['result_state']=='success' and observed['data'].get('process',{}).get('output'):
+                expected=observed;exact=ref;break
+        assert expected, 'An authorized retained process result is required; this lane never creates one'
+        (a.evidence/'execution-output.json').write_text(json.dumps(expected))
+        script('document.querySelector(`.live-rail button[aria-label="Work"]`).click()')
+        wait('return document.querySelector(".work-surface .execution-catalog-row")')
+        script('const select=document.querySelector(`.work-surface select[aria-label="Recent execution limit"]`);select.value="32";select.dispatchEvent(new Event("change",{bubbles:true}))')
+        wait('return [...document.querySelectorAll(".work-surface .execution-catalog-row")].some(row=>row.title===arguments[0])',exact['submission_ref'])
+        script('const row=[...document.querySelectorAll(".work-surface .execution-catalog-row")].find(row=>row.title===arguments[0]);row.click();row.scrollIntoView()',exact['submission_ref'])
+        wait('return document.querySelector(".work-surface .process-result")')
+        assert script('return !document.querySelector(".work-surface .process-stdout")')
+        script('const button=[...document.querySelectorAll(".work-surface .process-result button")].find(b=>b.textContent==="Read retained process output");button.click()')
+        wait('return document.querySelector(".work-surface .process-stdout")')
+        output=expected['data']['process']['output']
+        assert script('return document.querySelector(".work-surface .process-stdout").textContent')==(output['stdout'] or 'No standard output recorded.')
+        assert script('return document.querySelector(".work-surface .process-stderr").textContent')==(output['stderr'] or 'No standard error recorded.')
+        script('document.querySelector(".work-surface .process-result").scrollIntoView()')
+        shot('native-retained-process')
+        script('document.querySelector(`.live-rail button[aria-label="Overview"]`).click()')
+        wait('return document.querySelector(".case-overview")')
+        print(json.dumps({'result':'PASS','proof':'Native execution discovery and opt-in retained process bytes equal typed Host; no dispatch','reference':exact,'observation_ref':expected['data']['process']['observation_ref']}))
     # Use the Workbench's ordinary Terminal tab/command; no direct IPC invocation.
     script('const tab=[...document.querySelectorAll("button")].find(x=>x.textContent==="Terminal" && x.closest(".live-bottom")); if(tab)tab.click(); else document.dispatchEvent(new KeyboardEvent("keydown",{key:"`",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')

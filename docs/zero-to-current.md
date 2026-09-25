@@ -1833,6 +1833,12 @@ Case/Participant changes and mismatched/late responses cannot cross the list's
 identity; local and returned refs merge by exact domain identity.
 `tests/studio/execution-discovery.mjs` qualifies these fences; the Resource setup
 product suite clears local refs after Host restart and recovers the exact output.
+Native acceptance adds `tests/studio/native-pty.py --execution-discovery` with
+an explicit existing Case and YAI_HOME: it discovers an authorized retained
+process, selects it in Work, requests its output and compares exact bytes to
+the typed Host observation without dispatching it again. The same run checks
+Overview, Host/Resource telemetry, real PTY and independent floating tools when
+the corresponding acceptance flags are selected.
 Runtime continuation retains its confirmation dialog even as its new reference
 enters the list; uncertain delivery still requires observation, never automatic retry.
 Work → Executions now shows the recorded process exit separately from
