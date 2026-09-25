@@ -673,6 +673,7 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
         f.app = LocalApplication::from_yai_home(&f.home);
         let waiting = f.success("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:operator",
             "execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+        assert!(waiting.get("continuation").is_none(), "Pending Review must not offer continuation");
         assert_eq!(waiting, submitted["execution"]);
         assert_eq!(f.success("resource.request", request.clone())["execution"], waiting);
         assert_eq!(f.generation(), pending_generation, "pending retry cannot grant authority or dispatch");
@@ -697,7 +698,17 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
         let approved = f.success("review.approve", json!({"case_ref":"case:audit","review_ref":review_ref,
             "participant_ref":"participant:operator","reason":"bounded process approved"}));
         assert_eq!(approved["external_effect"], false, "approval alone does not execute");
-        submitted = f.success("resource.request", request.clone());
+        f.app = LocalApplication::from_yai_home(&f.home);
+        let approved_generation = f.generation();
+        let resumable = f.success("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+            "execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+        assert_eq!(resumable["continuation"], request, "Reconnect must recover the exact original submission input");
+        assert_eq!(f.generation(), approved_generation, "Observation cannot dispatch or mutate");
+        let hidden = f.call("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:hidden",
+            "execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+        assert_ne!(hidden.result_state, ResultState::Success);
+        assert!(hidden.data.is_none());
+        submitted = f.success("resource.request", resumable["continuation"].clone());
     }
     if dispatched {
         assert_eq!(submitted["outcome"]["observation"]["result"]["exit_code"], 7, "{submitted:#}");
@@ -709,6 +720,7 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
     f.app = LocalApplication::from_yai_home(&f.home);
     let observation = f.success("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:operator",
         "execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+    assert!(observation.get("continuation").is_none(), "Finalized effects must never offer redispatch");
     assert_eq!(observation["posture"]["state"], "effect_recorded");
     assert_eq!(observation["posture"]["outcome"], outcome);
     assert_eq!(observation["posture"]["external_execution_started"], dispatched);

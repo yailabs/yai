@@ -203,6 +203,10 @@ pub struct ResourceExecutionObservation {
     pub participant_ref: String,
     pub generation: u64,
     pub posture: ResourceExecutionPosture,
+    /// Exact original input, only before PREPARE/terminal outcomes. A continuation
+    /// is not permission: resource.request rechecks the current admission chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<crate::ResourceRequestInput>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -313,8 +317,21 @@ pub fn observe(
     if store.get_case_state_authorized(authenticated, case_id)?.generation != state.generation {
         return Err("resource_execution_observation_stale".into());
     }
+    let continuation = if matches!(posture, ResourceExecutionPosture::Admitted) {
+        match &operation.origin {
+            yai_core_engine::effect::OperationOrigin::ParticipantRequest { request_id, principal_id, .. }
+                if principal_id == &authenticated.projected_principal_id() => Some(crate::ResourceRequestInput {
+                    case_ref: case_id.into(), participant_ref: participant_id.into(),
+                    resource_ref: operation.resource_attachment_id.clone(),
+                    submission_ref: request_id.clone(),
+                    expected_generation: operation.expected_case_generation,
+                    request: operation.resource_request.clone().ok_or("resource_execution_not_visible")?,
+                }),
+            _ => None,
+        }
+    } else { None };
     Ok(ResourceExecutionObservation { operation_ref: operation_id.into(), case_ref: case_id.into(),
-        participant_ref: participant_id.into(), generation: state.generation, posture })
+        participant_ref: participant_id.into(), generation: state.generation, posture, continuation })
 }
 
 /// Product attachment composes local resolution and the immutable canonical
