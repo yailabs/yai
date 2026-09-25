@@ -229,6 +229,15 @@ try {
  await page.getByText('Model exposed',{exact:true}).waitFor();
  await page.locator('.provider-status').filter({hasText:'Catalog reachable'}).waitFor();
  assert.match(await page.locator('.provider-status').getAttribute('title'),/Catalog observed:/);
+ assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'observed','Catalog metadata is informational, not green inference health');
+ const readsBeforeExpiry=exchanges.filter(item=>item.request.operation_ref==='provider.models').length;
+ await page.evaluate(()=>{window.__catalogClock=Date.now;Date.now=()=>window.__catalogClock()+61_000;document.dispatchEvent(new Event('visibilitychange'));});
+ await page.locator('.provider-status').filter({hasText:'Catalog check expired'}).waitFor();
+ await page.getByText('Observation expired',{exact:true}).waitFor();
+ assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'degraded');
+ assert.equal(exchanges.filter(item=>item.request.operation_ref==='provider.models').length,readsBeforeExpiry,'Expiry cannot dispatch a model request');
+ await page.evaluate(()=>{Date.now=window.__catalogClock;delete window.__catalogClock;document.dispatchEvent(new Event('visibilitychange'));});
+ await page.locator('.provider-status').filter({hasText:'Catalog reachable'}).waitFor();
  catalogModels=[];
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
  await page.locator('.provider-status').filter({hasText:'No models exposed'}).waitFor();
@@ -238,6 +247,7 @@ try {
  await page.locator('.provider-status').filter({hasText:'Catalog reachable'}).waitFor();
  await page.evaluate(()=>window.qualificationPlatform.application.refresh());
  await page.locator('.provider-status').filter({hasText:'Last health:'}).waitFor();
+ assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'unknown','Old retained health does not claim live connectivity');
  assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Host contract refresh clears both consumers');
  await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
 
@@ -418,6 +428,6 @@ try {
  assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
  await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','YVEX exact public capacity is visible; malformed contract clears stale capacity','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Catalog expiry removes current provider state without dispatch or Case mutation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','YVEX exact public capacity is visible; malformed contract clears stale capacity','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

@@ -1495,7 +1495,13 @@ capacity admission or a provider-health mutation. `yai provider models TARGET
 read-only, and keyed by exact Tenant/target in bounded window-local state.
 Workspace and status bar share that observation across navigation; Host loss or
 capability refresh invalidates it. Late reads cannot replace newer checks or
-cross Host/Tenant/target identity. Catalog timestamps are explicit; this is not
+cross Host/Tenant/target identity. After 60 seconds the workspace and status bar
+show the observation as expired, including when Studio returns from the background;
+they no longer present that catalog or capacity as current. An expiry never
+starts an inference or another catalog read. The operator can explicitly check
+the exact deployment again. A recent catalog is informational rather than a
+green inference-health claim, and dated health alone stays visually neutral.
+Catalog timestamps are explicit; this is not
 continuous monitoring, residency evidence or a new capability.
 
 Native Host auto-start uses the same Rust product-process composition as

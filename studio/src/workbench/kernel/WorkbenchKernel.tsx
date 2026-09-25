@@ -1,4 +1,4 @@
-import { providerCatalogKey } from "../../clients/compute";
+import { isCurrentProviderCatalog, providerCatalogKey } from "../../clients/compute";
 import { ContextTools } from "./ContextTools";
 import { RailCustomization, useRailPreference } from "./RailCustomization";
 import { SurfaceTabs } from "../surface/SurfaceTabs";
@@ -68,6 +68,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const railPreference = useRailPreference(platform.configuration);
   const [panelToolbarTarget, setPanelToolbarTarget] = useState<HTMLElement | null>(null);
   const [hostState, setHostState] = useState(platform.host.snapshot());
+  const [catalogClock, setCatalogClock] = useState(() => Date.now());
   const restoredBottomHeight = useRef(bottomHeight);
   const windowSession = useMemo(() => new WorkbenchSession(), []);
   const session = windowSession.forCase(workspace.case.case_ref, workspace.case.participant_ref);
@@ -92,15 +93,26 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     useCallback(() => platform.application?.snapshot(), [platform.application]));
   const catalog = stream === "live" && providerTarget && workspace.case.tenant_ref
     ? applicationState?.providerCatalogs?.[providerCatalogKey(workspace.case.tenant_ref, providerTarget.id)] : undefined;
-  const catalogState = catalog?.state === "checking" ? "Checking model" : catalog?.state === "observed" ? "Catalog reachable"
+  useEffect(() => {
+    if (catalog?.state !== "observed") return;
+    const update = () => setCatalogClock(Date.now());
+    update();
+    const timer = window.setInterval(update, 10_000);
+    document.addEventListener("visibilitychange", update);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [catalog]);
+  const catalogCurrent = isCurrentProviderCatalog(catalog, catalogClock);
+  const catalogState = catalog?.state === "checking" ? "Checking model" : catalogCurrent ? "Catalog reachable"
+    : catalog?.state === "observed" ? "Catalog check expired"
     : catalog?.state === "unavailable" ? (catalog.empty ? "No models exposed" : "Catalog unavailable") : undefined;
   const providerLabel = !providerTarget ? "No provider bound" : `${providerTarget.provider_key} · ${catalogState ?? (stream !== "live" && stream !== "fixture" ? "Not refreshed" : `Last health: ${providerHealth?.posture ?? "Not observed"}`)}`;
-  const providerDetail = providerTarget ? `${providerTarget.endpoint} · ${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}.` : catalog?.state === "unavailable" ? catalog.reason : "No current catalog observation."} ${providerHealth?.observed_at_unix_ms ? `Health observed: ${new Date(providerHealth.observed_at_unix_ms).toLocaleString()}` : "No timed health observation"}. Circuit: ${providerHealth?.circuit ?? "unknown"}. Observations are not continuous monitoring. Open Providers.` : "Open Providers to configure a target, then bind it in Compute.";
-  const modelExposed = conversationTarget && catalog?.state === "observed" ? catalog.models.includes(conversationTarget.model_id) : undefined;
-  const modelCapacity = catalog?.state === "observed" && catalog.capacity?.model_id === conversationTarget?.model_id && modelExposed ? catalog.capacity : undefined;
-  const modelLabel = conversationTarget ? `${modelExposed === undefined ? "Assigned" : modelExposed ? "Exposed" : "Not exposed"}${modelCapacity ? ` · ${modelCapacity.input_capacity_tokens.toLocaleString()} input` : ""}: ${conversationTarget.model_id}` : workspace.compute.targets.length ? "Assign conversation model" : "No model bound";
-  const modelDetail = conversationTarget ? `Assigned to this Participant: ${conversationTarget.model_id}. ${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}. ` : ""}${modelCapacity ? `Public catalog input capacity ${modelCapacity.input_capacity_tokens.toLocaleString()} tokens, sequence ceiling ${modelCapacity.sequence_capacity_tokens.toLocaleString()} tokens; no resource reservation. ` : ""}Catalog visibility does not establish current engine residency or successful inference. Open Compute for qualification and execution details.` : "Open Compute to configure a governed conversation target for this Case.";
-  const providerTone = catalog?.state === "checking" ? "unknown" : catalog?.state === "observed" ? "healthy" : catalog?.state === "unavailable" ? "unavailable" : stream === "live" ? providerHealth?.posture : "unknown";
+  const providerDetail = providerTarget ? `${providerTarget.endpoint} · ${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}.${catalogCurrent ? "" : " Observation expired; check the exposed model again."}` : catalog?.state === "unavailable" ? catalog.reason : "No current catalog observation."} ${providerHealth?.observed_at_unix_ms ? `Health observed: ${new Date(providerHealth.observed_at_unix_ms).toLocaleString()}` : "No timed health observation"}. Circuit: ${providerHealth?.circuit ?? "unknown"}. Observations are not continuous monitoring. Open Providers.` : "Open Providers to configure a target, then bind it in Compute.";
+  const modelExposed = conversationTarget && catalog?.state === "observed" && catalogCurrent ? catalog.models.includes(conversationTarget.model_id) : undefined;
+  const modelCapacity = catalog?.state === "observed" && catalogCurrent && catalog.capacity?.model_id === conversationTarget?.model_id && modelExposed ? catalog.capacity : undefined;
+  const modelLabel = conversationTarget ? `${catalog?.state === "observed" && !catalogCurrent ? "Check expired" : modelExposed === undefined ? "Assigned" : modelExposed ? "Exposed" : "Not exposed"}${modelCapacity ? ` · ${modelCapacity.input_capacity_tokens.toLocaleString()} input` : ""}: ${conversationTarget.model_id}` : workspace.compute.targets.length ? "Assign conversation model" : "No model bound";
+  const modelDetail = conversationTarget ? `Assigned to this Participant: ${conversationTarget.model_id}. ${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}.${catalogCurrent ? "" : " Observation expired; check the exposed model again."} ` : ""}${modelCapacity ? `Public catalog input capacity ${modelCapacity.input_capacity_tokens.toLocaleString()} tokens, sequence ceiling ${modelCapacity.sequence_capacity_tokens.toLocaleString()} tokens; no resource reservation. ` : ""}Catalog visibility does not establish current engine residency or successful inference. Open Compute for qualification and execution details.` : "Open Compute to configure a governed conversation target for this Case.";
+  const providerTone = catalog?.state === "observed" ? catalogCurrent ? "observed" : "degraded" : catalog?.state === "unavailable" ? "unavailable" : "unknown";
+  const modelTone = !conversationTarget ? "unassigned" : catalog?.state === "observed" ? !catalogCurrent ? "degraded" : modelExposed ? "observed" : "unavailable" : "assigned";
   const dirtyCount = windowSession.dirtyCount;
   useEffect(() => { void window.__TAURI__?.core.invoke("desktop_set_dirty", { dirty: dirtyCount > 0 }); }, [dirtyCount]);
   useEffect(() => {
@@ -349,7 +361,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     </div>
     <footer className="kernel-status" aria-label="Workbench status">
       <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>{activeInput?.title ?? activeContainer}</span></div>
-      <div className="status-connections"><button className="host-status" data-state={hostState.state} onClick={() => openSettings("yai-host")} title="YAI application Host connection · Open Settings > YAI Host">YAI Host · {hostState.state === "live" ? "Connected" : hostState.state}</button><button className="provider-status" data-state={providerTone} onClick={() => openPerspective("Providers")} title={providerDetail}>{providerLabel}</button><button className="model-status" data-assigned={Boolean(conversationTarget)} onClick={() => openPerspective("Compute")} title={modelDetail}>{modelLabel}</button><button className="telemetry-status" onClick={() => openPerspective("Telemetry")} title="Inspect Host, runtime, Resources and observed execution state">Telemetry</button>{stream !== "live" && <span title="Case update stream">{stream === "fixture" ? "Fixture data" : `Case ${stream}`}</span>}</div>
+      <div className="status-connections"><button className="host-status" data-state={hostState.state} onClick={() => openSettings("yai-host")} title="YAI application Host connection · Open Settings > YAI Host">YAI Host · {hostState.state === "live" ? "Connected" : hostState.state}</button><button className="provider-status" data-state={providerTone} onClick={() => openPerspective("Providers")} title={providerDetail}>{providerLabel}</button><button className="model-status" data-state={modelTone} onClick={() => openPerspective("Compute")} title={modelDetail}>{modelLabel}</button><button className="telemetry-status" onClick={() => openPerspective("Telemetry")} title="Inspect Host, runtime, Resources and observed execution state">Telemetry</button>{stream !== "live" && <span title="Case update stream">{stream === "fixture" ? "Fixture data" : `Case ${stream}`}</span>}</div>
     </footer>
     {editingNotice && <div className="editing-notice" role="alert"><span>{editingNotice}</span><IconButton aria-label="Dismiss editing notice" onClick={() => platform.editing.dismiss()}><Icon name="close" /></IconButton></div>}
     {searchMode === "commands" && <WorkbenchSearch title="Command Palette" placeholder="Type a command" items={commandItems()} onClose={() => setSearchMode(undefined)} />}

@@ -1745,6 +1745,16 @@ The restarted YVEX binary reported protocol 22 and commit `79d05aa`;
 this is an observed process identity, not a claim of published management parity.
 That probe uses no Case content and does not close the missing real-answer gate.
 
+In Studio, open **Providers → selected deployment → Runtime → Check exposed
+model**. The status bar and deployment view must agree on the exact target:
+`Catalog reachable` and `Model exposed` describe only a recent public catalog
+observation. The cool status color means metadata observed, not healthy
+inference. After one minute without another check, both show an expired
+observation instead of a current availability claim; reopening Studio after Host
+loss also clears it. The dated YAI health observation remains separately visible
+and may disagree with the current catalog. Neither indicator proves engine
+residency or a completed Case response. This UI check does not send Case content.
+
 ### Infrastructure Case: composed authority check
 
 Keep multiple real policies bound when qualifying Resource requests. A policy's

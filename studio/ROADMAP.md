@@ -234,9 +234,10 @@ Studio interaction. Ordinary login SSH and the inference endpoint are not
 substitutes. Remote load/unload, start/stop, logs and memory reads remain outside
 that bootstrap contract; do not present their controls as operational.
 
-The inference track may use a separate small qualification Case with the
-current 4096-token deployment. A positive small-Case result does not close the
-populated infrastructure Case acceptance. Exact preflight and archived context
+The inference track may use a separate small qualification Case, but the
+currently observed v22 DeepSeek target exposes a 32,768-token runtime capacity.
+A positive small-Case result does not close the populated infrastructure Case
+acceptance. Exact preflight and archived context
 remain mandatory; no arbitrary truncation or weakening of mandatory W state.
 
 ### Case portfolio and machine qualification
@@ -316,7 +317,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SP01 | 🟢 ESTABLISHED | Authored generic target register, measured evidence import, trust and explicit Case binding | Full model/runtime catalog not implied | compute-actions.mjs |
 | SP02 | 🟡 PARTIAL | Full-height deployment workspace with Runtime/Evidence/Platform; selected-target Inspector, timed health/failure observations and bounded refresh | Tenant target inventory and exposed model discovery are typed; typed durable synthetic checks and retained history are consumed with lost-ack, missing-local-receipt, exact-retry and wrong-model refusal proof; per-Case usage aggregation remains open | compute-actions.mjs |
 | SP03 | 🟡 PARTIAL | Case Compute sections separate bindings, Conversation assignment and exact execution; local section/plan retention | Compute prepares retained Turn input and explicitly realizes its exact plan; text, lost ACK, stale and hidden refusals qualified. Auxiliary setup, composition and multimedia success remain debt | Explicit Compute posture |
-| SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Live qualification passed; populated Case execution received HTTP 413 from the current 4096-token deployment | Controlled provider test is not external model evidence |
+| SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Public v22 catalog now exposes the exact 32K model through YAI; one populated Case SEND fit but ended delivery-indeterminate after producer loss, with no completed real answer | Controlled provider tests and catalog visibility are not successful external Case inference |
 | SY02 | 🔴 OPEN | Studio consumption of YAI-owned machine registration, LAN discovery, execution-location selection and runtime/model observations | YAI owns typed lifecycle/discovery contracts shared by CLI and Studio; YVEX management requires its qualified public boundary. Concurrent backend work is consumed only after publication; no Studio-private launcher or discovery | Selected Exon → DGX Spark operator requirement; no private producer coupling or fabricated telemetry |
 | SY03 | 🔴 OPEN | Models and acquisition: catalog, HF/local pull, exact revision, progress, resume/stop and storage | Offline YVEX owners exist; qualified shared management operations and authored Studio flow remain | Published registry/command contract; no UI qualification yet |
 | SY04 | 🔴 OPEN | Preparation and artifacts: verification, coordinated compilation lanes, representations, profiles, lineage and explicit calibration choices | Preserve YVEX ownership and family-specific admission; offline ABI is not a remote management service | Published compiler/artifact contracts; no UI qualification yet |
@@ -330,7 +331,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SI02 | 🟢 ESTABLISHED | Identity/Manage Activity footer, real Principal/Tenant/Participant, local identity bootstrap | Other-Principal enrollment and membership picker remain open | identity-actions.mjs; navigation-journal.mjs |
 | SI03 | 🟢 ESTABLISHED | Singleton searchable preferences; Provider/YVEX management points to Compute | Settings is not another management owner | workbench.mjs; navigation-journal.mjs |
 | SD01 | 🟢 ESTABLISHED | Native PTY, compact shared panel toolbar and conditional resizable shell list | PTY remains desktop capability, not Case authority | native desktop acceptance; terminal Rust tests |
-| SD02 | 🟡 PARTIAL | Linux native window, drag/resize, status bar, strict production CSP and versioned source-install launcher | Other desktop platforms require native qualification | desktop-csp.mjs; reliability.mjs |
+| SD02 | 🟡 PARTIAL | Linux native window, drag/resize, status bar with expiring exact deployment catalog observations, strict production CSP and versioned source-install launcher | Other desktop platforms and native YVEX residency telemetry require qualified contracts | desktop-csp.mjs; reliability.mjs; compute-actions.mjs |
 | SQ01 | 🟢 ESTABLISHED | Persistent real qualification world, explicit convergent enrichment and two-client Host event resync | Extend by normal product operations; never reset operator Case | operational-live.mjs; operational_world.py |
 | SQ02 | 🟢 ESTABLISHED | Shared geometry/tokens, lazy heavy renderers, four-size visual matrix and per-action regressions | Permanent proportional Product Quality Pass | browser suites and production build |
 | SQ03 | 🟡 PARTIAL | Automated local proof and Golden local | Human Golden and external producer evidence remain independent | HUMAN_GOLDEN_CASE = PENDING_OPERATOR |

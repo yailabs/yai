@@ -820,12 +820,14 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .kernel-status .status-connections .host-status[data-state="live"] { color: var(--yai-success); }
 .kernel-status .status-connections .host-status[data-state="unavailable"], .kernel-status .status-connections .host-status[data-state="stopped"] { color: var(--yai-error); }
 .kernel-status .model-status { max-width: 32vw; }
-.kernel-status .model-status[data-assigned="false"] { color: var(--yai-warning); }
+.kernel-status .model-status[data-state="unassigned"], .kernel-status .model-status[data-state="degraded"] { color: var(--yai-warning); }
+.kernel-status .model-status[data-state="observed"] { color: var(--yai-info); }
+.kernel-status .model-status[data-state="unavailable"] { color: var(--yai-error); }
 .kernel-status .status-connections button:hover { background: var(--yai-raised); }
 .kernel-status .status-connections button:focus-visible { outline: 1px solid var(--yai-focus); outline-offset: -1px; }
 
 .kernel-status .provider-status { max-width: 22vw; }
-.kernel-status .provider-status[data-state="healthy"] { color: var(--yai-success); }
+.kernel-status .provider-status[data-state="observed"] { color: var(--yai-info); }
 .kernel-status .provider-status[data-state="unavailable"] { color: var(--yai-error); }
 .kernel-status .provider-status[data-state="degraded"] { color: var(--yai-warning); }
 

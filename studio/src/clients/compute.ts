@@ -70,6 +70,12 @@ export type ProviderCatalogObservation =
   | { state: "checking" }
   | { state: "observed"; models: string[]; at: number; capacity?: ProviderCatalogCapacity }
   | { state: "unavailable"; reason: string; empty: boolean };
+/** A public model list is a point-in-time observation, never a durable online flag. */
+export const PROVIDER_CATALOG_FRESH_MS = 60_000;
+export function isCurrentProviderCatalog(observation: ProviderCatalogObservation | undefined, now: number): boolean {
+  return observation?.state === "observed" && Number.isSafeInteger(observation.at)
+    && observation.at <= now + 5_000 && now - observation.at <= PROVIDER_CATALOG_FRESH_MS;
+}
 export function providerCatalogKey(tenant: string, target: string): string {
   return JSON.stringify([tenant, target]);
 }

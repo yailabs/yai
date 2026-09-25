@@ -29,7 +29,7 @@ export function ProviderWorkspace({ scope, workspace, application, targets, omit
   const matching = targets.filter(target => `${target.provider_key} ${target.model_id}`.toLowerCase().includes(query.toLowerCase()));
   return <div className="provider-workspace">
     <header className="provider-workspace-toolbar"><div><Icon name={scope === "yvex" ? "processor" : "providers"} /><h1>{scope === "yvex" ? "YVEX" : "Providers"}</h1><span>{targets.length} deployment{targets.length === 1 ? "" : "s"}{omitted > 0 ? ` · ${omitted} omitted by read bound` : ""}</span></div><div><Button onClick={refresh} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh inventory"}</Button><Button disabled={!canConnect} onClick={connect}>{scope === "yvex" ? "Connect compatible deployment" : "Register provider target"}</Button></div></header>
-    <div className="provider-workspace-status" role="status">{error ?? (!ready ? "Reading authorized inventory…" : `YAI inventory updated ${time(refreshedAt)}`)}<span>Observations refresh every 10s while visible</span></div>
+    <div className="provider-workspace-status" role="status">{error ?? (!ready ? "Reading authorized inventory…" : `YAI inventory updated ${time(refreshedAt)}`)}<span>Inventory refreshes every 10s · model catalog only when checked</span></div>
     <div className="provider-workspace-body">
       <label className="deployment-compact-picker">Deployment<select aria-label="Selected deployment" value={item?.id ?? ""} onChange={event => { setSelected(event.target.value); actions.inspect(event.target.value); }}>
         {!targets.length && <option value="">No deployment</option>}{targets.map(target => <option key={target.id} value={target.id}>{target.provider_key} · {target.model_id}</option>)}

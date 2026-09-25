@@ -1,6 +1,6 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { ApplicationAccess } from "../../clients/application";
-import { providerCatalogKey } from "../../clients/compute";
+import { isCurrentProviderCatalog, providerCatalogKey } from "../../clients/compute";
 import { Badge, Button } from "../../components/primitives";
 
 /** One shared observation for this window's workspace and status bar. */
@@ -11,17 +11,27 @@ export function DeploymentModelObservation({ application, tenant, target, model 
     useCallback(listener => application?.subscribe(listener).dispose ?? (() => {}), [application]),
     useCallback(() => application?.snapshot(), [application]));
   const observation = availability?.providerCatalogs?.[providerCatalogKey(tenant, target)];
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (observation?.state !== "observed") return;
+    const update = () => setClock(Date.now());
+    update();
+    const timer = window.setInterval(update, 10_000);
+    document.addEventListener("visibilitychange", update);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [observation]);
   const pending = observation?.state === "checking";
   const observed = observation?.state === "observed" ? observation : undefined;
+  const current = isCurrentProviderCatalog(observation, clock);
   const unavailable = observation?.state === "unavailable" ? observation : undefined;
   const check = () => { void application?.discoverProviderModels({tenant_id: tenant, target_ref: target}).catch(() => {}); };
-  const exposed = observed?.models.includes(model);
-  const capacity = observed?.capacity?.model_id === model && exposed ? observed.capacity : undefined;
+  const exposed = current && observed?.models.includes(model);
+  const capacity = current && observed?.capacity?.model_id === model && exposed ? observed.capacity : undefined;
   return <section className="deployment-model-observation" aria-label="Exposed model observation">
     <header><h3>Exposed model</h3><Button disabled={pending || !application?.supports("provider.models")} onClick={check}>{pending ? "Checking catalog…" : "Check exposed model"}</Button></header>
     {unavailable ? <p role="alert">{unavailable.empty ? "No models exposed. YAI refused this empty catalog; no qualification or binding was performed." : unavailable.reason}</p> : observed ? <>
-      <p role="status"><Badge tone={exposed ? "success" : "warning"}>{exposed ? "Model exposed" : "Model not exposed"}</Badge></p>
-      <p>{exposed ? "The exact registered model appeared in the endpoint catalog." : "The endpoint answered, but its catalog did not list this exact model."}</p>
+      <p role="status"><Badge tone={exposed ? "success" : "warning"}>{current ? exposed ? "Model exposed" : "Model not exposed" : "Observation expired"}</Badge></p>
+      <p>{!current ? "The last catalog check is too old to describe current availability. Check the exposed model again." : exposed ? "The exact registered model appeared in the endpoint catalog." : "The endpoint answered, but its catalog did not list this exact model."}</p>
       {capacity && <div className="deployment-capacity" aria-label="Observed public model capacity">
         <div><strong>{capacity.input_capacity_tokens.toLocaleString()}</strong><span>Input tokens</span></div>
         <div><strong>{capacity.sequence_capacity_tokens.toLocaleString()}</strong><span>Sequence ceiling</span></div>

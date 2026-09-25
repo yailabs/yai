@@ -439,6 +439,17 @@ test("registered model observations isolate Tenant/target and reject late reads 
   access.dispose();
 });
 
+test("provider catalog observations expire without implying an engine is still available", () => {
+  const {isCurrentProviderCatalog,PROVIDER_CATALOG_FRESH_MS}=require(path.join(studio,'clients/compute.js'));
+  const now=1_800_000_000_000;
+  const observed={state:'observed',models:['exact-model'],at:now};
+  assert.equal(isCurrentProviderCatalog(observed,now),true);
+  assert.equal(isCurrentProviderCatalog(observed,now+PROVIDER_CATALOG_FRESH_MS),true);
+  assert.equal(isCurrentProviderCatalog(observed,now+PROVIDER_CATALOG_FRESH_MS+1),false);
+  assert.equal(isCurrentProviderCatalog({...observed,at:now+6000},now),false,'Future observations must not look current');
+  assert.equal(isCurrentProviderCatalog({state:'unavailable',reason:'offline',empty:false},now),false);
+});
+
 test("typed application actions preserve exact inputs and never retry lost transport acknowledgements", async () => {
   const { LiveClient }=require(path.join(studio,'clients/live.js'));
   const oldWindow=global.window; const requests=[];
