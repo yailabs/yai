@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
+import http from 'node:http';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 const require = createRequire(path.resolve(import.meta.dirname, '../../studio/package.json'));
@@ -15,7 +17,8 @@ const home = await mkdtemp(path.join(os.tmpdir(), 'yai-studio-execution-'));
 const evidence = process.env.STUDIO_EVIDENCE_DIR ?? '/tmp/yai-studio-execution';
 await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
-let telemetry, serial=0, browser, dropAcknowledgement;
+let telemetry, serial=0, browser, dropAcknowledgement, abandonResponse;
+let sourceServer; const sourceRequests = [];
 const exchanges = [];
 function rpc(request) {
  return new Promise((resolve,reject) => {
@@ -27,7 +30,7 @@ function rpc(request) {
    buffer += bytes.toString(); let end;
    while((end=buffer.indexOf('\n'))>=0) {
     const message=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);
-    if(!handshaken) { if(message.kind!=='handshake') {socket.destroy();reject(new Error(JSON.stringify(message)));return;} handshaken=true;socket.write(JSON.stringify({kind:'application_request',request})+'\n'); }
+    if(!handshaken) { if(message.kind!=='handshake') {socket.destroy();reject(new Error(JSON.stringify(message)));return;} handshaken=true;socket.write(JSON.stringify({kind:'application_request',request})+'\n', () => { if(abandonResponse===request.operation_ref){abandonResponse=undefined;exchanges.push({order:exchanges.length+1,request,action:'close_without_reading_response'});socket.end();reject(new Error('Injected connection loss while real Source request is in flight'));} }); }
     else if(message.kind==='application_response') { exchanges.push({order:exchanges.length+1,request,result:message.result}); socket.end(); if(dropAcknowledgement===request.operation_ref){dropAcknowledgement=undefined;reject(new Error('Injected acknowledgement loss after real Host commit'));}else resolve(message.result); }
     else if(message.kind==='error') {socket.destroy();reject(new Error(JSON.stringify(message)));}
    }
@@ -117,7 +120,61 @@ try {
  await accepted('source.revoke',{case_ref:caseRef,source_ref:ordinary,reason:'Current backing refusal qualification'});
  assert.notEqual((await call('knowledge.resolve',resolved.request.input)).result_state,'success');
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await queries.locator('.knowledge-resolved').waitFor({state:'hidden'});
+ // A real HTTP acquisition remains blocked in its producer while the UI loses
+ // its acknowledgement. Kill only the disposable Host after observing its lease.
+ sourceServer=http.createServer((request,response)=>{sourceRequests.push({path:request.url});response.on('error',()=>{});});
+ await new Promise(resolve=>sourceServer.listen(0,'127.0.0.1',resolve));
+ const binding={schema:'yai.local_resource_access_binding.v1',case_id:caseRef,attachment_id:'resource:interrupted-http',address:{kind:'http_service',endpoint:{endpoint:`http://127.0.0.1:${sourceServer.address().port}`,allowed_ip_addresses:['127.0.0.1'],credential_ref:null},paths:{document:'document'}}};
+ await accepted('resource.attach',{binding,access:{schema:'yai.resource_access.v1',configuration_digest:'sha256:'+createHash('sha256').update(JSON.stringify(binding)).digest('hex'),participant_ids:['participant:operator'],operations:['http_fetch'],read_prefixes:[],names:['document'],max_output_bytes:4096,max_items:8},policy_owner_participant_ref:'participant:operator',review_requirement:'automatic'});
+ const httpPolicy={schema:'yai.policy_source_input.v4',policy_key:'source-crash',source_version:'1',owner_ref:'organization:yailabs',source_origin:{source_system:'qualification',source_uri:'test://source-crash'},validity:{mode:'unbounded'},rules:[{kind:'operation_restriction',rule_id:'fetch',operation_kind:'http.fetch',resource_kind:'http_service',effect:'allow',reason:'One bounded local source'}]};
+ const artifact=(await accepted('policy.ingest',{tenant_id:'tenant:studio-ui',source_bytes:[...Buffer.from(JSON.stringify(httpPolicy))]})).view.artifact.artifact_id;
+ for(const operation of ['policy.validate','policy.publish'])await accepted(operation,{artifact_ref:artifact,reason:'Interrupted Source UI qualification'});
+ await accepted('policy.case.bind',{case_ref:caseRef,artifact_ref:artifact,expected_generation:(await accepted('case.summary',{case_ref:caseRef})).case.generation,reason:'Interrupted Source UI qualification'});
+ await accepted('source.declare',{case_ref:caseRef,participant_ref:'participant:operator',perimeter:'qualification',logical_name:'interrupted-http',resource_ref:binding.attachment_id,roles:['knowledge'],action:{action:'http_fetch',name:'document'},bootstrap_policy:false,media_type:'application/json'});
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await page.locator('.live-rail button[aria-label="Environment"]').click();
+ await page.locator('.live-sidebar').getByRole('button',{name:'interrupted-http',exact:true}).click();
+ await page.getByRole('button',{name:'Acquire Source…',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Acquire Source'});abandonResponse='source.acquire';
+ await form.getByRole('button',{name:'Acquire exact Source'}).click();
+ await form.getByText('Confirmation was lost',{exact:true}).waitFor();
+ assert.equal(await form.getByRole('button',{name:'Acquire exact Source'}).isEnabled(),false);
+ await form.getByRole('button',{name:'Close and inspect state'}).click();
+ for(let attempt=0;attempt<100 && sourceRequests.length===0;attempt++)await new Promise(resolve=>setTimeout(resolve,25));
+ assert.equal(sourceRequests.length,1);
+ const interrupted=exchanges.findLast(item=>item.action==='close_without_reading_response').request.input;
+ const observeInterrupted={case_ref:caseRef,participant_ref:'participant:operator',execution:{domain:'source_acquisition',source_ref:interrupted.source_ref,attempt:1}};
+ const active=await accepted('execution.get',observeInterrupted);assert.equal(active.posture,'running');
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await sourceReceipt.getByText('running',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Acquire Source…',exact:true}).isEnabled(),false);
+ assert.equal(await page.getByRole('button',{name:'Resume acquisition…',exact:true}).isEnabled(),false);
+ assert.equal(path.resolve(telemetry.yai_home),path.resolve(home),'Never kill an operator Host');
+ exchanges.push({order:exchanges.length+1,action:'kill_disposable_host_in_flight',pid:telemetry.pid,process_identity:telemetry.process_identity,execution:active});
+ process.kill(telemetry.pid,'SIGKILL');
+ sourceServer.closeAllConnections();
+ telemetry=cli('host','start').data.value;
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await sourceReceipt.getByRole('button',{name:'Refresh observation',exact:true}).click();
+ await sourceReceipt.getByText('delivery indeterminate',{exact:true}).waitFor();
+ await sourceReceipt.getByText(/no confirmed result.*no longer observed as active/).waitFor();
+ const recovered=await accepted('execution.get',observeInterrupted);
+ assert.deepEqual(recovered,{...active,posture:'delivery_indeterminate'});
+ const generationAfterCrash=(await accepted('case.summary',{case_ref:caseRef})).case.generation;
+ assert.equal(await page.getByRole('button',{name:'Acquire Source…',exact:true}).isEnabled(),false);
+ assert.equal(await page.getByRole('button',{name:'Resume acquisition…',exact:true}).isEnabled(),false);
+ const beforeObservation=exchanges.filter(item=>['source.acquire','source.resume'].includes(item.request?.operation_ref)).length;
+ await sourceReceipt.getByRole('button',{name:'Refresh observation',exact:true}).click();
+ await sourceReceipt.getByRole('button',{name:'Refresh observation',exact:true}).waitFor();
+ assert.equal(exchanges.filter(item=>['source.acquire','source.resume'].includes(item.request?.operation_ref)).length,beforeObservation);
+ const repeated=await accepted('source.acquire',interrupted);assert.equal(repeated.created,false);assert.deepEqual(repeated.execution,recovered);
+ assert.notEqual((await call('source.resume',{...interrupted,expected_generation:generationAfterCrash,previous_progress_ref:active.progress_ref})).result_state,'success');
+ assert.notEqual((await call('source.acquire',{...interrupted,attempt:2,expected_generation:generationAfterCrash})).result_state,'success');
+ const hiddenInterrupted=await call('execution.get',{...observeInterrupted,participant_ref:'participant:hidden'});assert.equal(hiddenInterrupted.result_state,'unauthorized');assert.equal(hiddenInterrupted.data,undefined);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,generationAfterCrash);
+ assert.equal(sourceRequests.length,1,'Restart, observation and explicit retry cannot redispatch uncertain acquisition');
+ await page.screenshot({path:`${evidence}/source-carrier-lost.png`});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,source:ordinary,generation:stable,proof:['UI acquire missing material -> resume same exact attempt','UI source policy publication and binding','Lost acknowledgement retained reference and no auto-retry','Exact execution observation after real Host restart','Duplicate submit does not create generation','Stale generation and hidden Participant refused','Owner Knowledge inspect/search/resolve/navigation','Revocation refuses old resolution and clears UI','Four sizes and CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,source:ordinary,generation:stable,proof:['UI acquire missing material -> resume same exact attempt','UI source policy publication and binding','Lost acknowledgement retained reference and no auto-retry','Exact execution observation after real Host restart','Duplicate submit does not create generation','Stale generation and hidden Participant refused','Owner Knowledge inspect/search/resolve/navigation','Revocation refuses old resolution and clears UI','Four sizes and CLI replay','Real in-flight HTTP Source carrier loss: UI running -> delivery indeterminate, disabled redispatch, exact retry and hidden refusal, one remote request']}));
 
-}finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}
+}finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();sourceServer?.closeAllConnections();sourceServer?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

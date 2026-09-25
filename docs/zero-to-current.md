@@ -2035,7 +2035,13 @@ progress and current Source phase. **Refresh observation** reads `execution.get`
 it must not acquire again, advance Case history or turn an uncertain attempt into
 a resumable one. Work > Executions remains the place to inspect older locally
 retained references. The existing Source and execution catalog contracts are
-unchanged; carrier-loss recovery qualification remains separate from this read.
+unchanged. The disposable real-Host HTTP test also interrupts an in-flight
+acquisition: the same attempt changes from `running` to
+`delivery_indeterminate`, both acquisition controls remain disabled, and refresh
+only observes. Exact retry, restart and refused resume produce one HTTP request
+in total, preserve Case generation and expose no result to a hidden Participant.
+This qualifies truthful uncertainty, not automatic recovery or a successful
+acquisition after carrier loss.
 
 For an already completed model response, use the behavioral
 `retained-conversation.json` suite with identities pinned from its original
