@@ -239,6 +239,12 @@ currently observed v22 DeepSeek target exposes a 32,768-token runtime capacity.
 A positive small-Case result does not close the populated infrastructure Case
 acceptance. Exact preflight and archived context
 remain mandatory; no arbitrary truncation or weakening of mandatory W state.
+The [read-only Case-bound capacity observation](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/manifest.json)
+passed at infrastructure Case generation 115 and YAI `cdf714c`: its approved
+primary target and model agree with the independently observed public catalog.
+This is `SEES` metadata evidence only. Recent retained Conversation attempts
+remain indeterminate or unresolved, and no successful infrastructure-Case
+DeepSeek answer follows from the 32K load.
 
 ### Case portfolio and machine qualification
 

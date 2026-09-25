@@ -1,0 +1,13 @@
+{
+  "case_ref": "case:tech-infra-inference-service",
+  "tenant_ref": "tenant:studio-live-qualification",
+  "participant_ref": "participant:operator",
+  "target_ref": "provider-target:965ce8d788b4d6321ed0fea629f99546",
+  "model_id": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "engine_generation": 2,
+  "runtime_binding_identity": "8cdb4929c523bd42e3fb82fa18ceed0a0a6732d6efd1d852c88398c8d2d6cd5e",
+  "runtime_model_identity": "cf8ebc69dae8e38f96a47418e8efcebdc47bc4ed05bac76d6974ccc1379e0e7e",
+  "capacity_plan_identity": "90049bf7433348b23b9386d5b72be76b4d1555ec4a71ae1c1b69ec1a7e6d262f",
+  "input_capacity_tokens": 32768,
+  "sequence_capacity_tokens": 32768
+}

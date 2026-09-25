@@ -1,0 +1,27 @@
+{
+  "run_id": "case-bound-capacity-1790374930629682335",
+  "evidence_class": "external_provider_metadata_read_only",
+  "yai_sha": "cdf714c3053310a72238590b3fb8c1a467034eae",
+  "case_ref": "case:tech-infra-inference-service",
+  "case_generation_before": 115,
+  "endpoint": "http://127.0.0.1:18001",
+  "endpoint_role": "pre-existing local forward to YVEX's loopback OpenAI-compatible listener",
+  "model": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "engine_generation": 2,
+  "input_capacity_tokens": 32768,
+  "sequence_capacity_tokens": 32768,
+  "behavioral_corpus": "provider.case_bound_public_capacity",
+  "result": "PASS",
+  "asserted_dimension": "SEES",
+  "artifacts": {
+    "independently_pinned_profile": "profile.json",
+    "public_model_catalog": "public-catalog.json",
+    "exact_command_and_unedited_stdout_stderr": "command-evidence.jsonl"
+  },
+  "limitations": [
+    "The public model catalog and approved Case binding are point-in-time metadata, not a residency reservation or a successful inference.",
+    "This run did not submit a Conversation Turn or transmit Case content to the provider.",
+    "The complete Host observation contains internal Case content and remains in local temporary evidence; it is not published here.",
+    "Recent infrastructure-Case Conversation attempts remain delivery_indeterminate or unresolved; no answer or model-quality verdict is established."
+  ]
+}

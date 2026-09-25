@@ -134,6 +134,17 @@ successful DeepSeek answer or live readiness guarantee. In Studio inspect the
 same Case under Compute and YVEX → Runtime: target identity, model and observed
 capacity must agree; a stale observation must not remain green.
 
+The [2026-09-26 read-only Case-bound capacity run](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/manifest.json)
+passed `provider.case_bound_public_capacity` at YAI `cdf714c` against the
+operator's infrastructure Case at generation 115. The independently pinned
+public catalog exposed engine generation 2 and 32,768 input/sequence tokens;
+the Host read agreed on the approved primary binding and exact model. This run
+sent no Conversation Turn. Recent retained attempts still include
+`delivery_indeterminate` and `unresolved`; another SEND needs a distinct durable
+identity and is not an automatic retry. The full Case observation remains local;
+the published evidence contains only the public catalog, identity profile and
+unedited command output.
+
 The historical release-only opt-in `STUDIO_ENTERPRISE_WORKFLOW=1` mode of
 `tests/studio/operational-live.mjs` uses the authored Work forms to define/bind
 `enterprise-workflow.json` only when this exact enterprise Case has no Workflow.
