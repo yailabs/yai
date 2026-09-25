@@ -139,6 +139,8 @@ export class ApplicationAccess implements Disposable {
   bindWorkflow(input: WorkflowBindInput) { return this.invoke("workflow.bind", () => this.client.bindWorkflow(input)); }
   proposeWorkflowPatch(input: { case_ref: string; patch: WorkflowPatchInput }) { return this.invoke("workflow.patch.propose", () => this.client.proposeWorkflowPatch(input)); }
   adoptWorkflowPatch(input: { case_ref: string; patch_ref: string }) { return this.invoke("workflow.patch.adopt", () => this.client.adoptWorkflowPatch(input)); }
+  pendingHandoffs(input: { case_ref: string }) { return this.invoke("handoff.pending", () => this.client.pendingHandoffs(input)); }
+  inspectHandoff(input: { case_ref: string; handoff_ref: string }) { return this.invoke("handoff.inspect", () => this.client.inspectHandoff(input)); }
   offerHandoff(input: HandoffOfferInput) { return this.invoke("handoff.offer", () => this.client.offerHandoff(input)); }
   acceptHandoff(input: HandoffAcceptInput) { return this.invoke("handoff.accept", () => this.client.acceptHandoff(input)); }
   declineHandoff(input: HandoffDeclineInput) { return this.invoke("handoff.decline", () => this.client.declineHandoff(input)); }

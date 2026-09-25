@@ -6,7 +6,7 @@ import type { InspectedConversationExecution } from "./executionContext";
 import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput, CognitivePlan } from "./cognitive";
 import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, EffectProposal, ExecutionGetInput, ExecutionListInput, ExecutionList, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
-import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
+import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput, HandoffPending, HandoffInspection } from "./work";
 import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
 import type { ResourceImportInput, CaseCapabilityView, ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
 import type { PolicyIngestResult, PolicyLifecycleAction, PolicyLifecycleInput, PolicyLifecycleResult } from "./policy";
@@ -180,6 +180,8 @@ export class LiveClient {
   bindWorkflow(input: WorkflowBindInput) { return this.call<unknown>("workflow.bind", input); }
   proposeWorkflowPatch(input: { case_ref: string; patch: WorkflowPatchInput }) { return this.call<WorkCommit>("workflow.patch.propose", input); }
   adoptWorkflowPatch(input: { case_ref: string; patch_ref: string }) { return this.call<WorkCommit>("workflow.patch.adopt", input); }
+  pendingHandoffs(input: { case_ref: string }) { return this.call<HandoffPending>("handoff.pending", input); }
+  inspectHandoff(input: { case_ref: string; handoff_ref: string }) { return this.call<HandoffInspection>("handoff.inspect", input); }
   offerHandoff(input: HandoffOfferInput) { return this.call<WorkCommit>("handoff.offer", input); }
   acceptHandoff(input: HandoffAcceptInput) { return this.call<WorkCommit>("handoff.accept", input); }
   declineHandoff(input: HandoffDeclineInput) { return this.call<WorkCommit>("handoff.decline", input); }

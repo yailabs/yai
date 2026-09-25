@@ -1067,8 +1067,16 @@ and only the selected Case's committed acceptance, decline, result and
 reconciliation. A source Case does not acquire the target result merely because
 it can inspect its offer: explicit reconciliation remains separate. The existing
 `yai case handoff pending/show` commands consume these same Application reads;
-pending retains its CLI offer-array presentation. Studio inbox consumption is
-still unqualified until its authored interaction and product tests pass.
+pending retains its CLI offer-array presentation. In Studio Work → Handoffs,
+select an incoming offer to read its request, required roles and exact protocol
+facts. Accept/Decline then prefill its returned identities. **Inspect retained
+Handoff** opens an exact known reference after acceptance or restart. Refresh
+rechecks current disclosure; mismatched/late Case or Participant responses never
+populate another selection. Request/result text remains inert candidate data.
+The inbox reveals 32 offers at a time from the returned owner scan; **Show 32
+more offers** expands that local projection, not a canonical pagination cursor.
+A complete outgoing/history catalog remains open. `work-actions.mjs` qualifies
+the real Host/CLI lifecycle; `handoff-lifecycle.mjs` covers UI response fences.
 
 
 First create/open the empty isolation Case from the shell with

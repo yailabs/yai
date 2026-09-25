@@ -905,3 +905,21 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .execution-catalog-row:hover, .execution-catalog-row[aria-pressed="true"] { background:var(--yai-selected); }
 .execution-catalog-row:focus-visible { outline:1px solid var(--yai-accent); outline-offset:-2px; }
 @media(max-width:1100px) { .execution-catalog-row { grid-template-columns:115px minmax(0,1fr); } .execution-catalog-row time { grid-column:2; } }
+
+.handoff-inbox-toolbar, .handoff-detail > header, .handoff-inspect-form { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.handoff-inbox-toolbar h3 { margin-right:auto; }
+.handoff-inbox { max-height:280px; overflow:auto; }
+.handoff-inbox-row { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,2fr) auto; gap:12px; align-items:center; width:100%; padding:10px 8px; border:0; border-bottom:1px solid var(--yai-divider); text-align:left; color:inherit; background:transparent; cursor:pointer; }
+.handoff-inbox-row span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.handoff-inbox-row small { color:var(--yai-text-muted); }
+.handoff-inbox-row[aria-pressed="true"], .handoff-inbox-row:hover { background:var(--yai-selected); }
+.handoff-inbox-row:focus-visible { outline:1px solid var(--yai-accent); outline-offset:-2px; }
+.handoff-inspect-form { margin:16px 0; align-items:flex-end; }
+.handoff-inspect-form label { flex:1; min-width:180px; }
+.handoff-detail { margin:16px 0; }
+.handoff-detail pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:240px; overflow:auto; font:inherit; user-select:text; }
+@media(max-width:1100px) { .handoff-inbox-row { grid-template-columns:minmax(0,1fr); gap:4px; } }
+.handoff-inspect-form label { display:grid; gap:6px; font-size:12px; color:var(--yai-text-secondary); }
+.handoff-inspect-form input { width:100%; box-sizing:border-box; height:30px; padding:0 8px; border:1px solid var(--yai-divider); border-radius:5px; background:var(--yai-inset); color:var(--yai-text); }
+.handoff-inspect-form input:focus-visible { outline:1px solid var(--yai-accent); outline-offset:1px; }
+.handoff-exact-inspection { margin-top:12px; }

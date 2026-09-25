@@ -28,3 +28,16 @@ export interface DecisionTrajectory {
 }
 export interface DecisionCorpus { schema: "yai.cognitive_decision_corpus.v1"; case_id: string; participant_id: string; trajectories: DecisionTrajectory[]; omitted_visible_decisions: number }
 export interface DecisionEvaluation { schema: string; trajectory_count: number; exact_candidate_set_count: number; partial_candidate_set_count: number; historical_working_state_count: number; consequence_link_count: number; correction_count: number; missing_backing_count: number; temporal_leakage_violations: number; false_causality_violations: number; cross_case_leakage_violations: number; serialized_bytes: number }
+
+export interface HandoffOffer {
+  handoff_id: string; source_case_id: string; target_case_id: string;
+  request: HandoffData; required_target_roles: string[]; offered_at_unix_ms: number;
+}
+export interface HandoffPending { schema: string; case_ref: string; generation: number; offers: HandoffOffer[]; scope: string }
+export interface HandoffInspection {
+  schema: string; case_ref: string; generation: number; offer: HandoffOffer;
+  acceptance?: { handoff_id: string; accepted_by_participant_id: string } | null;
+  decline?: { handoff_id: string; reason: string } | null;
+  result?: { handoff_id: string; outcome: string; result: HandoffData; evidence_refs: string[] } | null;
+  reconciliation?: { handoff_id: string; outcome: string; result?: HandoffData | null } | null;
+}
