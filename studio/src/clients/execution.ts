@@ -4,7 +4,7 @@ export type ExecutionReference = { domain: "runtime_work" | "resource_request"; 
   | { domain: "controlled_effect"; operation_ref: string }
   | { domain: "cognitive_realization"; plan_ref: string }
   | { domain: "source_acquisition"; source_ref: string; attempt: number };
-export interface ExecutionGetInput { case_ref: string; participant_ref: string; execution: ExecutionReference }
+export interface ExecutionGetInput { case_ref: string; participant_ref: string; execution: ExecutionReference; include_output?: boolean }
 export interface EffectProposeInput { case_ref: string; participant_ref: string; resource_ref: string; candidate_ref: string; expected_generation: number }
 export interface EffectSubmitInput { case_ref: string; participant_ref: string; operation_ref: string; expected_generation: number }
 export interface EffectReconcileInput extends EffectSubmitInput { effect_ref: string; retry_no_effect: boolean }
@@ -21,6 +21,11 @@ export interface SourceResumeInput extends SourceAcquireInput { previous_progres
 export interface ExecutionObservation {
   case_ref: string; participant_ref: string; schema?: string; execution_ref?: string; submission_ref?: string;
   generation?: number; continuation?: ResourceRequestInput;
+  process?: {
+    observation_ref: string; observed_at_unix_ms: number;
+    status: { exit_code: number | null; signal: number | null; timed_out: boolean; output_limit_exceeded: boolean; elapsed_ms: number; timeout_ms: number };
+    output?: { stdout: string; stderr: string; stdout_digest: string; stderr_digest: string; lossy_utf8: boolean };
+  };
   operation_ref?: string; source_ref?: string; attempt?: number; progress_ref?: string;
   state?: string; phase?: string; current_source_phase?: string; observed_generation?: number;
   posture?: string | { state: string; result_ref?: string; receipt_ref?: string; effect_ref?: string; outcome?: string; review_ref?: string; decision_ref?: string; external_execution_started?: boolean };

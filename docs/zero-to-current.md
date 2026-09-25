@@ -1816,7 +1816,11 @@ timeout, output-limit and elapsed-time facts separately from that receipt. Expli
 `include_output: true` additionally returns bounded retained stdout/stderr with
 owner digests and UTF-8 posture. Current reuse/disclosure checks apply after restart;
 revoked authority discloses neither status nor output. This never dispatches a
-process. Studio consumption of these new process fields remains to be qualified.
+process. Work → Executions now shows the recorded process exit separately from
+its effect receipt. **Read retained process output** requests stdout/stderr;
+refresh, Case/Participant changes and refused re-observation remove prior output.
+The Resource setup product suite exercises exit 0 and exit 7, exact bytes/digests,
+restart/retry without another dispatch and policy revocation after disclosure.
 Pending, uncertain and terminal executions offer no continuation. Runner environment
 authoring and write bounds remain outside this bounded form.
 

@@ -888,3 +888,8 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .output-posture { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--yai-text-muted); }
 .retained-output-text { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.6; user-select:text; }
 .retained-output details { font-size:11px; }
+
+.process-result { margin:10px 0; padding:10px; border:1px solid var(--yai-divider); border-radius:5px; }
+.process-result p, .process-result small { color:var(--yai-text-muted); font-size:11px; }
+.process-result h4 { margin:12px 0 5px; font-size:11px; }
+.process-result pre { max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; user-select:text; }

@@ -18,6 +18,7 @@ await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
 let telemetry, serial=0, browser, dropAcknowledgement;
 const exchanges = [];
+const processExit=Number(process.env.STUDIO_PROCESS_EXIT_CODE??0);assert.ok([0,7].includes(processExit));
 function rpc(request) {
  return new Promise((resolve,reject) => {
   const socket = net.createConnection(telemetry.endpoint); let buffer='', handshaken=false;
@@ -79,7 +80,7 @@ try {
   if(family==='process_runner'){
    await form.getByLabel('Absolute executable on the YAI Host').fill(executable);
    await form.getByLabel('Expected executable digest').fill(executableDigest);
-   await form.getByLabel('Arguments, one exact argument per line').fill("-I\n-B\n-c\nprint('exact-run')");
+   await form.getByLabel('Arguments, one exact argument per line').fill(`-I\n-B\n-c\nimport sys; print('exact-run'); print('exact-error', file=sys.stderr); sys.exit(${processExit})`);
    await form.getByLabel('Working directory relative to root').fill('work');
   }
   if(family==='http_service')await form.getByLabel('Bound relative HTTP path').fill('health');
@@ -171,7 +172,7 @@ try {
  const completed=exchanges.findLast(x=>x.request.operation_ref==='resource.request');
  assert.deepEqual(completed.request.input,waiting.request.input,'Continuation preserves every original input field');
  assert.equal(completed.result.data.execution.posture.state,'effect_recorded',JSON.stringify(completed));
- assert.equal(completed.result.data.outcome.observation.result.exit_code,0);
+ assert.equal(completed.result.data.outcome.observation.result.exit_code,processExit);
  assert.equal(completed.result.data.outcome.observation.result.stdout,'exact-run\n');
  await continueForm.getByRole('button',{name:'Close and inspect state',exact:true}).click();
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
@@ -182,6 +183,25 @@ try {
  assert.deepEqual(finalRetry.execution,completed.result.data.execution);
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,terminalGeneration);
  assert.equal(finalRetry.outcome,null,'Lost-response retry observes the original receipt without dispatch');
+ const processView=receipt.getByRole('region',{name:'Recorded process result'});
+ const exitBadge=processView.getByText(`Exit code ${processExit}`,{exact:true});await exitBadge.waitFor();
+ assert.match(await exitBadge.getAttribute('class'),processExit===0?/tone-success/:/tone-error/);
+ assert.equal(await processView.locator('.process-stdout').count(),0,'Output must be requested explicitly');
+ telemetry=cli('host','restart').data.value;
+ await processView.getByRole('button',{name:'Read retained process output',exact:true}).click();
+ await processView.locator('.process-stdout').waitFor();
+ assert.equal(await processView.locator('.process-stdout').textContent(),'exact-run\n');
+ assert.equal(await processView.locator('.process-stderr').textContent(),'exact-error\n');
+ const outputRead=exchanges.findLast(x=>x.request.operation_ref==='execution.get' && x.request.input.include_output);
+ assert.equal(outputRead.result.data.process.observation_ref,completed.result.data.execution.posture.result_ref);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,terminalGeneration);
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+  await page.setViewportSize({width,height});await processView.scrollIntoViewIfNeeded();
+  const box=await processView.evaluate(node=>({width:node.clientWidth,scroll:node.scrollWidth}));assert.ok(box.scroll<=box.width+1);
+  await page.screenshot({path:`${evidence}/process-result-${processExit}-${width}x${height}.png`});
+ }
+ await page.setViewportSize({width:1440,height:900});
+
  await page.locator('.live-rail button[aria-label="Environment"]').click();
  await page.getByRole('button',{name:'Declare Source',exact:true}).click();
  let sourceForm=page.getByRole('dialog',{name:'Declare Source'});
@@ -207,6 +227,15 @@ try {
  assert.equal(material.result.data.content,'Exact retained evidence.');
  for(const field of ['source_ref','revision_ref','path','digest'])assert.equal(material.result.data[field],file[field]);
  assert.equal(await readFile(path.join(root,'evidence.txt'),'utf8'),'Exact retained evidence.');
+ // Revocation must remove a previously disclosed process result, not leave cached stdout.
+ await page.locator('.live-rail button[aria-label="Work"]').click();
+ await processView.getByRole('button',{name:'Read retained process output',exact:true}).click();
+ await processView.locator('.process-stdout').waitFor();
+ await accepted('policy.revoke',{artifact_ref:artifact,reason:'Current output disclosure refusal'});
+ await receipt.getByRole('button',{name:'Refresh observation',exact:true}).click();
+ await receipt.getByRole('alert').waitFor();
+ assert.equal(await receipt.locator('.process-stdout,.process-stderr').count(),0);
+ assert.equal(await receipt.getByRole('region',{name:'Recorded process result'}).count(),0);
  assert.deepEqual(errors,[]);assert.equal(cli('case','verify',caseRef).status,'ok');
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','CLI exact definition retry preserves identities and generation; canonical replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','Process exit status and explicit retained stdout/stderr match owner; revoked policy clears disclosed output','CLI exact definition retry preserves identities and generation; canonical replay']}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

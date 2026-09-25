@@ -33,9 +33,10 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
   const [resume, setResume] = useState<{ identity: string; submission: string; run: string; digest: string }>();
   const [continuation, setContinuation] = useState<{ identity: string; input: ResourceRequestInput }>();
   const [reconcile, setReconcile] = useState<{ identity: string; effect: string; generation: number }>();
-  const observe = async () => {
+  const observe = async (includeOutput = false) => {
     if (!application) return; const stamp = identity; const request = ++sequence.current; setBusy(true); setError(undefined);
-    try { const response = await application.execution({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, execution: reference });
+    if (reference.domain === "resource_request") setObservation(undefined);
+    try { const response = await application.execution({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, execution: reference, ...(includeOutput ? { include_output: true } : {}) });
       if (stamp !== current.current || request !== sequence.current) return;
       if (response.result_state === "success" && response.data?.case_ref === workspace.case.case_ref && response.data.participant_ref === workspace.case.participant_ref && (reference.domain !== "cognitive_realization" || response.data.plan_ref === reference.plan_ref) && (reference.domain !== "controlled_effect" || response.data.operation_ref === reference.operation_ref)) setObservation({ identity: stamp, value: response.data });
       else { setObservation(undefined); setError(response.error?.safe_message ?? "No currently authorized observation for this exact reference."); }
@@ -56,6 +57,18 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
     {posture === "unresolved" && <p role="status">YAI cannot establish whether this attempt is still active. Its retained phase is not proof of a running process. No new attempt is sent.</p>}
     {error && <p role="alert">{error} No new submission was sent.</p>}
     {result && reference.domain !== "controlled_effect" && <dl className="object-facts">{Object.entries({ Execution: compact ? undefined : result.execution_ref ?? result.operation_ref ?? result.progress_ref, "Runner posture": result.runner?.posture, "Stop requested": result.runner ? String(result.runner.stop_requested) : undefined, "Current Source phase": result.current_source_phase, "Effect outcome": detail?.outcome, "Effect started": detail?.external_execution_started == null ? undefined : String(detail.external_execution_started), Result: detail?.result_ref, Receipt: detail?.receipt_ref, Review: detail?.review_ref }).filter(([, value]) => value != null).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}
+    {result?.process && <section className="process-result" aria-label="Recorded process result">
+      <header><strong>Process outcome</strong><Badge tone={result.process.status.timed_out || result.process.status.signal !== null || (result.process.status.exit_code !== null && result.process.status.exit_code !== 0) ? "error" : result.process.status.exit_code === 0 ? "success" : "warning"}>{result.process.status.timed_out ? "Timed out" : result.process.status.signal !== null ? `Signal ${result.process.status.signal}` : result.process.status.exit_code !== null ? `Exit code ${result.process.status.exit_code}` : "Exit status not recorded"}</Badge>
+        {result.process.status.output_limit_exceeded && <Badge tone="warning">Output limit reached</Badge>}</header>
+      <p>{result.process.status.elapsed_ms} ms elapsed · recorded {new Date(result.process.observed_at_unix_ms).toLocaleString()}</p>
+      {!result.process.output ? <Button disabled={busy} onClick={() => void observe(true)}>Read retained process output</Button> : <>
+        <h4>Standard output</h4><pre className="process-stdout">{result.process.output.stdout || "No standard output recorded."}</pre>
+        <h4>Standard error</h4><pre className="process-stderr">{result.process.output.stderr || "No standard error recorded."}</pre>
+        {result.process.output.lossy_utf8 && <p role="status">Invalid UTF-8 was replaced by the runner. Text is not a lossless byte representation.</p>}
+        <details><summary>Output evidence</summary><code>{result.process.observation_ref}</code><code>stdout · {result.process.output.stdout_digest}</code><code>stderr · {result.process.output.stderr_digest}</code></details>
+      </>}
+      <small>This is the retained command outcome. A recorded effect alone does not mean the command succeeded. Reading never runs it again.</small>
+    </section>}
     {continuable && candidate && <Button disabled={busy || !application?.supports("resource.request")} onClick={() => setContinuation({ identity, input: candidate })}>Continue recorded request…</Button>}
     {continuation && application && <ApplicationActionDialog title="Continue recorded request" description="Submit the exact retained request again under current YAI authority. This may perform its external read or effect; approval alone did not execute it." submitLabel="Continue exact request" close={() => setContinuation(undefined)} enabled={continuation.identity === identity && continuable && JSON.stringify(continuation.input) === JSON.stringify(candidate)} submit={() => application.requestResource(continuation.input)} committed={async () => { await observe(); await refresh(platform); }} resync={() => refresh(platform)}>
       <p>Resource: {continuation.input.resource_ref}</p><p>Operation: {continuation.input.request.action.action.replaceAll("_", " ")}</p>

@@ -19,7 +19,7 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "knowledge.resolve": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
   "knowledge.search": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
   "knowledge.inspect": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
-  "execution.get": { state: "integrated", detail: "Exact Source/runtime/Resource observation; cognitive plans and historical Decision to current controlled-effect receipts also qualified by conversation-actions.mjs and effect-actions.mjs. Reads never redispatch.", proof: "tests/studio/execution-actions.mjs" },
+  "execution.get": { state: "integrated", detail: "Exact Source/runtime/Resource observation; cognitive plans and historical Decision to current controlled-effect receipts also qualified by conversation-actions.mjs and effect-actions.mjs. Resource process exit/output and revocation also qualified by resource-setup.mjs. Reads never redispatch.", proof: "tests/studio/execution-actions.mjs" },
   "case.stop": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/effect-actions.mjs" },
   "case.run": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/effect-actions.mjs" },
   "application.capabilities": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/kernel.test.cjs" },
