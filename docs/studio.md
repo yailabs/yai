@@ -1393,6 +1393,13 @@ retained in the submitted envelope for lost-acknowledgement retry, and the
 Application result reports the effective path. Today the public non-generative
 producer is unavailable, so a Fast request visibly degrades to qualified
 standard Recall/W; no score, recommendation or model execution is implied.
+The same menu offers **Standard** and **Focused** Case context for new ordinary
+SEND. Focused is a typed immutable execution-intent choice: it reduces the
+semantic/evidence envelope while retaining required/current Case state, then
+the Application applies exact target preflight and reports omissions. It is not
+a token or latency guarantee. Studio stores the choice locally per
+Case/Participant and includes it in the exact pending envelope; moving or
+reopening the tool cannot silently change a submitted request.
 
 Compute separates measured wire qualification from operator-attested semantic
 suitability and the primary cognitive binding. `provider.models` authorizes the

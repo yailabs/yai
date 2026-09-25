@@ -175,10 +175,12 @@ def main():
                 assert time.monotonic() < deadline, telemetry
                 time.sleep(.1)
 
-        def send(identity, text="EXACT_CONTEXT_SENTINEL"):
+        def send(identity, text="EXACT_CONTEXT_SENTINEL", context_depth="standard"):
             generation = call("case.summary", dict(case_ref=case))["case"]["generation"]
             inputs = dict(scope, thread_ref="thread:context", submission_ref=identity, expected_generation=generation,
                 parts=[dict(modality="text", media_type="text/plain", bytes=list(text.encode()))])
+            if context_depth == "focused":
+                inputs["intent"] = dict(context_depth="focused")
             call("conversation.send", inputs)
             query = dict(scope, execution=dict(domain="conversation", submission_ref=identity))
             deadline = time.monotonic() + 30
@@ -282,6 +284,23 @@ def main():
             _, _, historical = send(f"submission:history:{index}",
                 f"OPTIONAL_HISTORY_{index}:" + "x" * 2000)
             assert historical["primary_result"]["output"] == "Controlled context result"
+        before_focused = len(dispatches)
+        focused_input, focused_query, focused = send("submission:focused",
+            "Which current Case facts and bounded evidence are relevant?", "focused")
+        assert focused["primary_result"]["output"] == "Controlled context result", focused
+        assert len(dispatches) == before_focused + 1
+        focused_context = call("execution.get", dict(focused_query, include_context=True))
+        focused_w = focused_context["prepared_context"]["invocations"][0]["working_state"]
+        assert focused_w["request"]["max_semantic_units"] == 32768
+        assert focused_w["request"]["max_derived_items"] == 2
+        assert all(item["disposition"] == "pinned" for item in focused_w["decisions"]
+            if item["class"] in ("mandatory_current", "observed_consequence"))
+        altered = dict(focused_input)
+        altered.pop("intent")
+        refused_retry = host.call("conversation.send", altered, f"{run}:altered-focused-retry")
+        emit(operation="conversation.send", input=altered, result=refused_retry)
+        assert refused_retry["result_state"] != "success", "Changing immutable context depth reused a SEND identity"
+        assert len(dispatches) == before_focused + 1, "Conflicting retry caused inference"
         adaptive = True
         row["capacity_plan_identity"] = "capacity:controlled-smaller"
         row["yvex_capacity"]["runtime_input_tokens"] = 4000
@@ -302,7 +321,7 @@ def main():
         assert all(item["disposition"] == "pinned" for item in invocation["working_state"]["decisions"]
             if item["class"] in ("mandatory_current", "observed_consequence"))
         cli("case", "verify", case)
-        emit(result="PASS", inference_dispatches=len(dispatches) - 1, capacity_refusals=1,
+        emit(result="PASS", inference_dispatches=len(dispatches) - 1, focused_context_retrieval_limit=focused_w["request"]["max_derived_items"], capacity_refusals=1,
              atomic_fit_preflights=len(candidate_bodies), observation_retry_dispatches=0)
         print(json.dumps(dict(result="PASS", run_id=run, evidence=str(args.output))))
     finally:

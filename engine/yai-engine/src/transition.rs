@@ -3175,6 +3175,12 @@ impl Transition {
             return Err("delegated_conversation_intent_requires_yai_transition_v18".into());
         }
         if self.schema != TRANSITION_SCHEMA
+            && matches!(&self.payload, TransitionPayload::ConversationExecutionIntentRecorded { request }
+                if request.schema == crate::conversation::CONTEXT_DEPTH_INTENT_SCHEMA)
+        {
+            return Err("focused_conversation_intent_requires_current_transition".into());
+        }
+        if self.schema != TRANSITION_SCHEMA
             && self.schema != TRANSITION_SCHEMA_V18
             && (matches!(
                 &self.payload,

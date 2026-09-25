@@ -31,6 +31,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [memorySearchMode, setMemorySearchMode] = useState<"standard" | "fast">("standard");
+  const [contextDepth, setContextDepth] = useState<"standard" | "focused">(() => read().contextDepth === "focused" ? "focused" : "standard");
   const [memorySearchResult, setMemorySearchResult] = useState<string>();
   const [actionsOpen, setActionsOpen] = useState(false);
   const [tick, setTick] = useState(0);
@@ -58,7 +59,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); };
   }, [actionsOpen]);
-  const persist = (text: string, intent?: ConversationSendInput) => sessionStorage.setItem(key, JSON.stringify({ draft: text, pending: intent }));
+  const persist = (text: string, intent?: ConversationSendInput, depth = contextDepth) => sessionStorage.setItem(key, JSON.stringify({ draft: text, pending: intent, contextDepth: depth }));
   const refresh = () => platform.commands.executeCommand("studio.case.refresh").catch(() => undefined);
   const supported = Boolean(application?.supports("conversation.send") && application.supports("execution.get"));
   const fastSearchSupported = Boolean(application?.supports("semantic.fast_search.prepare"));
@@ -117,7 +118,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     if (!application || inFlight.current || !canSend) return;
     inFlight.current = true; setBusy(true); setError(undefined);
     try {
-      const input = retry && pending ? pending : makeConversationSend(caseRef, participant, workspace.conversation.turns.at(-1)?.thread_ref, workspace.case.generation, draft, memorySearchMode);
+      const input = retry && pending ? pending : makeConversationSend(caseRef, participant, workspace.conversation.turns.at(-1)?.thread_ref, workspace.case.generation, draft, memorySearchMode, contextDepth);
       // Persist the exact envelope before dispatch. A timeout cannot create a new Turn on retry.
       persist(draft, input); setPending(input);
       const result = await application.sendConversation(input);
@@ -178,14 +179,18 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
           <button type="button" className="conversation-plus" aria-label="Conversation tools" aria-expanded={actionsOpen} aria-controls="conversation-tools-menu" onClick={() => setActionsOpen(value => !value)}><Icon name="plus" size={18} /></button>
           {actionsOpen && <div className="conversation-tools-menu" id="conversation-tools-menu" role="menu" aria-label="Conversation tools">
             <div className="conversation-tools-heading">Memory search</div>
-            <button type="button" role="menuitemradio" aria-checked={memorySearchMode === "standard"} onClick={() => { setMemorySearchMode("standard"); setActionsOpen(false); }}><Icon name="memory" size={17} /><span><strong>Standard</strong><small>Qualified Recall and Working State</small></span>{memorySearchMode === "standard" && <Icon name="check" size={15} />}</button>
-            <button type="button" role="menuitemradio" aria-checked={memorySearchMode === "fast"} disabled={!fastSearchSupported} onClick={() => { setMemorySearchMode("fast"); setActionsOpen(false); }}><Icon name="search" size={17} /><span><strong>Fast Search</strong><small>{fastSearchSupported ? "Optional System Model; standard fallback if unavailable" : "Not supported by this YAI Host"}</small></span>{memorySearchMode === "fast" && <Icon name="check" size={15} />}</button>
+            <button type="button" role="menuitemradio" aria-label="Standard memory search" aria-checked={memorySearchMode === "standard"} onClick={() => { setMemorySearchMode("standard"); setActionsOpen(false); }}><Icon name="memory" size={17} /><span><strong>Standard</strong><small>Recall + Working State</small></span>{memorySearchMode === "standard" && <Icon name="check" size={15} />}</button>
+            <button type="button" role="menuitemradio" aria-checked={memorySearchMode === "fast"} disabled={!fastSearchSupported} onClick={() => { setMemorySearchMode("fast"); setActionsOpen(false); }}><Icon name="search" size={17} /><span><strong>Fast Search</strong><small>{fastSearchSupported ? "System Model · fallback" : "Unavailable on this Host"}</small></span>{memorySearchMode === "fast" && <Icon name="check" size={15} />}</button>
             <div className="conversation-tools-divider" />
-            <button type="button" role="menuitem" onClick={() => { setActionsOpen(false); actions.openPerspective("Memory"); }}><Icon name="memory" size={17} /><span><strong>Open Memory</strong><small>Recall, Working State and history</small></span></button>
-            <button type="button" role="menuitem" onClick={() => { setActionsOpen(false); actions.openPerspective("Environment"); }}><Icon name="sources" size={17} /><span><strong>Browse sources</strong><small>Case sources and resources</small></span></button>
+            <div className="conversation-tools-heading">Case context</div>
+            <button type="button" role="menuitemradio" aria-label="Standard Case context" aria-checked={contextDepth === "standard"} onClick={() => { setContextDepth("standard"); persist(draft, pending, "standard"); setActionsOpen(false); }}><Icon name="memory" size={17} /><span><strong>Standard</strong><small>Current Case + evidence</small></span>{contextDepth === "standard" && <Icon name="check" size={15} />}</button>
+            <button type="button" role="menuitemradio" aria-label="Focused Case context" aria-checked={contextDepth === "focused"} onClick={() => { setContextDepth("focused"); persist(draft, pending, "focused"); setActionsOpen(false); }}><Icon name="search" size={17} /><span><strong>Focused</strong><small>Required + 2 optional Recall groups</small></span>{contextDepth === "focused" && <Icon name="check" size={15} />}</button>
+            <div className="conversation-tools-divider" />
+            <button type="button" role="menuitem" onClick={() => { setActionsOpen(false); actions.openPerspective("Memory"); }}><Icon name="memory" size={17} /><span><strong>Open Memory</strong><small>Recall, W, history</small></span></button>
+            <button type="button" role="menuitem" onClick={() => { setActionsOpen(false); actions.openPerspective("Environment"); }}><Icon name="sources" size={17} /><span><strong>Browse sources</strong><small>Sources + Resources</small></span></button>
           </div>}
         </div>
-        <small className="conversation-memory-mode">{memorySearchMode === "fast" ? "Fast Search · fallback available" : "Ctrl/⌘ Enter"}</small>
+        <small className="conversation-memory-mode">{contextDepth === "focused" ? "Focused context" : memorySearchMode === "fast" ? "Fast Search · fallback available" : "Ctrl/⌘ Enter"}</small>
         <Button className="conversation-send" aria-label={busy ? "Sending…" : "Send"} title="Send message" type="submit" disabled={busy || !canSend || !draft.trim()}><span aria-hidden="true">{busy ? "…" : "↑"}</span></Button>
       </div>}
     </form>

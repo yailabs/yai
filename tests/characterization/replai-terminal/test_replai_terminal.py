@@ -176,11 +176,24 @@ def terminal_contract():
         assert not re.search(rb"\x1b\[[0-9;]*m", t.output)
         t.exit()
     t = Terminal()
+    command_start = len(t.output)
+    t.send("/context focused\r")
+    t.wait(lambda: b"context_depth: focused" in t.output[command_start:])
+    t.draft("", 0)
+    assert state() == initial and not turns(), "Choosing context depth is local terminal state"
     t.send("earlier\r")
     t.wait(lambda: b'No conversation provider is configured.' in t.output)
     t.draft("", 0)
     committed = turns()
     assert len(committed) == 1
+    focused_view = cli("case", "conversation", "turn", "show", CASE,
+                       "--turn", committed[0]["turn_id"], "--participant", PARTICIPANT,
+                       structured=True)["value"]
+    assert focused_view["execution_intent"]["context_depth"] == "focused"
+    command_start = len(t.output)
+    t.send("/context standard\r")
+    t.wait(lambda: b"context_depth: standard" in t.output[command_start:])
+    t.draft("", 0)
     assert state()["generation"] == initial["generation"] + 2
     t.send("draft")
     t.send(b"\x1b[D\x1b[A\x1b[B")

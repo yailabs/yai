@@ -703,6 +703,18 @@ impl ConversationController {
         self.commit_parts_with_intent(parts, &intent)
     }
 
+    pub(super) fn commit_parts_focused(
+        &mut self,
+        parts: Vec<ConversationInputPart>,
+    ) -> Result<ConversationCommitResult, String> {
+        let intent = ConversationExecutionInput {
+            executor_participant_id: self.executor_participant_id.clone(),
+            context_depth: Some(yai_core_engine::conversation::ConversationContextDepth::Focused),
+            ..ConversationExecutionInput::default()
+        };
+        self.commit_parts_with_intent(parts, &intent)
+    }
+
     pub(super) fn commit_parts_with_intent(
         &mut self,
         parts: Vec<ConversationInputPart>,
@@ -2586,6 +2598,7 @@ mod tests {
             work_limits: None,
             prerequisite: Some((CognitiveCapability::SpeechToText, vec![1])),
             executor_participant_id: Some(MODEL.into()),
+            context_depth: None,
         };
         let media = reopened
             .commit_parts_with_intent(i06_audio(), &explicit)
@@ -2960,6 +2973,7 @@ mod tests {
             work_limits: None,
             prerequisite: Some((CognitiveCapability::SpeechToText, vec![1])),
             executor_participant_id: None,
+            context_depth: None,
         };
         let committed = controller
             .commit_parts_with_intent(i06_audio(), &explicit)

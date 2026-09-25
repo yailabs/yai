@@ -47,6 +47,9 @@ const COMMANDS: &[&str] = &[
     "/effects",
     "/operation ",
     "/memory",
+    "/context",
+    "/context focused",
+    "/context standard",
     "/graph",
     "/handoffs",
     "/handoff offer ",
@@ -183,7 +186,7 @@ fn command(
     text: &str,
 ) -> Result<(), String> {
     if text == "/help" {
-        println!("Case: /case /participants /resources /artifacts /history\nSetup: /setup /attach /connect /policy publish\nWork: /work TEXT /review /retry /cancel\nInspect: /details /policy /effects /workflow /memory /graph /verify\nAll actions: /help all\nExit: /exit");
+        println!("Case: /case /participants /resources /artifacts /history\nSetup: /setup /attach /connect /policy publish\nWork: /work TEXT /review /retry /cancel\nInspect: /details /policy /effects /workflow /memory /context /graph /verify\nAll actions: /help all\nExit: /exit");
         return Ok(());
     }
     if text == "/help all" {
@@ -680,6 +683,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     let prompt = Prompt::new(&format!("yai({case_id})")).map_err(|e| e.to_string())?;
     let mut input = Interaction::new(Editor::new(65_536, 200));
     let mut presentation = Presentation::default();
+    let mut focused_context = false;
     notice(&format!("Case opened: {case_id}\nParticipant: {}\nUse /help for Case actions; /connect for a provider; /exit to leave.", status.participant_id));
     loop {
         input
@@ -742,6 +746,15 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             return Ok(());
         }
         if trimmed.starts_with('/') {
+            if trimmed == "/context" {
+                println!("context_depth: {}\nFocused limits optional evidence, retaining required/current Case state; it is not a token or latency guarantee.", if focused_context { "focused" } else { "standard" });
+                continue;
+            }
+            if matches!(trimmed, "/context focused" | "/context standard") {
+                focused_context = trimmed == "/context focused";
+                println!("context_depth: {}", if focused_context { "focused" } else { "standard" });
+                continue;
+            }
             if trimmed != "/details" {
                 presentation.clear();
             }
@@ -760,8 +773,12 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             provider::terminal_dry_run(args, &text)
         } else {
             (|| {
-                let committed =
-                    controller.commit_parts(vec![ConversationInputPart::Text { text }])?;
+                let parts = vec![ConversationInputPart::Text { text }];
+                let committed = if focused_context {
+                    controller.commit_parts_focused(parts)?
+                } else {
+                    controller.commit_parts(parts)?
+                };
                 let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
                 std::io::stdout().flush().map_err(|e| e.to_string())?;
                 presentation.execution(execute_visible(&mut controller, &committed.turn.turn_id)?)

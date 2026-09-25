@@ -673,9 +673,20 @@ pub struct CognitiveCompositionRequest {
     /// Existing canonical Workflow execution, not another progression owner.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_execution_id: Option<String>,
+    /// Operator-selected presentation of the ordinary Conversation context.
+    /// This is immutable execution intent, not a provider token count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_depth: Option<ConversationContextDepth>,
 }
 
 pub const CASE_WORK_INTENT_SCHEMA: &str = "yai.cognitive_composition_request.v3";
+pub const CONTEXT_DEPTH_INTENT_SCHEMA: &str = "yai.cognitive_composition_request.v4";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConversationContextDepth {
+    Focused,
+}
 
 /// Explicit finite application work, not an Agent or persisted execution graph.
 /// Limits are immutable SEND intent, so restart cannot silently reset a budget.
@@ -721,6 +732,8 @@ struct CognitiveCompositionRequestIdentity<'a> {
     work_limits: &'a Option<CaseWorkLimits>,
     #[serde(skip_serializing_if = "Option::is_none")]
     workflow_execution_id: &'a Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    context_depth: &'a Option<ConversationContextDepth>,
 }
 
 fn canonical_turn_part_ids(
@@ -842,6 +855,7 @@ impl CognitiveCompositionRequest {
             prerequisite: &prerequisite,
             work_limits: &None,
             workflow_execution_id: &None,
+            context_depth: &None,
         };
         let integrity_digest = digest_json(&identity)?;
         Ok(Self {
@@ -858,12 +872,13 @@ impl CognitiveCompositionRequest {
             prerequisite,
             work_limits: None,
             workflow_execution_id: None,
+            context_depth: None,
         })
     }
 
     pub fn with_work_limits(mut self, limits: CaseWorkLimits) -> Result<Self, String> {
         limits.validate()?;
-        if self.prerequisite.is_some() {
+        if self.prerequisite.is_some() || self.context_depth.is_some() {
             return Err("case_work_prerequisite_not_admitted".into());
         }
         self.schema = CASE_WORK_INTENT_SCHEMA.into();
@@ -880,6 +895,7 @@ impl CognitiveCompositionRequest {
             prerequisite: &self.prerequisite,
             work_limits: &self.work_limits,
             workflow_execution_id: &self.workflow_execution_id,
+            context_depth: &self.context_depth,
         };
         self.integrity_digest = digest_json(&identity)?;
         self.request_id = format!("cognitive-composition:{}", self.integrity_digest);
@@ -891,6 +907,7 @@ impl CognitiveCompositionRequest {
             || execution_id.len() > 256
             || execution_id.chars().any(char::is_control)
             || self.prerequisite.is_some()
+            || self.context_depth.is_some()
         {
             return Err("conversation_workflow_execution_invalid".into());
         }
@@ -908,6 +925,33 @@ impl CognitiveCompositionRequest {
             prerequisite: &self.prerequisite,
             work_limits: &self.work_limits,
             workflow_execution_id: &self.workflow_execution_id,
+            context_depth: &self.context_depth,
+        };
+        self.integrity_digest = digest_json(&identity)?;
+        self.request_id = format!("cognitive-composition:{}", self.integrity_digest);
+        Ok(self)
+    }
+
+    pub fn with_context_depth(mut self, depth: ConversationContextDepth) -> Result<Self, String> {
+        if self.schema != COGNITIVE_COMPOSITION_REQUEST_SCHEMA
+            || self.work_limits.is_some() || self.workflow_execution_id.is_some() || self.prerequisite.is_some() {
+            return Err("conversation_context_depth_requires_ordinary_intent".into());
+        }
+        self.schema = CONTEXT_DEPTH_INTENT_SCHEMA.into();
+        self.context_depth = Some(depth);
+        let identity = CognitiveCompositionRequestIdentity {
+            schema: &self.schema,
+            tenant_id: &self.tenant_id,
+            case_id: &self.case_id,
+            participant_id: &self.participant_id,
+            source_turn_id: &self.source_turn_id,
+            source_turn_digest: &self.source_turn_digest,
+            goal: &self.goal,
+            source_part_ids: &self.source_part_ids,
+            prerequisite: &self.prerequisite,
+            work_limits: &self.work_limits,
+            workflow_execution_id: &self.workflow_execution_id,
+            context_depth: &self.context_depth,
         };
         self.integrity_digest = digest_json(&identity)?;
         self.request_id = format!("cognitive-composition:{}", self.integrity_digest);
@@ -922,6 +966,7 @@ impl CognitiveCompositionRequest {
             COGNITIVE_COMPOSITION_REQUEST_SCHEMA
                 | DELEGATED_COMPOSITION_REQUEST_SCHEMA
                 | CASE_WORK_INTENT_SCHEMA
+                | CONTEXT_DEPTH_INTENT_SCHEMA
         ) || self.goal != CognitiveCapability::PrimaryConversation
             || self.source_part_ids.is_empty()
             || self.source_part_ids.len() > MAX_TURN_PARTS
@@ -934,6 +979,12 @@ impl CognitiveCompositionRequest {
             != (self.work_limits.is_some() || self.workflow_execution_id.is_some())
         {
             return Err("conversation_intent_work_schema_mismatch".into());
+        }
+        if (self.schema == CONTEXT_DEPTH_INTENT_SCHEMA) != self.context_depth.is_some() {
+            return Err("conversation_intent_context_schema_mismatch".into());
+        }
+        if self.context_depth.is_some() && (self.prerequisite.is_some() || self.work_limits.is_some() || self.workflow_execution_id.is_some()) {
+            return Err("conversation_context_depth_requires_ordinary_intent".into());
         }
         if let Some(limits) = &self.work_limits {
             limits.validate()?;
@@ -971,6 +1022,7 @@ impl CognitiveCompositionRequest {
             prerequisite: &self.prerequisite,
             work_limits: &self.work_limits,
             workflow_execution_id: &self.workflow_execution_id,
+            context_depth: &self.context_depth,
         };
         let digest = digest_json(&identity)?;
         if digest != self.integrity_digest
@@ -987,6 +1039,7 @@ impl CognitiveCompositionRequest {
             COGNITIVE_COMPOSITION_REQUEST_SCHEMA
                 | DELEGATED_COMPOSITION_REQUEST_SCHEMA
                 | CASE_WORK_INTENT_SCHEMA
+                | CONTEXT_DEPTH_INTENT_SCHEMA
         ) {
             return Err("cognitive_composition_schema_invalid".to_string());
         }
@@ -1009,6 +1062,9 @@ impl CognitiveCompositionRequest {
         }
         if let Some(execution_id) = &self.workflow_execution_id {
             rebuilt = rebuilt.with_workflow_execution(execution_id)?;
+        }
+        if let Some(depth) = self.context_depth {
+            rebuilt = rebuilt.with_context_depth(depth)?;
         }
         if rebuilt != *self {
             return Err("cognitive_composition_identity_mismatch".to_string());
@@ -2684,6 +2740,25 @@ mod tests {
             old.get("work_limits").is_none(),
             "historical request bytes retain the absent field"
         );
+        assert!(old.get("context_depth").is_none());
+        let focused = plain.clone().with_context_depth(ConversationContextDepth::Focused).unwrap();
+        assert_eq!(focused.schema, CONTEXT_DEPTH_INTENT_SCHEMA);
+        assert_ne!(focused.request_id, plain.request_id);
+        focused.validate(&turn).unwrap();
+        let reopened_focused: CognitiveCompositionRequest = serde_json::from_str(
+            &serde_json::to_string(&focused).unwrap()).unwrap();
+        reopened_focused.validate(&turn).unwrap();
+        let mut tampered_focused = reopened_focused.clone();
+        tampered_focused.context_depth = None;
+        assert!(tampered_focused.validate_structure().is_err());
+        assert!(focused.with_work_limits(CaseWorkLimits {
+            invocations: 1, operations: 1, effects: 0, max_input_units: 8192,
+        }).is_err());
+        let delegated = CognitiveCompositionRequest::for_executor(
+            &turn, "participant:model", CognitiveCapability::PrimaryConversation,
+            turn.ordered_parts.iter().map(|p| p.part_id.clone()).collect(), None,
+        ).unwrap();
+        assert!(delegated.with_context_depth(ConversationContextDepth::Focused).is_err());
         let work = plain
             .clone()
             .with_work_limits(CaseWorkLimits {

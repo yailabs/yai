@@ -5,6 +5,7 @@ export interface ConversationSendInput {
   submission_ref: string; expected_generation: number;
   parts: Array<{ modality: "text"; media_type: "text/plain"; bytes: number[] }>;
   memory_search_mode?: "standard" | "fast";
+  intent?: { context_depth: "focused" };
 }
 export interface ConversationExecution {
   case_ref: string; participant_ref: string; submission_ref: string;
@@ -31,11 +32,11 @@ export interface ConversationSubmission {
   } | null;
 }
 export const conversationStorageKey = (caseRef: string, participant: string) => `yai.studio.conversation.v1:${caseRef}:${participant}`;
-export function makeConversationSend(caseRef: string, participant: string, thread: string | undefined, generation: number, text: string, memorySearchMode: "standard" | "fast" = "standard"): ConversationSendInput {
+export function makeConversationSend(caseRef: string, participant: string, thread: string | undefined, generation: number, text: string, memorySearchMode: "standard" | "fast" = "standard", contextDepth: "standard" | "focused" = "standard"): ConversationSendInput {
   if (!text.trim()) throw new Error("Write a message first.");
   const bytes = [...new TextEncoder().encode(text)];
   if (bytes.length > 65536) throw new Error("Messages are limited to 64 KiB of UTF-8 text.");
-  return { case_ref: caseRef, participant_ref: participant, thread_ref: thread ?? `thread:studio:${crypto.randomUUID()}`, submission_ref: `studio-send:${crypto.randomUUID()}`, expected_generation: generation, parts: [{ modality: "text", media_type: "text/plain", bytes }], ...(memorySearchMode === "fast" ? { memory_search_mode: "fast" as const } : {}) };
+  return { case_ref: caseRef, participant_ref: participant, thread_ref: thread ?? `thread:studio:${crypto.randomUUID()}`, submission_ref: `studio-send:${crypto.randomUUID()}`, expected_generation: generation, parts: [{ modality: "text", media_type: "text/plain", bytes }], ...(memorySearchMode === "fast" ? { memory_search_mode: "fast" as const } : {}), ...(contextDepth === "focused" ? { intent: { context_depth: "focused" as const } } : {}) };
 }
 
 export function conversationExecutionMessage(execution: ConversationExecution): string {

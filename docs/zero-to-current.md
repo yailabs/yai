@@ -94,9 +94,9 @@ one real 402-byte Cargo manifest produces 19 W entries, including eight atomic
 recalled groups, and a 20,319-token exact request. The 4096-token target refuses
 before inference; zero generation-request bytes were written. This is not a
 successful document-grounded answer. Preserve the Case and inspect its retained
-context from Conversation; do not repeatedly SEND the same question. Fitting
-eligible optional evidence to measured capacity remains backend work, with
-mandatory state, atomic groups and explicit omissions protected.
+context from Conversation; do not repeatedly SEND the same question. Bounded
+fitting of eligible optional evidence to exact public capacity is now qualified
+locally, with mandatory state, atomic groups and explicit omissions protected.
 Open Manage → Customize Activity Rail: core YAI and first-party platform entries
 are fixed; eligible additional contributions support pin/unpin, ordering and
 Restore defaults. Preferences survive reopening without changing Case history.
@@ -1696,6 +1696,20 @@ posture. Semantic units are never reported as tokenizer counts. Each exact
 preflight does disclose that candidate request to the already selected and
 authorized provider target; it is not a local token count or a no-network dry
 run.
+
+For a new ordinary question, Conversation → **+ → Case context → Focused**
+records a smaller immutable intent. It limits optional Recall retrieval to two
+groups while keeping the ordinary semantic ceiling; the default Standard path
+remains unchanged. This is not an exact-token or latency guarantee.
+Current/required state stays pinned, and final target capacity still fails
+closed before inference when the exact request cannot fit. The
+focused choice survives docking/reopening in the local Case/Participant session;
+the selected value is fixed in the exact SEND envelope before submission, so
+lost-acknowledgement retry cannot silently change it. In the interactive CLI,
+`/context focused` selects the same bounded intent for subsequent messages;
+`/context standard` restores the default. Inspect W omissions and public
+preflight after execution rather than inferring what the model saw from the
+profile label.
 
 The 2026-09-25 external DeepSeek 32K observation remains **negative Case-inference evidence**.
 At YAI `cd39ea0`, native Studio run `native-conversation-1790354457662891233`

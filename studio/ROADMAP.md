@@ -99,6 +99,10 @@ archived context inspection now have controlled Host/UI/refusal/restart evidence
 the same controlled Host lane now proves bounded exact-preflight fitting of
 whole optional W groups without dropping required/current state. Successful
 real infrastructure-Case inference remains open.
+Conversation now offers an immutable Focused context choice across Studio and
+the interactive CLI; the typed Host test retains that choice across exact retry
+and verifies the Recall retrieval limit. This is an optional-evidence bound, not a token or
+latency guarantee, and requires a separate real-target completion result.
 Overview is a full-height Product Surface with Situation, Workflow, Sources and
 Recent changes sections. The Case/Participant-local section and in-flight governed
 explanation survive section movement; keyboard/ARIA navigation and real Host
@@ -163,8 +167,7 @@ not substitute for real-provider evidence.
 **THEN:** extend the corpus and hardware matrix from observed product findings.
 **BLOCKED/OPEN CONTRACTS:** governed file Save; qualified folder intake/routing;
 policy catalog/composition projection; parent/child Case ownership; native YVEX
-remote management; an explicit bounded context-depth choice for ordinary SEND;
-real-target latency/host-exit qualification.
+remote management; real-target latency/host-exit qualification.
 **HORIZON:** public E-state consumption, remote/mobile clients, Computer Use,
 shared declarative Case Views and public extensions. No automatic X03/X04 promotion.
 
@@ -342,7 +345,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | Authority | Policy compiler/IR, lifecycle, EffectivePolicy, Review/Grant | Typed lifecycle/binding/reviews; CLI catalogs/routes | Typed candidate rules and active bindings; catalog read and combined-policy explanation need projection |
 | Work | Workflow, Handoff, execution owners | Typed workflow/handoff/run/resume/stop/effect/execution observation; CLI shares owners | Existing authored forms and window-retained receipt references; retained-result file/process proposals and submission qualified; filesystem reconciliation qualified; process recovery interaction, other resume postures, Handoff inbox and complete discovery remain open |
 | Compute | Provider governance and cognitive binding owners | Register/qualify/trust/bind, attestation and exact realization/composition typed; CLI shares owners | Target setup, model discovery, suitability, primary assignment and explicit retained-Turn text realization; auxiliary setup, composition and multimedia success remain partial |
-| Conversation | Committed Turns and execution controller | Read summary plus durable ordinary SEND/observation | Text composer, canonical Turns/results, explicit execution of CLI-retained text, exact delivery retry and reconnect observation; no optimistic fake Turn, token streaming or attachment author |
+| Conversation | Committed Turns and execution controller | Read summary plus durable ordinary SEND/observation; interactive CLI `/context focused` uses the same immutable intent | Text composer, Standard/Focused Case context, canonical Turns/results, exact delivery retry and reconnect observation; no optimistic fake Turn, token streaming or attachment author |
 | Journal / Activity | Committed Transition history | Authorized latest-160 timeline | Journal filter/follow, latest-20 Activity; missing typed pagination |
 | Host / Settings | Rust Host / Studio-local preference owner | Real Host IPC telemetry/control; CLI lifecycle | Local preferences separate from Case; actual scheduler supervision reported by Host |
 

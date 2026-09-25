@@ -188,7 +188,10 @@ try {
  assert.equal(fastSubmission.result.data.memory_search.effective,'standard');
  await page.getByText('Fast Search unavailable; YAI used qualified standard memory.').waitFor();
  await page.getByRole('button',{name:'Conversation tools'}).click();
- await page.getByRole('menu',{name:'Conversation tools'}).getByRole('menuitemradio',{name:/Standard/}).click();
+ await page.getByRole('menu',{name:'Conversation tools'}).getByRole('menuitemradio',{name:'Standard memory search'}).click();
+ await page.getByRole('button',{name:'Conversation tools'}).click();
+ await page.getByRole('menu',{name:'Conversation tools'}).getByRole('menuitemradio',{name:'Focused Case context'}).click();
+ await page.getByText('Focused context',{exact:true}).waitFor();
  snapshot=await accepted('case.summary',{case_ref:caseRef});assert.equal(snapshot.conversation.turns.length,1);assert.ok(snapshot.conversation.turns[0].execution_request_ref);
  assert.equal(generationRequests,baselineRequests+1);assert.equal(await composer.inputValue(),'');
  // Exact retry after lost acknowledgement and read-only recovery must not redispatch.
@@ -203,8 +206,11 @@ try {
  assert.deepEqual((await accepted('case.summary',{case_ref:caseRef})).conversation.turns.map(turn=>turn.execution_request_ref),committedRefs);
  assert.equal(generationRequests,baselineRequests+2);
  const sent=exchanges.filter(x=>x.request.operation_ref==='conversation.send').at(-1);
+ assert.equal(sent.request.input.intent?.context_depth,'focused','Studio must persist the selected context depth in the exact SEND');
+ assert.equal(sent.result.data.execution.posture==='completed' || sent.result.data.execution.posture==='admitted',true);
  const retry=await accepted('conversation.send',sent.request.input);assert.equal(retry.created,false);
  assert.equal(generationRequests,baselineRequests+2);
+ await page.getByText('Focused context',{exact:true}).waitFor();
  // A stale generation refuses without creating a Turn or discarding the local draft.
  await composer.fill('Draft survives stale generation');
  await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'qualification-extra'});
@@ -230,7 +236,8 @@ try {
    await page.getByRole('button',{name:'Conversation tools'}).click();
    const menuBox=await page.getByRole('menu',{name:'Conversation tools'}).boundingBox();
    const panelBox=await page.locator('.conversation-operational').boundingBox();
-   assert.ok(menuBox && panelBox && menuBox.x>=panelBox.x && menuBox.x+menuBox.width<=panelBox.x+panelBox.width && menuBox.y>=panelBox.y,'Tools menu remains visible in the viewport matrix');
+   assert.ok(menuBox && panelBox && menuBox.x>=panelBox.x && menuBox.x+menuBox.width<=panelBox.x+panelBox.width && menuBox.y>=panelBox.y,`Tools menu remains visible in the viewport matrix: ${JSON.stringify({width,height,menuBox,panelBox})}`);
+   await page.screenshot({path:`${evidence}/conversation-tools-${width}x${height}.png`});
    await page.keyboard.press('Escape');
    await page.screenshot({path:`${evidence}/conversation-${width}x${height}.png`});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);

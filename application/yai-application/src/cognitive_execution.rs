@@ -9,7 +9,7 @@ use yai_core_engine::cognitive::{
 use yai_core_engine::context::{InvocationOutputContract, ProjectionPurpose};
 use yai_core_engine::conversation::{
     derived_content_from_history, normalize_provider_derived_text, CognitiveCompositionRequest,
-    CognitiveSourceClosure, ContentModality, ConversationContentStore, ConversationDerivedContent,
+    CognitiveSourceClosure, ContentModality, ConversationContentStore, ConversationContextDepth, ConversationDerivedContent,
     ConversationTurn, PROVIDER_DERIVED_TEXT_NORMALIZER,
 };
 use yai_core_engine::effect::digest_bytes;
@@ -633,6 +633,8 @@ pub struct ConversationExecutionInput {
     pub executor_participant_id: Option<String>,
     pub work_limits: Option<yai_core_engine::conversation::CaseWorkLimits>,
     pub workflow_execution_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_depth: Option<ConversationContextDepth>,
 }
 
 impl ConversationExecutionInput {
@@ -672,8 +674,12 @@ impl ConversationExecutionInput {
             Some(limits) => request.with_work_limits(limits.clone()),
             None => Ok(request),
         }?;
-        match &self.workflow_execution_id {
+        let request = match &self.workflow_execution_id {
             Some(id) => request.with_workflow_execution(id),
+            None => Ok(request),
+        }?;
+        match self.context_depth {
+            Some(depth) => request.with_context_depth(depth),
             None => Ok(request),
         }
     }
@@ -1303,6 +1309,16 @@ pub fn realize_cognitive(
             workflow_execution_id: workflow_intent.and_then(|r| r.workflow_execution_id.clone()),
             ..provider::SemanticInvocationOptions::default()
         };
+        if let Some(ConversationContextDepth::Focused) = transitions.iter().find_map(|t| match &t.payload {
+            TransitionPayload::ConversationExecutionIntentRecorded { request }
+                if realization_causal_refs.contains(&request.request_id) => request.context_depth,
+            _ => None,
+        }) {
+            // The operator chose fewer optional Recall groups, not a token
+            // count. Keep the ordinary semantic budget so a large mandatory
+            // Case cannot become an unrecorded local budget failure.
+            options.retrieval_limit = 2;
+        }
         let workflow_topology = if let Some(request) = workflow_intent {
             let topology = store.workflow_effective_topology_authorized(authenticated, &case_id)?;
             let execution = state
