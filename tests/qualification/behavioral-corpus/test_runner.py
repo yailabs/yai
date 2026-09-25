@@ -208,6 +208,48 @@ class CorpusTest(unittest.TestCase):
             corpus.evaluate(suite['evaluations'][2], {}, profile, host,
                 {'case.summary':'read', 'execution.get':'read'}, False, lambda _:None)
 
+    def test_case_bound_public_capacity_requires_exact_independent_identity(self):
+        suite = json.loads((Path(__file__).parent / 'provider-capacity.json').read_text())
+        test = suite['evaluations'][0]
+        profile = dict(case_ref='case:A', tenant_ref='tenant:A', participant_ref='participant:A',
+            target_ref='target:A', model_id='model:A', engine_generation=4,
+            runtime_binding_identity='binding:A', runtime_model_identity='runtime-model:A',
+            capacity_plan_identity='capacity:A', input_capacity_tokens=32768,
+            sequence_capacity_tokens=32768)
+        summary = dict(case=dict(case_ref='case:A', tenant_ref='tenant:A',
+            participant_ref='participant:A', generation=7), compute=dict(
+            targets=[dict(id='target:A', model_id='model:A', posture=dict(trust=dict(posture='approved')))],
+            cognitive_bindings=[dict(participant_id='participant:A', target_id='target:A',
+                role='primary', capability='primary_conversation')]))
+        catalog = dict(target_ref='target:A', observed_at_unix_ms=123, models=['model:A'], scope='currently_exposed',
+            authority='provider_metadata_only', capacity=dict(public_contract='yvex.openai.compat.v3',
+                observation_kind='public_model_catalog', model_id='model:A', engine_generation=4,
+                runtime_binding_identity='binding:A', runtime_model_identity='runtime-model:A',
+                capacity_plan_identity='capacity:A', input_capacity_tokens=32768,
+                sequence_capacity_tokens=32768, resource_reservation=False,
+                execution_or_resources_qualified=False))
+        class Reader:
+            def __init__(self, altered=None): self.altered=altered; self.calls=[]
+            def call(self, operation, inputs, correlation):
+                self.calls.append(operation)
+                data = copy.deepcopy(summary if operation == 'case.summary' else catalog)
+                if self.altered: self.altered(operation, data)
+                return dict(result_state='success', data=data)
+        impacts={'case.summary':'read', 'provider.models':'derived_computation'}
+        client=Reader()
+        self.assertEqual(corpus.evaluate(test, {}, profile, client, impacts, False, lambda _:None), 'PASS')
+        self.assertEqual(client.calls, ['case.summary', 'provider.models', 'case.summary'])
+        for field, replacement in [('model_id','model:B'), ('capacity_plan_identity','capacity:B'),
+                                   ('input_capacity_tokens',4096), ('runtime_binding_identity','binding:B')]:
+            def substitute(operation, data, field=field, replacement=replacement):
+                if operation == 'provider.models': data['capacity'][field]=replacement
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                corpus.evaluate(test, {}, profile, Reader(substitute), impacts, False, lambda _:None)
+        def change_case(operation, data):
+            if operation == 'case.summary': data['compute']['cognitive_bindings'][0]['target_id']='target:B'
+        with self.assertRaises(AssertionError):
+            corpus.evaluate(test, {}, profile, Reader(change_case), impacts, False, lambda _:None)
+
     def observation_test(self):
         test = copy.deepcopy(self.test)
         test['steps'][0]['observe'] = dict(path='/data/posture', **{'while':['running']}, max_observations=3, interval_ms=0)

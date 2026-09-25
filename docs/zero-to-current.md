@@ -115,6 +115,16 @@ from `enterprise.py inspect --profile NEW_PATH`. Its structural verdict is separ
 from the usefulness of a model answer. The bounded `portfolio.py` runner creates
 fresh independent Cases from `portfolio.json`; it never accepts an operator home
 for disposable setup or cleanup.
+For the infrastructure Case, select `--scenario infrastructure` and
+`infra.overlay.json`; the read-only lane checks its operations brief's exact
+Source, revision and digest through Recall. Separately, `provider-capacity.json`
+checks that the Case's approved primary target and Participant binding match an
+independently pinned public YVEX catalog observation. Record the model, engine
+generation, binding/model/capacity identities and input/sequence limits from
+`/v1/models` before that run. A passing capacity read is metadata only, not a
+successful DeepSeek answer or live readiness guarantee. In Studio inspect the
+same Case under Compute and YVEX → Runtime: target identity, model and observed
+capacity must agree; a stale observation must not remain green.
 
 The historical release-only opt-in `STUDIO_ENTERPRISE_WORKFLOW=1` mode of
 `tests/studio/operational-live.mjs` uses the authored Work forms to define/bind

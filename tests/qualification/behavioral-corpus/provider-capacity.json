@@ -1,0 +1,94 @@
+{
+  "schema": "yai.behavioral_corpus.v1",
+  "evaluations": [
+    {
+      "id": "provider.case_bound_public_capacity",
+      "dimensions": ["SEES"],
+      "meaning": "The Case's governed primary target is the exact deployment whose current public catalog reports the independently pinned model and capacity. This is metadata, not an execution or resource reservation.",
+      "preconditions": [
+        "Profile identities and capacity were pinned from a separate public producer observation, not this YAI provider.models response",
+        "Selected Host, Tenant, Case and Participant are authorized; the target endpoint is reachable",
+        "A changed engine generation or capacity requires a new independently observed profile"
+      ],
+      "required_refs": [
+        {"$ref": "/profile/case_ref"},
+        {"$ref": "/profile/participant_ref"},
+        {"$ref": "/profile/target_ref"},
+        {"$ref": "/profile/model_id"}
+      ],
+      "allowed_actions": ["case.summary", "provider.models"],
+      "forbidden_actions": ["conversation.send", "provider.register", "provider.trust.set", "provider.case.bind"],
+      "expected_consequences": [
+        "No canonical mutation or provider inference",
+        "Exact Case binding and public deployment capacity are observed at one point in time; future availability remains unproven"
+      ],
+      "repeatability": "Read-only. Reobserve after a deployment change with a new independently pinned profile; never reuse an old capacity claim as live health.",
+      "mode": "external_provider_metadata",
+      "steps": [
+        {
+          "id": "before",
+          "operation": "case.summary",
+          "input": {"case_ref": {"$ref": "/profile/case_ref"}},
+          "assertions": [
+            {"path": "/results/before/result_state", "op": "equal", "value": "success"},
+            {"path": "/results/before/data/case/case_ref", "op": "equal", "value": {"$ref": "/profile/case_ref"}},
+            {"path": "/results/before/data/case/tenant_ref", "op": "equal", "value": {"$ref": "/profile/tenant_ref"}},
+            {"path": "/results/before/data/case/participant_ref", "op": "equal", "value": {"$ref": "/profile/participant_ref"}},
+            {
+              "path": "/results/before/data/compute/targets", "op": "some",
+              "value": {
+                "id": {"$ref": "/profile/target_ref"},
+                "model_id": {"$ref": "/profile/model_id"},
+                "/posture/trust/posture": "approved"
+              }
+            },
+            {
+              "path": "/results/before/data/compute/cognitive_bindings", "op": "some",
+              "value": {
+                "participant_id": {"$ref": "/profile/participant_ref"},
+                "target_id": {"$ref": "/profile/target_ref"},
+                "role": "primary",
+                "capability": "primary_conversation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "catalog",
+          "operation": "provider.models",
+          "input": {
+            "tenant_id": {"$ref": "/profile/tenant_ref"},
+            "target_ref": {"$ref": "/profile/target_ref"}
+          },
+          "assertions": [
+            {"path": "/results/catalog/result_state", "op": "equal", "value": "success"}
+          ]
+        },
+        {
+          "id": "after",
+          "operation": "case.summary",
+          "input": {"case_ref": {"$ref": "/profile/case_ref"}}
+        }
+      ],
+      "assertions": [
+        {"path": "/results/catalog/data/target_ref", "op": "equal", "value": {"$ref": "/profile/target_ref"}},
+        {"path": "/results/catalog/data/observed_at_unix_ms", "op": "not_equal", "value": null},
+        {"path": "/results/catalog/data/scope", "op": "equal", "value": "currently_exposed"},
+        {"path": "/results/catalog/data/authority", "op": "equal", "value": "provider_metadata_only"},
+        {"path": "/results/catalog/data/models", "op": "contains", "value": {"$ref": "/profile/model_id"}},
+        {"path": "/results/catalog/data/capacity/public_contract", "op": "equal", "value": "yvex.openai.compat.v3"},
+        {"path": "/results/catalog/data/capacity/observation_kind", "op": "equal", "value": "public_model_catalog"},
+        {"path": "/results/catalog/data/capacity/model_id", "op": "equal", "value": {"$ref": "/profile/model_id"}},
+        {"path": "/results/catalog/data/capacity/engine_generation", "op": "equal", "value": {"$ref": "/profile/engine_generation"}},
+        {"path": "/results/catalog/data/capacity/runtime_binding_identity", "op": "equal", "value": {"$ref": "/profile/runtime_binding_identity"}},
+        {"path": "/results/catalog/data/capacity/runtime_model_identity", "op": "equal", "value": {"$ref": "/profile/runtime_model_identity"}},
+        {"path": "/results/catalog/data/capacity/capacity_plan_identity", "op": "equal", "value": {"$ref": "/profile/capacity_plan_identity"}},
+        {"path": "/results/catalog/data/capacity/input_capacity_tokens", "op": "equal", "value": {"$ref": "/profile/input_capacity_tokens"}},
+        {"path": "/results/catalog/data/capacity/sequence_capacity_tokens", "op": "equal", "value": {"$ref": "/profile/sequence_capacity_tokens"}},
+        {"path": "/results/catalog/data/capacity/resource_reservation", "op": "equal", "value": false},
+        {"path": "/results/catalog/data/capacity/execution_or_resources_qualified", "op": "equal", "value": false},
+        {"path": "/results/after/data", "op": "equal", "value": {"$ref": "/results/before/data"}}
+      ]
+    }
+  ]
+}

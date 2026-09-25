@@ -173,3 +173,31 @@ support the conclusion, what remains unmeasured and which changes require approv
 `REASONS` names the evaluation pressure; `language_quality=NOT_ASSESSED` remains
 explicit until a separate reviewer supplies a grounded verdict. The typed catalog
 is unchanged: this is a qualification consumer of existing operations.
+
+## Case-bound public capacity
+
+`provider-capacity.json` is a separate read-only lane for a selected, already
+governed deployment. Pin its `target_ref` independently from the Case setup and
+its `model_id`, `engine_generation`, `runtime_binding_identity`,
+`runtime_model_identity`, `capacity_plan_identity`, `input_capacity_tokens` and
+`sequence_capacity_tokens` from a separate public `/v1/models` observation.
+Combine those fields with the Case/Tenant/Participant profile produced from
+independent Source inventory; do not derive expected capacity from the YAI
+`provider.models` response being tested. The suite compares the primary Case
+binding, approved target and exact public catalog through the typed Host, then
+confirms the Case projection did not change. It uses no `--allow-mutations` and
+never sends an inference request. A changed engine or capacity needs a newly
+observed profile, not silent expectation refresh.
+
+```sh
+python3 tools/validation/behavioral_corpus.py \
+  tests/qualification/behavioral-corpus/provider-capacity.json \
+  --profile /path/to/independently-pinned-profile.json \
+  --home "$YAI_HOME" --output /path/to/new-observations.jsonl
+```
+
+A PASS proves only a point-in-time public capacity claim for the exact Case
+target. It does not prove current model residency, resources, the next request's
+fit, successful generation or answer quality. Keep the public catalog snapshot
+and corpus transcript as distinct evidence; review their actual payloads before
+publishing Case context or machine details.

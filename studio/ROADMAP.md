@@ -260,6 +260,13 @@ selection and evidence, not an alternative capability catalog.
 | Disposable portfolio / native update recovery | Two native Studios on one Host; fresh manifest-derived profile only | `native-portfolio.py --fresh-profile --desktop-autostart`: with no prestarted Host, native Studio starts the same supervised runtime composition as CLI; canonical CLI mutation reaches both Journals, exact retry leaves history unchanged, Host restart replaces attachments, a subsequent mutation reaches both clients, drafts survive and the parallel Case stays unchanged. No model execution or operator Case mutation. |
 | Nested Cases | No frontend parent identifier or implicit scope inheritance | No qualified canonical parent/child owner selected; semantic gap remains explicit. Handoff and Workflow subflows do not substitute for Case parentage. |
 
+At infrastructure Case state version 115, the read-only behavioral overlay again
+matched the operations brief's exact Source/revision/digest through Recall
+(4 PASS, 3 intentionally NOT_RUN). A separate read-only capacity suite matched
+the Case's approved primary target with an independently observed public YVEX
+32K catalog identity. These are documentary and deployment-metadata observations;
+the populated Case still lacks a completed real-model answer.
+
 | Studio / Host | Provider location | Case / client topology | Qualification posture |
 |---|---|---|---|
 | Exon, Arch Linux x86_64 | None | Two disposable Cases, independent Host clients | Local product runner `portfolio-1790259708872413843`: PASS; 139,264 allocated regular-file bytes after Host stop, before cleanup. Whole-profile observation, no inference or performance verdict. |
