@@ -1644,6 +1644,15 @@ coverage is not model-driven task execution or natural-language evaluation.
 ### Rich Overview, model explanation and Telemetry
 
 In the current native build, open **Tech Infra Inference Service → Overview**.
+Use its **Situation / Workflow / Sources / Recent changes** sections. The header
+and section controls remain visible while the selected section scrolls. Situation
+puts the explicit model explanation ahead of attention rows; duplicate perspective
+cards no longer occupy the page. Arrow keys and Home/End navigate the sections.
+Leave and return to Overview: the selected section is local to this Case and
+Participant. Change sections while an explanation is running: the same request
+and result must remain, without another dispatch. `operational-overview.mjs`,
+`conversation-actions.mjs`, `work-actions.mjs` and native `--operational-overview`
+exercise this presentation; no Application capability or authority changes here.
 Check current Sources, Workflow progression, Reviews, bindings, exact operational
 prompts and recent changes. These sections render authoritative projections without
 requiring a model. Main product headings/status do not display the technical

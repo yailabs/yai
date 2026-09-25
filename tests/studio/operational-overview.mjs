@@ -20,6 +20,22 @@ try {
  await page.locator('.live-rail button[aria-label="Overview"]').click();
 
  assert.equal(await page.locator('.overview-identity').getByText(/Generation/).count(),0);
+ const overviewTabs=page.getByRole('tablist',{name:'Overview sections'});
+ await overviewTabs.getByRole('tab',{name:'Workflow',exact:true}).click();
+ assert.equal(await page.getByRole('region',{name:'Current Case situation'}).isVisible(),false);
+ await page.getByRole('region',{name:'Case story'}).waitFor();
+ await page.locator('.live-rail button[aria-label="Memory"]').click();
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+ assert.equal(await overviewTabs.getByRole('tab',{name:'Workflow',exact:true}).getAttribute('aria-selected'),'true');
+ await page.locator('.overview-narrative').evaluate(node=>{window.originalNarrative=node;});
+ await overviewTabs.getByRole('tab',{name:'Workflow',exact:true}).focus();await page.keyboard.press('End');
+ await page.getByRole('region',{name:'Recent Case changes'}).waitFor();
+ await page.getByRole('tabpanel',{name:'Recent changes',exact:true}).waitFor();
+ await page.keyboard.press('ArrowLeft');await page.getByRole('heading',{name:'Supporting material',exact:true}).waitFor();
+ await page.keyboard.press('Home');await page.getByRole('region',{name:'Current Case situation'}).waitFor();
+ assert.equal(await page.getByRole('region',{name:'Model explanation'}).evaluate(node=>node===window.originalNarrative),true,'Section movement must not recreate narrative request state');
+ assert.equal(await page.evaluate(()=>location.hash),'');
+
  assert.equal(await page.getByRole('region',{name:'Model explanation'}).getByRole('button',{name:'Generate explanation',exact:true}).isDisabled(),true);
  for(const name of ['Environment','Knowledge','Memory','Authority','Work','Compute','Providers','YVEX','Telemetry']) {
   await page.locator(`.live-rail button[aria-label="${name}"]`).click();
@@ -60,5 +76,5 @@ try {
  assert.equal(await page.locator('#narrative-security-probe a, #narrative-security-probe img, #narrative-security-probe script').count(),0);
  assert.deepEqual(outbound,[]);assert.equal(await page.evaluate(()=>window.unsafeNarrative),undefined);
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',lane:'fixture only',proof:['Unknown telemetry stays unknown','Narrative unavailable without governed model','Product tabs and overflow selector','No Generation header','Four viewport matrix']}));
+ console.log(JSON.stringify({result:'PASS',lane:'fixture only',proof:['Unknown telemetry stays unknown','Narrative unavailable without governed model','Product tabs and overflow selector','No Generation header','Four viewport matrix','Keyboard section navigation retains mounted narrative and local selection']}));
 } finally {await browser.close();}

@@ -94,6 +94,12 @@ Independent docked/floating Conversation and Inspector are qualified in fixture,
 real-Host and native WebKitGTK lanes. Exact serialized-request preflight and explicit
 archived context inspection now have controlled Host/UI/refusal/restart evidence;
 successful real infrastructure-Case inference remains open.
+Overview is a full-height Product Surface with Situation, Workflow, Sources and
+Recent changes sections. The Case/Participant-local section and in-flight governed
+explanation survive section movement; keyboard/ARIA navigation and real Host
+checkpoint routing are qualified. Narrative generation remains explicit, and the
+populated 4K Case still refuses when mandatory context does not fit. This layout
+does not promote backend capability maturity.
 Conversation can browse the archived prepared frame by kind/text with exact
 content, provenance and supplied instructions. This is read-only disclosure,
 not context editing or evidence of delivery. Real infrastructure inspection

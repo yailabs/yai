@@ -19,20 +19,23 @@ try {
  await page.evaluate(async workspace=>{
   const [{default:React},{default:ReactDOM},{OverviewSurface}]=await Promise.all([import('/node_modules/.vite/deps/react.js'),import('/node_modules/.vite/deps/react-dom_client.js'),import('/src/contrib/case/OverviewSurface.tsx')]);
   document.getElementById('root').style.display='none';
-  const mount=document.createElement('main'); document.body.appendChild(mount);
+  const mount=document.createElement('main'); mount.style.height='100vh'; document.body.appendChild(mount);
   window.inspected=[];window.navigated=[];
   ReactDOM.createRoot(mount).render(React.createElement(OverviewSurface,{workspace,inspect:id=>window.inspected.push(id),navigate:id=>window.navigated.push(id)}));
  },workspace);
+ await page.getByRole('tab',{name:'Workflow',exact:true}).click();
  await page.getByRole('region',{name:'Case story'}).waitFor();
  assert.equal(await page.locator('.overview-story-steps li').count(),workspace.work.nodes.length);
  for(const node of workspace.work.nodes){
   const definition=workspace.work.definition?.nodes?.find(item=>item.node_id===node.node_id);
   if(typeof definition?.prompt==='string') assert.ok(await page.locator('.overview-story').getByText(definition.prompt,{exact:true}).count());
  }
+ await page.getByRole('tab',{name:'Sources',exact:true}).click();
  for(const source of workspace.environment.sources){
   await page.locator('.overview-story-evidence button').filter({hasText:source.label}).click();
   assert.equal(await page.evaluate(()=>window.inspected.at(-1)),source.id);
  }
+ await page.getByRole('tab',{name:'Workflow',exact:true}).click();
  await page.getByRole('button',{name:'Open workflow and dependencies'}).click();
  assert.equal(await page.evaluate(()=>window.navigated.at(-1)),'Work');
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){

@@ -225,8 +225,16 @@ try {
  await page.locator('.live-rail button[aria-label="Overview"]').click();
  const narrative=page.getByRole('region',{name:'Model explanation'});
  const narrativeBefore=generationRequests;
- dropAcknowledgement='conversation.send';
+ dropAcknowledgement='conversation.send';holdResponse=true;
  await narrative.getByRole('button',{name:'Generate explanation',exact:true}).click();
+ const narrativeDeadline=Date.now()+10000;
+ while(!releaseResponse){assert.ok(Date.now()<narrativeDeadline,'Narrative did not reach controlled provider');await new Promise(resolve=>setTimeout(resolve,20));}
+ await page.getByRole('tablist',{name:'Overview sections'}).getByRole('tab',{name:'Workflow',exact:true}).click();
+ await page.getByRole('region',{name:'Case story'}).waitFor();
+ await page.getByRole('tablist',{name:'Overview sections'}).getByRole('tab',{name:'Sources',exact:true}).click();
+ holdResponse=false;releaseResponse();releaseResponse=undefined;
+ await page.getByRole('tablist',{name:'Overview sections'}).getByRole('tab',{name:'Situation',exact:true}).click();
+
  await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
  assert.equal(generationRequests,narrativeBefore+1);
  assert.equal(await composer.inputValue(),'Conversation draft survives narrative generation');
