@@ -79,6 +79,9 @@ transport. Machine/model/resource observations require exact run provenance.
 **ESTABLISHED FOUNDATION:** resident Host and scheduler supervision, exact material
 identity, typed Environment/Work/Memory operations, ordinary Conversation SEND
 and primary model setup. These do not imply complete action coverage.
+The Case summary now discloses only the current Participant's exact model-context
+view admission. Conversation and Working State use it to prevent an apparently
+ready Send before explicit admission; Case authority is still rechecked by YAI.
 
 The separate `SYSTEM.MODEL.FAST.SEARCH.0` slice adds a compact Conversation
 `+` tools menu and a per-SEND Fast Search preference. Current Application truth

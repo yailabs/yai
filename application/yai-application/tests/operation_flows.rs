@@ -7,6 +7,11 @@ struct Fixture { home: PathBuf, app: LocalApplication }
 
 impl Fixture {
     fn new(label: &str) -> Self {
+        let f = Self::new_without_model_view(label);
+        f.success("participant.view.admit", json!({"case_ref":"case:audit", "participant_ref":"participant:operator", "consumer":"model", "view_kind":"model_context"}));
+        f
+    }
+    fn new_without_model_view(label: &str) -> Self {
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
         let home = std::env::temp_dir().join(format!("yai-application-{label}-{stamp}"));
         fs::create_dir_all(&home).unwrap();
@@ -15,7 +20,6 @@ impl Fixture {
         f.success("case.create", json!({"tenant_id":"tenant:audit", "case_ref":"case:audit"}));
         f.success("participant.role.add", json!({"case_ref":"case:audit", "participant_ref":"participant:operator", "role":"operator"}));
         f.success("participant.principal.link", json!({"case_ref":"case:audit", "participant_ref":"participant:operator", "principal_ref":"self"}));
-        f.success("participant.view.admit", json!({"case_ref":"case:audit", "participant_ref":"participant:operator", "consumer":"model", "view_kind":"model_context"}));
         f
     }
     fn call(&self, op: &str, input: Value) -> OperationResult {
@@ -32,6 +36,30 @@ impl Fixture {
 }
 
 impl Drop for Fixture { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.home); } }
+
+#[test]
+fn case_summary_projects_only_current_participant_model_context_admission() {
+    let f = Fixture::new_without_model_view("participant-model-view");
+    f.success("participant.role.add", json!({"case_ref":"case:audit", "participant_ref":"participant:other", "role":"observer"}));
+    let before = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    let current = before["overview"]["participants"].as_array().unwrap().iter()
+        .find(|item| item["is_current"] == true).unwrap();
+    assert_eq!(current["model_context_admitted"], false);
+    let other = before["overview"]["participants"].as_array().unwrap().iter()
+        .find(|item| item["id"] == "participant:other").unwrap();
+    assert!(other["model_context_admitted"].is_null(), "another Participant's view admission is not disclosed");
+    let hidden = f.call("case.summary", json!({"case_ref":"case:other"}));
+    assert_eq!(hidden.result_state, ResultState::Unauthorized);
+    assert!(hidden.data.is_none());
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), before);
+
+    f.success("participant.view.admit", json!({"case_ref":"case:audit", "participant_ref":"participant:operator", "consumer":"model", "view_kind":"model_context"}));
+    let after = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    assert_eq!(after["case"]["generation"].as_u64().unwrap(), before["case"]["generation"].as_u64().unwrap() + 1);
+    assert_eq!(after["overview"]["participants"].as_array().unwrap().iter().find(|item| item["is_current"] == true).unwrap()["model_context_admitted"], true);
+    f.success("participant.view.admit", json!({"case_ref":"case:audit", "participant_ref":"participant:operator", "consumer":"model", "view_kind":"model_context"}));
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), after, "repeat admission is idempotent");
+}
 
 #[test]
 fn case_capability_disclosure_refusal_is_typed_and_preserves_state() {

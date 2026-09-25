@@ -1625,6 +1625,12 @@ In Compute use **Discover exposed models** with an operator-supplied endpoint,
 then register the exact model. Import real measured qualification, approve trust
 and bind to the Case. Record an explicit **operator-attested** suitability basis
 and **Assign conversation model**; this does not authorize Resource effects.
+Before Send, if Conversation reports that model context needs admission, follow
+**Open Working State**. Use **Admit model-context view…** explicitly; confirm
+that Working State reports **Model context admitted**, Send becomes available,
+and an unsent draft survives the navigation. The admission changes Case state
+once; it does not invoke the model. A missing Host projection must not be
+treated as admission.
 In Conversation send a small question with Send or Ctrl/Command+Enter. Confirm
 one committed user Turn and a separately recorded model response with exact
 request/result identities. Reopen the view: the same response must be recovered

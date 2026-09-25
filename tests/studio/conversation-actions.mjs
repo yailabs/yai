@@ -83,7 +83,7 @@ try {
  await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
  let response=exchanges.findLast(item=>item.request.operation_ref==='provider.register').result;assert.equal(response.result_state,'success',JSON.stringify(response));const target=response.data;assert.equal(target.model_id,'controlled-text-model');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,0,'Registration must not silently bind');
- const candidate=page.locator('.candidate-target');await candidate.getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByLabel('Exact target reference').fill('provider-target:missing');await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.locator('.action-result').waitFor();
+ const candidate=page.locator('.candidate-target');await page.locator('.compute-exact-target > summary').click();await page.locator('.compute-exact-target').getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByLabel('Exact target reference').fill('provider-target:missing');await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.locator('.action-result').waitFor();
  assert.notEqual(exchanges.findLast(item=>item.request.operation_ref==='provider.case.bind').result.result_state,'success');await form.getByRole('button',{name:'Cancel',exact:true}).click();
  // Real bounded HTTP observations in the test harness, never browser inference or claimed production qualification.
  const started=Date.now();const catalog=await fetch(endpoint+'/v1/models').then(r=>r.json());const completion=await fetch(endpoint+'/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model:target.model_id,messages:[{role:'user',content:'Bounded qualification'}]})}).then(r=>r.json());
@@ -98,7 +98,6 @@ try {
  const bound=await accepted('case.summary',{case_ref:caseRef});assert.equal(bound.case.generation,before.case.generation+1);assert.equal(bound.compute.targets[0].id,target.target_id);assert.equal(bound.compute.targets[0].posture.trust.posture,'approved');
  await page.locator('.compute-target').getByText('controlled-text-model',{exact:true}).waitFor();
 
- await accepted('participant.view.admit',{case_ref:caseRef,participant_ref:'participant:operator',consumer:'model',view_kind:'model_context'});
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
  await page.getByRole('tab',{name:'Conversation',exact:true}).click();
  await page.getByRole('button',{name:'Attest conversation suitability',exact:true}).click();
@@ -114,9 +113,26 @@ try {
  await page.locator('.live-rail button[aria-label="Providers"]').click();
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
  await page.locator('.model-status').filter({hasText:'Exposed: controlled-text-model'}).waitFor();
- assert.match(await page.locator('.model-status').getAttribute('title'),/does not establish engine residency or capacity/);
+ assert.match(await page.locator('.model-status').getAttribute('title'),/does not establish current engine residency or successful inference/);
  await page.locator('.live-rail button[aria-label="Compute"]').click();
  assert.equal(await page.locator('.model-status').textContent(),'Exposed: controlled-text-model','Observation survives navigation without another probe');
+
+ await page.getByRole('button',{name:'Conversation',exact:true}).click();
+ const blockedComposer=page.getByRole('textbox',{name:'Message to the Case'});
+ await blockedComposer.fill('Preserved while admitting model context');
+ await page.getByText('Model context needs admission.',{exact:false}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
+ assert.equal(exchanges.filter(x=>x.request.operation_ref==='conversation.send').length,0,'No send before explicit admission');
+ await page.screenshot({path:`${evidence}/model-context-admission-1440x900.png`});
+ await page.getByRole('button',{name:'Open Working State',exact:true}).click();
+ await page.getByRole('button',{name:'Admit model-context view…',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Admit model-context view'});
+ await form.getByRole('button',{name:'Admit view',exact:true}).click();await form.waitFor({state:'hidden'});
+ await page.getByText('Model context admitted',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Conversation',exact:true}).click();
+ assert.equal(await blockedComposer.inputValue(),'Preserved while admitting model context');
+ assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isEnabled(),true);
+ await blockedComposer.fill('');
 
  assert.equal(snapshot.compute.targets[0].semantic_evidence[0].evidence_id,attested.data.evidence_id);
  // A refresh requested during an older read must wait for a fresh snapshot.

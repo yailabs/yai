@@ -78,12 +78,15 @@ try {
  await page.getByText('The intake property keeps policy candidates separate from effective authority.',{exact:true}).waitFor();
  await page.locator('.live-sidebar').getByRole('button',{name:/Working State/}).click();
  const compile=async()=>{await page.getByRole('button',{name:'Compile Working State',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Compile Working State'});await dialog.getByLabel('Task / query').fill('intake policy');await dialog.getByRole('button',{name:'Compile',exact:true}).click();return dialog;};
- form=await compile();await form.locator('.action-result').waitFor();
- response=exchanges.findLast(item=>item.request.operation_ref==='semantic.working_state.compile').result;assert.notEqual(response.result_state,'success');
+ assert.equal(await page.getByRole('button',{name:'Compile Working State',exact:true}).isDisabled(),true);
  const before=await accepted('case.summary',{case_ref:caseRef});
- await form.getByRole('button',{name:'Cancel',exact:true}).click();
+ assert.equal(before.overview.participants.find(item=>item.is_current).model_context_admitted,false);
+ const blocked=await call('semantic.working_state.compile',{request:{case_id:caseRef,expected_generation:before.case.generation,compilation:{scope:{participant_id:'participant:operator',purpose:'inspection',consumer:'model',view_kind:'model_context',max_items:48,max_provider_claims:6,max_interaction_turns:8},intent:'intake policy',output_contract_id:'studio.semantic-inspection.v1',max_semantic_units:16384,max_derived_items:48,resource_refs:[],required_refs:[],previous_item_ids:[],view_selection_id:null},at:{kind:'generation',value:before.case.generation},recall_required_refs:[],recall_bounds:{candidates:16,events:64,relations:128,segments:16,expansion_depth:4,semantic_units:16384,bytes:1048576},max_output_bytes:1048576},pageable:true});
+ assert.notEqual(blocked.result_state,'success','YAI must refuse an unadmitted model-context view');
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,before.case.generation,'Refused compilation cannot mutate the Case');
  await page.getByRole('button',{name:'Admit model-context view…',exact:true}).click();form=page.getByRole('dialog',{name:'Admit model-context view'});await form.getByRole('button',{name:'Admit view',exact:true}).click();await form.waitFor({state:'hidden'});
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,before.case.generation+1);
+ await page.getByText('Model context admitted',{exact:true}).waitFor();
  form=await compile();await form.waitFor({state:'hidden'});
  response=exchanges.findLast(item=>item.request.operation_ref==='semantic.working_state.compile').result;assert.equal(response.result_state,'success',JSON.stringify(response));
  const first=response.data.working_state;assert.equal(first.case_id,caseRef);assert.ok(first.entries.length);

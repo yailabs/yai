@@ -1380,6 +1380,12 @@ window-session storage, partitioned by Case and Participant, not Case truth.
 Text is currently bounded to 64 KiB; streaming and attachment authoring remain
 unimplemented. The immutable Conversation projection remains a read surface;
 SEND availability comes from the current operation catalog and YAI admission.
+The current Participant's `model_context` view admission is projected by
+`case.summary`. Studio requires an explicit positive projection before enabling
+Send; an absent or older Host projection remains unknown and blocks sending.
+Working State offers the existing owner-checked admission action. It never
+admits a view automatically, and the Application rechecks current authority at
+submission. Moving to Working State preserves the unsent Case/Participant draft.
 The composer has a compact `+` tools menu for authored Case navigation and a
 per-SEND Standard/Fast Search memory preference. It does not register or select
 a System Model as the primary conversation provider. The exact preference is

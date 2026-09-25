@@ -8,6 +8,7 @@ import { useApplicationAvailability } from "./applicationActions";
 import { ExecutionContext } from "./ExecutionContext";
 import { ConversationAttempt } from "./ConversationAttempt";
 import { CandidateEffectAction } from "./CandidateEffectAction";
+import { memoryInput } from "../surfaces/inputs";
 
 const NarrativeText = lazy(() => import("./NarrativeText"));
 
@@ -63,7 +64,8 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
   const fastSearchSupported = Boolean(application?.supports("semantic.fast_search.prepare"));
   const hasTarget = workspace.compute.targets.length > 0;
   const assignment = workspace.compute.cognitive_bindings?.find(item => item.participant_id === participant && item.role === "primary");
-  const canSend = supported && Boolean(assignment) && hasTarget && workspace.case.case_status === "open";
+  const modelContextAdmitted = workspace.overview.participants.find(item => item.id === participant && item.is_current)?.model_context_admitted;
+  const canSend = supported && Boolean(assignment) && hasTarget && workspace.case.case_status === "open" && modelContextAdmitted === true;
   const accept = (value: ConversationExecution) => {
     if (value.case_ref !== caseRef || value.participant_ref !== participant) throw new Error("Conversation identity mismatch.");
     setExecutions(previous => ({ ...previous, [value.turn_ref]: value }));
@@ -164,6 +166,8 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     <form className="conversation-composer" onSubmit={event => { event.preventDefault(); if (!pending) void submit(); }}>
       {hasTarget && !assignment && <p>Assign a conversation model in <button type="button" className="object-link" onClick={configureModel}>Compute</button>.</p>}
       {!hasTarget && <p>Connect a model in <button type="button" className="object-link" onClick={configureModel}>Compute</button> to send messages.</p>}
+      {supported && hasTarget && assignment && modelContextAdmitted === false && <p role="status">Model context needs admission. <button type="button" className="object-link" onClick={() => actions.openSurface(memoryInput("workingState"))}>Open Working State</button></p>}
+      {supported && hasTarget && assignment && modelContextAdmitted == null && <p>The Host has not reported this Participant’s model-context admission. Refresh or reconnect to the current YAI Host before sending.</p>}
       {!supported && <p>{application?.reason("conversation.send") ?? "Sending requires the native YAI Host."}</p>}
       <div className="conversation-input-shell"><textarea ref={composer} aria-label="Message to the Case" placeholder="Ask about this Case…" value={draft} rows={1} maxLength={65536} onChange={event => { const text = event.target.value; setDraft(text); try { persist(text, pending); } catch { setError("Local draft storage is unavailable."); } }} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!pending) void submit(); } }} />
       </div>

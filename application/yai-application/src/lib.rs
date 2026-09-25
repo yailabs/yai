@@ -3040,7 +3040,14 @@ fn case_snapshot(
             json!({
                 "id": participant.participant_id,
                 "roles": participant.roles,
-                "is_current": participant.participant_id == participant_ref
+                "is_current": participant.participant_id == participant_ref,
+                "model_context_admitted": if participant.participant_id == participant_ref {
+                    Some(participant.admitted_views.iter().any(|view| {
+                        view.consumer == "model" && view.view_kind == "model_context"
+                    }))
+                } else {
+                    None
+                }
             })
         })
         .collect::<Vec<_>>();

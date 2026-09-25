@@ -41,6 +41,7 @@ try {
     };
     const workspace = {
       case: { case_ref: 'case:observation', participant_ref: 'participant:reader', generation: 7, case_status: 'open' },
+      overview: { participants: [{ id: 'participant:reader', is_current: true, roles: [], model_context_admitted: true }] },
       compute: { targets: [] },
       environment: { sources: [], resources: [], files: [] }, knowledge: { units: [] },
       authority: { policies: [] }, work: { nodes: [] }, memory: { timeline: [] },

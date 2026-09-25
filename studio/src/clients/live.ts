@@ -70,7 +70,7 @@ export interface LiveWorkspace {
   };
   overview: {
     attention: Array<{ kind: string; title: string; detail: string; ref?: string }>;
-    participants: Array<{ id: string; roles: string[]; is_current: boolean }>;
+    participants: Array<{ id: string; roles: string[]; is_current: boolean; model_context_admitted?: boolean | null }>;
   };
   environment: {
     sources: Array<{ id: string; label: string; kind: string; perimeter: string; media_type: string; roles: string[]; resource_ref: string; posture?: string; revision_ref?: string; items?: number; attempt?: number; progress_ref?: string }>;
