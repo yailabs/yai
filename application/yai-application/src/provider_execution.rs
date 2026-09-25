@@ -835,20 +835,18 @@ pub fn append_openai_parts(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn provider_http_request_with_functions(
+/// One exact wire encoder for capacity preparation and eventual dispatch.
+/// This function performs no transport, admission, persistence or token estimate.
+fn encode_provider_request(
     config: &ProviderConfig,
     rendered: &RenderedInput,
     continuation: Option<&ProviderContinuationReference>,
     structured_json: bool,
     typed_parts: Option<&[ProviderWireInputPart]>,
     native: Option<NativeFunctionExchange<'_>>,
-    max_input_units: Option<usize>,
-    observer: WireObserver<'_>,
-) -> Result<(u16, String, usize), String> {
+) -> Result<Vec<u8>, String> {
     let functions = native.as_ref().map(|n| n.definitions);
     let feedback = native.as_ref().map_or(&[][..], |n| n.feedback);
-    let endpoint = crate::provider_transport::parse_provider_endpoint(&config.base_url)?;
     if let Some(reference) = continuation {
         if reference.provider_id != config.provider_id {
             return Err("provider_continuation_provider_mismatch".to_string());
@@ -907,8 +905,23 @@ fn provider_http_request_with_functions(
             serde_json::json!({"type": "json_object"}),
         );
     }
-    let body = serde_json::to_vec(&body)
-        .map_err(|error| format!("provider_request_encode_failed: {error}"))?;
+    serde_json::to_vec(&body)
+        .map_err(|error| format!("provider_request_encode_failed: {error}"))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn provider_http_request_with_functions(
+    config: &ProviderConfig,
+    rendered: &RenderedInput,
+    continuation: Option<&ProviderContinuationReference>,
+    structured_json: bool,
+    typed_parts: Option<&[ProviderWireInputPart]>,
+    native: Option<NativeFunctionExchange<'_>>,
+    max_input_units: Option<usize>,
+    observer: WireObserver<'_>,
+) -> Result<(u16, String, usize), String> {
+    let endpoint = crate::provider_transport::parse_provider_endpoint(&config.base_url)?;
+    let body = encode_provider_request(config, rendered, continuation, structured_json, typed_parts, native)?;
     let assessment = if max_input_units.is_some_and(|limit| body.len().div_ceil(4) > limit) {
         Ok(preflight::Assessment {capacity: None, refusal: Some("complete_wire_input_budget_exceeded")})
     } else { preflight::assess(config, &endpoint, &body) };
