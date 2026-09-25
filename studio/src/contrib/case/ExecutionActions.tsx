@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
-import type { ExecutionObservation, ExecutionReference, ResourceAction } from "../../clients/execution";
+import type { ExecutionObservation, ExecutionReference, ResourceAction, ResourceRequestInput } from "../../clients/execution";
 import { executionKey, readExecutionRefs, rememberExecution } from "../../clients/execution";
 import { ApplicationActionDialog } from "../../components/ApplicationActionDialog";
 import { Badge, Button } from "../../components/primitives";
@@ -31,6 +31,7 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
   const [observation, setObservation] = useState<{ identity: string; value: ExecutionObservation }>();
   const result = observation?.identity === identity ? observation.value : undefined; const [error, setError] = useState<string>(); const [busy, setBusy] = useState(false); const [stop, setStop] = useState(false);
   const [resume, setResume] = useState<{ identity: string; submission: string; run: string; digest: string }>();
+  const [continuation, setContinuation] = useState<{ identity: string; input: ResourceRequestInput }>();
   const [reconcile, setReconcile] = useState<{ identity: string; effect: string; generation: number }>();
   const observe = async () => {
     if (!application) return; const stamp = identity; const request = ++sequence.current; setBusy(true); setError(undefined);
@@ -45,12 +46,23 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
   // A remounted/reconnected receipt can only observe, never replay its submission.
   useEffect(() => { void observe(); }, [application, availability, identity]);
   const posture = result?.progress?.status ?? result?.state ?? (typeof result?.posture === "string" ? result.posture : result?.posture?.state);
+  const candidate = result?.continuation;
+  const continuable = reference.domain === "resource_request" && posture === "admitted"
+    && result?.generation === workspace.case.generation && candidate?.case_ref === workspace.case.case_ref
+    && candidate?.participant_ref === workspace.case.participant_ref && candidate?.submission_ref === reference.submission_ref;
   const detail = typeof result?.posture === "object" ? result.posture : undefined;
   return <article className="execution-receipt"><header><strong>{compact && reference.domain === "source_acquisition" ? `Acquisition · attempt ${reference.attempt}` : reference.domain.replaceAll("_", " ")}</strong>{posture && <Badge tone={/refused|denied|failed|rejected/.test(posture) ? "error" : /indeterminate|unresolved|waiting|inaccessible/.test(posture) ? "warning" : /completed|acquired|provider_result_recorded/.test(posture) ? "success" : "info"}>{posture.replaceAll("_", " ")}</Badge>}<Button disabled={busy || !application?.supports("execution.get")} onClick={() => void observe()}>{busy ? "Observing…" : "Refresh observation"}</Button></header>{compact ? <details><summary>Exact attempt</summary><code>{label(reference)}</code>{result?.progress_ref && <code>{result.progress_ref}</code>}</details> : <code>{label(reference)}</code>}
     {posture === "delivery_indeterminate" && <p role="status">The recorded attempt has no confirmed result and its execution is no longer observed as active. Refresh only checks retained evidence; it does not restart the attempt.</p>}
     {posture === "unresolved" && <p role="status">YAI cannot establish whether this attempt is still active. Its retained phase is not proof of a running process. No new attempt is sent.</p>}
     {error && <p role="alert">{error} No new submission was sent.</p>}
     {result && reference.domain !== "controlled_effect" && <dl className="object-facts">{Object.entries({ Execution: compact ? undefined : result.execution_ref ?? result.operation_ref ?? result.progress_ref, "Runner posture": result.runner?.posture, "Stop requested": result.runner ? String(result.runner.stop_requested) : undefined, "Current Source phase": result.current_source_phase, "Effect outcome": detail?.outcome, "Effect started": detail?.external_execution_started == null ? undefined : String(detail.external_execution_started), Result: detail?.result_ref, Receipt: detail?.receipt_ref, Review: detail?.review_ref }).filter(([, value]) => value != null).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}
+    {continuable && candidate && <Button disabled={busy || !application?.supports("resource.request")} onClick={() => setContinuation({ identity, input: candidate })}>Continue recorded request…</Button>}
+    {continuation && application && <ApplicationActionDialog title="Continue recorded request" description="Submit the exact retained request again under current YAI authority. This may perform its external read or effect; approval alone did not execute it." submitLabel="Continue exact request" close={() => setContinuation(undefined)} enabled={continuation.identity === identity && continuable && JSON.stringify(continuation.input) === JSON.stringify(candidate)} submit={() => application.requestResource(continuation.input)} committed={async () => { await observe(); await refresh(platform); }} resync={() => refresh(platform)}>
+      <p>Resource: {continuation.input.resource_ref}</p><p>Operation: {continuation.input.request.action.action.replaceAll("_", " ")}</p>
+      <p>YAI preserves the original submission and checks current policy, Review and Resource bounds before dispatch. An uncertain or completed effect is never repeated by this action.</p>
+      <details><summary>Exact request</summary><code>{continuation.input.submission_ref}</code></details>
+      {(continuation.identity !== identity || !continuable) && <p role="alert">The Case or execution changed. Close and refresh the observation before continuing.</p>}
+    </ApplicationActionDialog>}
     {reference.domain === "controlled_effect" && result && <section aria-label="Controlled effect evidence">
       <p>{!result.progress ? "No effect admission outcome is recorded yet." : result.progress.status === "awaiting_review" ? "Waiting for Review. This observation grants no permission to execute." : result.progress.status === "indeterminate" ? "The recorded effect has no final outcome. Observation never repeats it." : "Current retained effect evidence; historical permission does not authorize another dispatch."}</p>
       <dl className="object-facts"><div><dt>Outcome</dt><dd>{result.progress?.outcome?.replaceAll("_", " ") ?? "Not recorded"}</dd></div></dl>

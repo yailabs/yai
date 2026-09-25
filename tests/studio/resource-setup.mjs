@@ -79,7 +79,7 @@ try {
   if(family==='process_runner'){
    await form.getByLabel('Absolute executable on the YAI Host').fill(executable);
    await form.getByLabel('Expected executable digest').fill(executableDigest);
-   await form.getByLabel('Arguments, one exact argument per line').fill("-I\n-B\n-c\nfrom pathlib import Path; Path('ran').write_text('exact-run')");
+   await form.getByLabel('Arguments, one exact argument per line').fill("-I\n-B\n-c\nprint('exact-run')");
    await form.getByLabel('Working directory relative to root').fill('work');
   }
   if(family==='http_service')await form.getByLabel('Bound relative HTTP path').fill('health');
@@ -135,6 +135,53 @@ try {
  assert.deepEqual((await accepted('resource.request',waiting.request.input)).execution,waiting.result.data.execution);
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,waitingGeneration);
  assert.equal((await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'resource_request',submission_ref:waiting.request.input.submission_ref}})).result_state,'unauthorized');
+ // Resolve Review in Studio, then reconnect before recovering the original request.
+ await page.locator('.live-rail button[aria-label="Authority"]').click();
+ await page.locator('.collection-row').filter({hasText:waiting.result.data.execution.posture.review_ref}).click();
+ await page.getByRole('button',{name:'Approve review',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Reason').fill('Approve the exact bounded disposable runner.');
+ await page.getByRole('button',{name:'Submit decision',exact:true}).click();
+ await page.getByRole('dialog').waitFor({state:'hidden'});
+ const approval=exchanges.findLast(x=>x.request.operation_ref==='review.approve').result.data;
+ assert.equal(approval.external_effect,false);
+ assert.deepEqual(approval.state.effects,[],'Approval alone must not record an effect');
+ const oldInstance=telemetry.instance_id;cli('host','stop');telemetry=cli('host','start').data.value;
+ assert.notEqual(telemetry.instance_id,oldInstance);
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ await page.locator('.live-rail button[aria-label="Work"]').click();
+ const receipt=page.getByRole('main').locator('.execution-receipt').filter({hasText:waiting.request.input.submission_ref});
+ await receipt.getByRole('button',{name:'Continue recorded request…',exact:true}).click();
+ let continueForm=page.getByRole('dialog',{name:'Continue recorded request',exact:true});
+ await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'continuation-test'});
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ assert.equal(await continueForm.getByRole('button',{name:'Continue exact request',exact:true}).isDisabled(),true,'Changed state invalidates the confirmation');
+ await continueForm.getByRole('button',{name:'Cancel',exact:true}).click();
+ await receipt.getByRole('button',{name:'Continue recorded request…',exact:true}).click();
+ continueForm=page.getByRole('dialog',{name:'Continue recorded request',exact:true});
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+  await page.setViewportSize({width,height});await continueForm.getByRole('button',{name:'Continue exact request',exact:true}).scrollIntoViewIfNeeded();
+  const bounds=await continueForm.boundingBox();assert.ok(bounds.x>=0 && bounds.y>=0 && bounds.x+bounds.width<=width+1 && bounds.y+bounds.height<=height+1);
+  await page.screenshot({path:`${evidence}/resource-continue-reviewed-${width}x${height}.png`});
+ }
+ await page.setViewportSize({width:1440,height:900});
+ dropAcknowledgement='resource.request';
+ await continueForm.getByRole('button',{name:'Continue exact request',exact:true}).click();
+ await continueForm.getByText('Confirmation was lost',{exact:false}).waitFor();
+ assert.equal(await continueForm.getByRole('button',{name:'Continue exact request',exact:true}).isDisabled(),true);
+ const completed=exchanges.findLast(x=>x.request.operation_ref==='resource.request');
+ assert.deepEqual(completed.request.input,waiting.request.input,'Continuation preserves every original input field');
+ assert.equal(completed.result.data.execution.posture.state,'effect_recorded',JSON.stringify(completed));
+ assert.equal(completed.result.data.outcome.observation.result.exit_code,0);
+ assert.equal(completed.result.data.outcome.observation.result.stdout,'exact-run\n');
+ await continueForm.getByRole('button',{name:'Close and inspect state',exact:true}).click();
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ await receipt.getByText('effect recorded',{exact:true}).waitFor();
+ assert.equal(await receipt.getByRole('button',{name:'Continue recorded request…',exact:true}).count(),0);
+ const terminalGeneration=(await accepted('case.summary',{case_ref:caseRef})).case.generation;
+ const finalRetry=await accepted('resource.request',waiting.request.input);
+ assert.deepEqual(finalRetry.execution,completed.result.data.execution);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,terminalGeneration);
+ assert.equal(finalRetry.outcome,null,'Lost-response retry observes the original receipt without dispatch');
  await page.locator('.live-rail button[aria-label="Environment"]').click();
  await page.getByRole('button',{name:'Declare Source',exact:true}).click();
  let sourceForm=page.getByRole('dialog',{name:'Declare Source'});
@@ -161,5 +208,5 @@ try {
  for(const field of ['source_ref','revision_ref','path','digest'])assert.equal(material.result.data[field],file[field]);
  assert.equal(await readFile(path.join(root,'evidence.txt'),'utf8'),'Exact retained evidence.');
  assert.deepEqual(errors,[]);assert.equal(cli('case','verify',caseRef).status,'ok');
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','CLI exact definition retry preserves identities and generation; canonical replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','CLI exact definition retry preserves identities and generation; canonical replay']}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

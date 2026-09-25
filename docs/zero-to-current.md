@@ -1800,13 +1800,19 @@ and a bounded timeout. It configures an empty environment; no shell interpolatio
 or frontend filesystem read is used. Attachment does not dispatch. For process
 requests, an explicit current policy Review rule is required to impose Review;
 the attachment field alone does not establish that policy. The suite proves
-pending Review and exact retry do not run the process. For an admitted Participant request, authorized `execution.get` now returns its
+pending Review and exact retry do not run the process. For an admitted Participant
+request, authorized `execution.get` returns its
 exact original `continuation` input. Pending Review, refused, prepared/uncertain
 and terminal outcomes do not expose a continuation. This is not permission:
 explicitly resubmitting that input through `resource.request` rechecks current
-admission and preserves the original request/Operation identity. Studio consumption
-of this field remains open; do not create a new request as a substitute. Runner environment authoring and write bounds remain outside
-this bounded form.
+admission and preserves the original request/Operation identity. In Work → Executions,
+**Continue recorded request** recovers this exact input after Review approval and
+Host restart. A changed Case invalidates the confirmation; a lost acknowledgement
+allows inspection, never automatic resubmission. The suite verifies the read-only
+runner's exact output, final receipt identity and unchanged generation on retry.
+An effect receipt records dispatch outcome, not a guarantee of process exit success.
+Pending, uncertain and terminal executions offer no continuation. Runner environment
+authoring and write bounds remain outside this bounded form.
 
 The Workbench status bar distinguishes the YAI Host connection from the current
 Participant's conversation model assignment. Click the Host entry for Host

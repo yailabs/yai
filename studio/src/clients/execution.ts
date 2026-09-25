@@ -20,6 +20,7 @@ export interface SourceAcquireInput { case_ref: string; participant_ref: string;
 export interface SourceResumeInput extends SourceAcquireInput { previous_progress_ref: string }
 export interface ExecutionObservation {
   case_ref: string; participant_ref: string; schema?: string; execution_ref?: string; submission_ref?: string;
+  generation?: number; continuation?: ResourceRequestInput;
   operation_ref?: string; source_ref?: string; attempt?: number; progress_ref?: string;
   state?: string; phase?: string; current_source_phase?: string; observed_generation?: number;
   posture?: string | { state: string; result_ref?: string; receipt_ref?: string; effect_ref?: string; outcome?: string; review_ref?: string; decision_ref?: string; external_execution_started?: boolean };

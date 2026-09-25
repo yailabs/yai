@@ -13,7 +13,7 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "provider.suitability.record": { state: "integrated", detail: "Explicit operator-attested conversation suitability, independently from measured qualification", proof: "tests/studio/conversation-actions.mjs" },
   "source.resume": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
   "source.acquire": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
-  "resource.request": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/effect-actions.mjs" },
+  "resource.request": { state: "integrated", detail: "Exact Resource submission and explicit reviewed-request continuation after Host restart; stale confirmation and lost-ACK retry retain one receipt without redispatch.", proof: "tests/studio/resource-setup.mjs" },
   "resource.attach_process": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/effect-actions.mjs" },
   "knowledge.navigation": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
   "knowledge.resolve": { state: "integrated", detail: "Authored exact submission/observation or qualified query", proof: "tests/studio/execution-actions.mjs" },
