@@ -1495,14 +1495,19 @@ authorized provider target; it is an external disclosure, not a local token
 estimate. Selection remains subject to the current Participant, binding and
 provider-governance checks before this preparation starts.
 An ordinary Conversation SEND may canonically record `focused` context depth in
-its immutable execution intent (`yai.cognitive_composition_request.v4`). This
+its immutable execution intent (`yai.cognitive_composition_request.v5`). This
 selects a Recall retrieval limit of two optional groups for that request; it
-does not change the ordinary 32,768 semantic-unit ceiling or promise a token
-count or low latency. Required/current state and exact authority remain
-unchanged. Legacy ordinary intents retain their original schema and identity; bounded
-Case work and Workflow execution cannot smuggle a focused profile into their
+also sends an explicit `max_tokens: 1024` output limit in the identical
+preflight and inference payload. On the qualified YVEX target, an unspecified
+limit claimed the entire remaining 32K sequence as output.
+It does not change the ordinary 32,768 semantic-unit ceiling or promise an
+input token count or low latency. Required/current state and exact authority
+remain unchanged. Legacy ordinary intents retain their original schema and
+identity; bounded Case work and Workflow execution cannot smuggle a focused profile into their
 separate budget owners. Studio and the interactive CLI select this same intent;
 an exact retry or Host restart observes the originally committed choice.
+Historical v4 Focused intents remain readable with their original unspecified
+output bound; v5 records the 1,024-token limit in its digest.
 
 ContextFrame has separate identity because one Projection supports different
 tasks and typed output contracts. It carries provider-independent instructions,

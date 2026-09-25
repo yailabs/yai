@@ -1567,6 +1567,7 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         max_resident_items: 8,
         max_semantic_units: CONSOLIDATION_SEMANTIC_UNIT_BUDGET,
         max_estimated_input_units: CONSOLIDATION_SEMANTIC_UNIT_BUDGET * 2,
+        max_output_tokens: None,
         retrieval_limit: 8,
         previous_item_ids: Vec::new(),
         workflow_execution_id: None,

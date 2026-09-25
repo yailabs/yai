@@ -142,6 +142,7 @@ pub fn execute_prepared(
         typed_parts,
         &semantic.frame.output_contract,
         Some(options.max_estimated_input_units),
+        options.max_output_tokens,
         Some(&observe),
     )?;
     let result_lineage = invocation_lineage(semantic, transport.continuation_disposition.clone());
@@ -490,7 +491,8 @@ pub fn invoke_cognitive(
         }
         let endpoint = crate::provider_transport::parse_provider_endpoint(&config.base_url)?;
         let body = encode_provider_request(config, &candidate.rendered,
-            config.continuation_ref.as_ref(), false, Some(parts), None)?;
+            config.continuation_ref.as_ref(), false, Some(parts), None,
+            selected_options.max_output_tokens)?;
         let assessment = preflight::assess(config, &endpoint, &body);
         let next = assessment.ok().and_then(|assessment| {
             (assessment.refusal == Some("token_capacity_exceeded"))
@@ -916,6 +918,7 @@ pub fn provider_http_request(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -955,7 +958,11 @@ fn encode_provider_request(
     structured_json: bool,
     typed_parts: Option<&[ProviderWireInputPart]>,
     native: Option<NativeFunctionExchange<'_>>,
+    max_output_tokens: Option<u32>,
 ) -> Result<Vec<u8>, String> {
+    if max_output_tokens.is_some_and(|limit| limit == 0 || limit > 32_768) {
+        return Err("provider_output_token_limit_invalid".into());
+    }
     let functions = native.as_ref().map(|n| n.definitions);
     let feedback = native.as_ref().map_or(&[][..], |n| n.feedback);
     if let Some(reference) = continuation {
@@ -983,6 +990,9 @@ fn encode_provider_request(
         "messages": messages
     });
     let object = body.as_object_mut().expect("provider request object");
+    if let Some(limit) = max_output_tokens {
+        object.insert("max_tokens".into(), serde_json::Value::from(limit));
+    }
     if !feedback.is_empty() {
         if functions.is_none() {
             return Err("provider_feedback_requires_native_functions".into());
@@ -1029,10 +1039,11 @@ fn provider_http_request_with_functions(
     typed_parts: Option<&[ProviderWireInputPart]>,
     native: Option<NativeFunctionExchange<'_>>,
     max_input_units: Option<usize>,
+    max_output_tokens: Option<u32>,
     observer: WireObserver<'_>,
 ) -> Result<(u16, String, usize), String> {
     let endpoint = crate::provider_transport::parse_provider_endpoint(&config.base_url)?;
-    let body = encode_provider_request(config, rendered, continuation, structured_json, typed_parts, native)?;
+    let body = encode_provider_request(config, rendered, continuation, structured_json, typed_parts, native, max_output_tokens)?;
     let assessment = if max_input_units.is_some_and(|limit| body.len().div_ceil(4) > limit) {
         Ok(preflight::Assessment {capacity: None, refusal: Some("complete_wire_input_budget_exceeded")})
     } else { preflight::assess(config, &endpoint, &body) };
@@ -1076,7 +1087,7 @@ pub fn provider_chat_completion(
     max_input_units: Option<usize>,
 ) -> Result<ProviderTransportResult, String> {
     provider_chat_completion_observed(store, config, rendered, structured_json, typed_parts,
-        output_contract, max_input_units, None)
+        output_contract, max_input_units, None, None)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1088,6 +1099,7 @@ fn provider_chat_completion_observed(
     typed_parts: Option<&[ProviderWireInputPart]>,
     output_contract: &InvocationOutputContract,
     max_input_units: Option<usize>,
+    max_output_tokens: Option<u32>,
     observer: WireObserver<'_>,
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
@@ -1128,10 +1140,11 @@ fn provider_chat_completion_observed(
                 feedback: &feedback,
             }),
             max_input_units,
+            max_output_tokens,
             observer,
         )?
     } else {
-        provider_http_request_with_functions(config, rendered, continuation, structured_json, typed_parts, None, max_input_units, observer)?
+        provider_http_request_with_functions(config, rendered, continuation, structured_json, typed_parts, None, max_input_units, max_output_tokens, observer)?
     };
     let success = (200..300).contains(&status);
     let disposition = if success {
@@ -1198,6 +1211,9 @@ pub struct SemanticInvocationOptions {
     pub max_resident_items: usize,
     pub max_semantic_units: usize,
     pub max_estimated_input_units: usize,
+    /// An exact wire output bound when selected by immutable ordinary SEND
+    /// intent. None preserves the existing provider/default behavior.
+    pub max_output_tokens: Option<u32>,
     pub retrieval_limit: usize,
     pub previous_item_ids: Vec<String>,
     pub workflow_execution_id: Option<String>,
@@ -1215,6 +1231,7 @@ impl Default for SemanticInvocationOptions {
             max_resident_items: 64,
             max_semantic_units: 32_768,
             max_estimated_input_units: 65_536,
+            max_output_tokens: None,
             retrieval_limit: DEFAULT_RETRIEVAL_LIMIT,
             previous_item_ids: Vec::new(),
             workflow_execution_id: None,

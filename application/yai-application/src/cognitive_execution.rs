@@ -1309,15 +1309,17 @@ pub fn realize_cognitive(
             workflow_execution_id: workflow_intent.and_then(|r| r.workflow_execution_id.clone()),
             ..provider::SemanticInvocationOptions::default()
         };
-        if let Some(ConversationContextDepth::Focused) = transitions.iter().find_map(|t| match &t.payload {
+        if let Some((ConversationContextDepth::Focused, max_output_tokens)) = transitions.iter().find_map(|t| match &t.payload {
             TransitionPayload::ConversationExecutionIntentRecorded { request }
-                if realization_causal_refs.contains(&request.request_id) => request.context_depth,
+                if realization_causal_refs.contains(&request.request_id) => request.context_depth.map(|depth| (depth, request.max_output_tokens)),
             _ => None,
         }) {
-            // The operator chose fewer optional Recall groups, not a token
-            // count. Keep the ordinary semantic budget so a large mandatory
-            // Case cannot become an unrecorded local budget failure.
+            // Keep the ordinary semantic budget so a large mandatory Case
+            // cannot become an unrecorded local budget failure. The v5
+            // output ceiling is immutable intent; replayed v4 Focused
+            // requests retain their former unbounded provider default.
             options.retrieval_limit = 2;
+            options.max_output_tokens = max_output_tokens;
         }
         let workflow_topology = if let Some(request) = workflow_intent {
             let topology = store.workflow_effective_topology_authorized(authenticated, &case_id)?;

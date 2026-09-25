@@ -1700,7 +1700,16 @@ run.
 For a new ordinary question, Conversation → **+ → Case context → Focused**
 records a smaller immutable intent. It limits optional Recall retrieval to two
 groups while keeping the ordinary semantic ceiling; the default Standard path
-remains unchanged. This is not an exact-token or latency guarantee.
+remains unchanged. New Focused v5 intent also records an exact 1,024-token
+maximum-output field; historical v4 Focused intent retains its prior behavior.
+The public YVEX preflight otherwise treats an unspecified output bound as all
+remaining sequence capacity. This is not an input-token or latency guarantee.
+The synthetic external run `yvex-output-preflight-20260925` retained at
+`labs/external-runtime/runs/20260925-yvex-output-preflight/observations.jsonl`
+observed 6 input tokens and 32,762 effective output tokens without an explicit
+limit, versus 512 effective output tokens with `max_tokens: 512`. Both returned
+HTTP success; neither generated text or disclosed Case material. This
+establishes the target's public default, not the cause of the earlier host exit.
 Current/required state stays pinned, and final target capacity still fails
 closed before inference when the exact request cannot fit. The
 focused choice survives docking/reopening in the local Case/Participant session;
@@ -1710,10 +1719,12 @@ lost-acknowledgement retry cannot silently change it. In the interactive CLI,
 `/context standard` restores the default. Inspect W omissions and public
 preflight after execution rather than inferring what the model saw from the
 profile label.
+
 For native product qualification, run
 `tests/studio/native-conversation.py --context-depth focused --prepare-only`.
-It verifies the selected Case, exact target and composer without sending. The opt-in `--submit` path records the
-planned submission identity before one UI click and checks that the resulting
+It verifies the selected Case, exact target and composer without sending. The
+opt-in `--submit` path records the planned submission identity before one UI
+click and checks that the resulting
 Turn belongs to that identity; it never retries an indeterminate delivery.
 
 The 2026-09-25 external DeepSeek 32K observation remains **negative Case-inference evidence**.

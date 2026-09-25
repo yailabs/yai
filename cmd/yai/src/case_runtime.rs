@@ -734,6 +734,7 @@ fn run_loop(
                 max_resident_items: checkpoint.max_resident_items,
                 max_semantic_units: checkpoint.max_semantic_units,
                 max_estimated_input_units: remaining_cost,
+                max_output_tokens: None,
                 retrieval_limit: checkpoint.max_resident_items.saturating_mul(4).max(1),
                 previous_item_ids: checkpoint.previous_item_ids.clone(),
                 workflow_execution_id: current_workflow_execution_id(&checkpoint)?,

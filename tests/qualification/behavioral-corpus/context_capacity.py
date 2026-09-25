@@ -289,6 +289,8 @@ def main():
             "Which current Case facts and bounded evidence are relevant?", "focused")
         assert focused["primary_result"]["output"] == "Controlled context result", focused
         assert len(dispatches) == before_focused + 1
+        assert json.loads(dispatches[-1])["max_tokens"] == 1024, "Focused SEND lacked its exact output bound"
+        assert preflights[-1] == dispatches[-1], "Focused final preflight differs from dispatched bytes"
         focused_context = call("execution.get", dict(focused_query, include_context=True))
         focused_w = focused_context["prepared_context"]["invocations"][0]["working_state"]
         assert focused_w["request"]["max_semantic_units"] == 32768

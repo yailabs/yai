@@ -168,7 +168,7 @@ mod tests {
         let observations=std::cell::RefCell::new(Vec::new());
         let observer=|value| {observations.borrow_mut().push(value);Ok(())};
         let error=super::super::provider_http_request_with_functions(&config("http://127.0.0.1:9/v1/chat/completions".into()),
-            &rendered(),None,false,None,None,Some(1),Some(&observer)).unwrap_err();
+            &rendered(),None,false,None,None,Some(1),None,Some(&observer)).unwrap_err();
         assert_eq!(error,"provider_not_dispatched:complete_wire_input_budget_exceeded");
         let values=observations.borrow();assert_eq!(values.len(),1);assert!(values[0].bytes>4);
         assert!(values[0].capacity.is_none());assert!(values[0].digest.starts_with("sha256:"));

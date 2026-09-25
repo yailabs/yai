@@ -747,7 +747,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         }
         if trimmed.starts_with('/') {
             if trimmed == "/context" {
-                println!("context_depth: {}\nFocused limits optional evidence, retaining required/current Case state; it is not a token or latency guarantee.", if focused_context { "focused" } else { "standard" });
+                println!("context_depth: {}\nFocused keeps required/current Case state, limits optional evidence to two groups and caps the requested answer at 1024 tokens. It does not guarantee input size or latency.", if focused_context { "focused" } else { "standard" });
                 continue;
             }
             if matches!(trimmed, "/context focused" | "/context standard") {

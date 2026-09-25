@@ -3176,7 +3176,8 @@ impl Transition {
         }
         if self.schema != TRANSITION_SCHEMA
             && matches!(&self.payload, TransitionPayload::ConversationExecutionIntentRecorded { request }
-                if request.schema == crate::conversation::CONTEXT_DEPTH_INTENT_SCHEMA)
+                if matches!(request.schema.as_str(), crate::conversation::CONTEXT_DEPTH_INTENT_SCHEMA
+                    | crate::conversation::FOCUSED_OUTPUT_INTENT_SCHEMA))
         {
             return Err("focused_conversation_intent_requires_current_transition".into());
         }

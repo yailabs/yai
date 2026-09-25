@@ -101,8 +101,9 @@ whole optional W groups without dropping required/current state. Successful
 real infrastructure-Case inference remains open.
 Conversation now offers an immutable Focused context choice across Studio and
 the interactive CLI; the typed Host test retains that choice across exact retry
-and verifies the Recall retrieval limit. This is an optional-evidence bound, not a token or
-latency guarantee, and requires a separate real-target completion result.
+and verifies the Recall retrieval limit and identical 1,024-token output
+bound in preflight and inference. It does not guarantee input size or latency,
+and requires a separate real-target completion result.
 Overview is a full-height Product Surface with Situation, Workflow, Sources and
 Recent changes sections. The Case/Participant-local section and in-flight governed
 explanation survive section movement; keyboard/ARIA navigation and real Host
@@ -263,7 +264,7 @@ selection and evidence, not an alternative capability catalog.
 | Exon, Arch Linux x86_64 | None | Two disposable Cases, independent Host clients | Local product runner `portfolio-1790259708872413843`: PASS; 139,264 allocated regular-file bytes after Host stop, before cleanup. Whole-profile observation, no inference or performance verdict. |
 | Exon, Arch Linux x86_64 | Not invoked | Infrastructure + technical oracle / two native Studios on one Host | `native-portfolio-1790259703929577045`: exact Case switching and independent drafts, Host survival, canonical Case/Conversation unchanged. Browser read-only dual-client inspection is separate; this run does not prove mutation fanout. |
 | Exon, Arch Linux x86_64 | None | Fresh portfolio / two native Studios + CLI | Native event/restart lane proves visible canonical update fanout and post-restart subscription recovery, separately from real-provider inference. |
-| Exon | Spark / YVEX | Infrastructure single and parallel | Public v22 target loaded at 32,768 runtime tokens; `native-conversation-1790354457662891233` observed one Studio/Host/Case submission and exact fitting, then unknown delivery after the producer disappeared during prefill. The restarted target passed only a synthetic YAI probe. No completed infrastructure answer, remote machine-management contract or parallel real-provider inference is qualified. |
+| Exon | Spark / YVEX | Infrastructure single and parallel | Public v22 target loaded at 32,768 runtime tokens; `native-conversation-1790354457662891233` observed one Studio/Host/Case submission and exact fitting, then unknown delivery after the producer disappeared during prefill. The restarted target passed only a synthetic YAI probe. [Synthetic public preflight](../labs/external-runtime/runs/20260925-yvex-output-preflight/observations.jsonl) measures the unspecified versus explicit output bound; native v5 Focused preparation performed no SEND. No completed infrastructure answer, remote machine-management contract or parallel real-provider inference is qualified. |
 | Exon, native Studio/Host | Operator-designated Spark through existing local forward | Small native 4K Case; another retained Case read independently | `native-conversation-1790283173194890449`: actual composer → Host → governed DeepSeek → canonical result → displayed answer. No additional engine or model deployment. Public endpoint/model identity observed; native remote-machine identity is not qualified. |
 | Spark | Spark | Single Case | NOT_RUN; no duplicate heavyweight deployment launched by this program. |
 | Exon | Exon | Local single Case | NOT_RUN; provider and memory budget must be selected explicitly. |
