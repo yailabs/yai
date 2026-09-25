@@ -84,7 +84,7 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "cognitive.binding.set": { state: "integrated", detail: "Assign/replace an exact primary conversation target from authorized suitability evidence", proof: "tests/studio/conversation-actions.mjs" },
   "cognitive.plan": { state: "debt", detail: "Requires an exact integrity-qualified capability requirement. Studio does not fabricate owner digests; requirement preparation remains unconnected." },
   "events.resume": { state: "alternative", detail: "Host reconnection requests an authoritative snapshot; no claim that missed events were delivered." },
-  "resource.import": { state: "integrated", detail: "Authored filesystem/discovery, SQLite query, HTTP and MCP catalog bindings; YAI resolves native identity, exact retry does not duplicate attachments.", proof: "tests/studio/resource-setup.mjs" },
+  "resource.import": { state: "integrated", detail: "Authored filesystem/discovery, SQLite query, HTTP, MCP catalog and exact-digest process-runner bindings; YAI resolves native identity, exact retry does not duplicate attachments.", proof: "tests/studio/resource-setup.mjs" },
   "resource.attach": { state: "debt", detail: "Requires a native LocalAccessBinding/carrier plus access contract; authored secure Resource setup is not yet connected." },
   "runtime.readiness": { state: "alternative", detail: "Host telemetry reports actual scheduler supervision; runtime readiness is distinct from application health." },
   "semantic.ambient_refresh.assess": { state: "debt", detail: "Requires a real Conversation/Workflow consumer lineage. Generic inspection is not an ambient consumer." },

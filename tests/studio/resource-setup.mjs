@@ -3,8 +3,9 @@
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, access } from 'node:fs/promises';
 import net from 'node:net';
+import {createHash} from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 const require = createRequire(path.resolve(import.meta.dirname, '../../studio/package.json'));
@@ -62,20 +63,27 @@ try {
 
 
  const root=path.join(home,'materials');await mkdir(root);await writeFile(path.join(root,'evidence.txt'),'Exact retained evidence.');
+ const executable=await realpath('/usr/bin/python3');const executableDigest='sha256:'+createHash('sha256').update(await readFile(executable)).digest('hex');await mkdir(path.join(root,'work'));
  const before=await accepted('case.summary',{case_ref:caseRef});
- for(const family of ['filesystem','discovery','sqlite','http_service','mcp']) {
+ for(const family of ['filesystem','discovery','sqlite','http_service','mcp','process_runner']) {
   await page.getByRole('button',{name:'Attach Resource…',exact:true}).click();
   const form=page.getByRole('dialog',{name:'Attach Resource'});
   await form.getByLabel('Resource reference').fill(`resource:ui-${family}`);
   await form.getByLabel('Resource family').selectOption(family);
-  if(['filesystem','discovery','sqlite'].includes(family)) await form.getByLabel('Root directory on the YAI Host').fill(root);
+  if(['filesystem','discovery','sqlite','process_runner'].includes(family)) await form.getByLabel('Root directory on the YAI Host').fill(root);
   else {await form.getByLabel('Endpoint',{exact:true}).fill('http://127.0.0.1:1/service');await form.getByLabel('Allowed IP addresses').fill('127.0.0.1');}
   if(['filesystem','discovery'].includes(family)) await form.getByLabel('Allowed relative path prefix').fill('evidence.txt');
   if(family==='discovery'){assert.equal(await form.getByRole('checkbox').isChecked(),false);await form.getByRole('checkbox').check();}
-  if(['sqlite','http_service'].includes(family)) await form.getByLabel('Bound operation name').fill('status');
+  if(['sqlite','http_service','process_runner'].includes(family)) await form.getByLabel('Bound operation name').fill('status');
   if(family==='sqlite'){await form.getByLabel('Database path relative to root').fill('evidence.sqlite');await form.getByLabel('Bound read query').fill('SELECT 1');}
+  if(family==='process_runner'){
+   await form.getByLabel('Absolute executable on the YAI Host').fill(executable);
+   await form.getByLabel('Expected executable digest').fill(executableDigest);
+   await form.getByLabel('Arguments, one exact argument per line').fill("-I\n-B\n-c\nfrom pathlib import Path; Path('ran').write_text('exact-run')");
+   await form.getByLabel('Working directory relative to root').fill('work');
+  }
   if(family==='http_service')await form.getByLabel('Bound relative HTTP path').fill('health');
-  if(family==='sqlite' || family==='discovery') {
+  if(family==='sqlite' || family==='discovery' || family==='process_runner') {
    for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
     await page.setViewportSize({width,height});await form.getByRole('button',{name:'Attach Resource',exact:true}).scrollIntoViewIfNeeded();
     const bounds=await form.boundingBox();assert.ok(bounds.x>=0 && bounds.y>=0 && bounds.x+bounds.width<=width+1 && bounds.y+bounds.height<=height+1,'Dialog must fit viewport');
@@ -100,15 +108,34 @@ try {
   assert.notEqual((await call('resource.import',changed)).result_state,'success');
   assert.equal((await call('resource.import',{...exchange.request.input,case_ref:'case:hidden'})).result_state,'unauthorized');
  }
- const after=await accepted('case.summary',{case_ref:caseRef});assert.equal(after.case.generation,before.case.generation+5);
+ const after=await accepted('case.summary',{case_ref:caseRef});assert.equal(after.case.generation,before.case.generation+6);
 
+ await assert.rejects(access(path.join(root,'work','ran')),'Attachment must not dispatch a process');
  const policy=JSON.parse(await readFile(path.resolve(import.meta.dirname,'../qualification/studio-product-vertical/policy.json'),'utf8'));
+ policy.rules.push({kind:'operation_restriction',rule_id:'bounded-runner',operation_kind:'process.run',resource_kind:'process_runner',effect:'allow',reason:'Only exact configured runner'});
+ policy.rules.push({kind:'review_requirement',rule_id:'runner-review',operation_kind:'process.run',resource_kind:'process_runner',required:true,reason:'Explicit review before bounded runner dispatch'});
+ policy.rules.push({kind:'authority_requirement',rule_id:'runner-reviewer',operation_kind:'process.run',resource_kind:'process_runner',subject:'reviewer',required_role:'policy-reviewer',reason:'Eligible reviewer'});
+ await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'policy-reviewer'});
  const ingested=await accepted('policy.ingest',{tenant_id:'tenant:studio-ui',source_bytes:[...Buffer.from(JSON.stringify(policy))]});
  const artifact=ingested.view.artifact.artifact_id;
  await accepted('policy.validate',{artifact_ref:artifact,reason:'Controlled acquisition qualification'});
  await accepted('policy.publish',{artifact_ref:artifact,reason:'Controlled acquisition qualification'});
- await accepted('policy.case.bind',{case_ref:caseRef,artifact_ref:artifact,expected_generation:after.case.generation,reason:'Bound discovery and content admission'});
+ await accepted('policy.case.bind',{case_ref:caseRef,artifact_ref:artifact,expected_generation:(await accepted('case.summary',{case_ref:caseRef})).case.generation,reason:'Bound discovery and content admission'});
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ const resources=page.locator('.live-sidebar details.sidebar-group > summary').filter({hasText:/^Resources/}).locator('..');
+ await resources.getByRole('button').filter({hasText:/ui.process.runner/i}).click();
+ await page.getByRole('button',{name:'Request Resource operation…',exact:true}).click();
+ const requestForm=page.getByRole('dialog',{name:'Request Resource operation'});
+ await requestForm.getByRole('button',{name:'Submit governed request'}).click();await requestForm.waitFor({state:'hidden'});
+ const waiting=exchanges.findLast(x=>x.request.operation_ref==='resource.request');
+ assert.equal(waiting.result.result_state,'success',JSON.stringify(waiting));
+ assert.equal(waiting.result.data.execution.posture.state,'waiting_for_review',JSON.stringify(waiting));
+ await assert.rejects(access(path.join(root,'work','ran')),'Pending Review must not dispatch');
+ const waitingGeneration=(await accepted('case.summary',{case_ref:caseRef})).case.generation;
+ assert.deepEqual((await accepted('resource.request',waiting.request.input)).execution,waiting.result.data.execution);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,waitingGeneration);
+ assert.equal((await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'resource_request',submission_ref:waiting.request.input.submission_ref}})).result_state,'unauthorized');
+ await page.locator('.live-rail button[aria-label="Environment"]').click();
  await page.getByRole('button',{name:'Declare Source',exact:true}).click();
  let sourceForm=page.getByRole('dialog',{name:'Declare Source'});
  await sourceForm.getByLabel('Name',{exact:true}).fill('setup-evidence');
@@ -134,5 +161,5 @@ try {
  for(const field of ['source_ref','revision_ref','path','digest'])assert.equal(material.result.data[field],file[field]);
  assert.equal(await readFile(path.join(root,'evidence.txt'),'utf8'),'Exact retained evidence.');
  assert.deepEqual(errors,[]);assert.equal(cli('case','verify',caseRef).status,'ok');
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Five authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Five canonical attachments only before acquisition','Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','CLI exact definition retry preserves identities and generation; canonical replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','CLI exact definition retry preserves identities and generation; canonical replay']}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

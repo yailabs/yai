@@ -1785,17 +1785,25 @@ create a carrier identity. Repeating the exact attachment is unchanged; changed
 configuration under the same attachment identity refuses. Importing a binding
 neither queries a database nor contacts an endpoint or grants execution authority.
 In Environment, **Attach Resource…** authors filesystem reads, directory discovery,
-SQLite named queries, HTTP named paths and MCP catalog bindings. Roots are on the
+SQLite named queries, HTTP named paths, MCP catalog bindings and bounded process runners. Roots are on the
 YAI Host, not the browser machine. The form binds the current Participant and
 records the Review requirement; YAI applies the checks appropriate to each operation.
 For discovery, explicitly select admission and reading of retained Case content
 to enable Source acquisition and exact material reading. This configures request
 scope, not an authorization grant.
-`tests/studio/resource-setup.mjs` exercises all five forms through the real Host,
+`tests/studio/resource-setup.mjs` exercises all six forms through the real Host,
 including lost acknowledgement, exact retry, conflicting configuration, hidden
 Case refusal, declaration/acquisition of a real Source, exact editor bytes,
-CLI retry of the same definitions without new state and canonical replay. Process-runner executable identity and write bounds
-remain outside this bounded form.
+CLI retry of the same definitions without new state and canonical replay. Process-runner setup takes an approved absolute executable and
+its expected SHA-256, literal arguments (one per line), a relative working directory
+and a bounded timeout. It configures an empty environment; no shell interpolation
+or frontend filesystem read is used. Attachment does not dispatch. For process
+requests, an explicit current policy Review rule is required to impose Review;
+the attachment field alone does not establish that policy. The suite proves
+pending Review and exact retry do not run the process. Studio continuation of the
+same reviewed request after reconnect remains open; do not create a new request
+as a substitute. Runner environment authoring and write bounds remain outside
+this bounded form.
 
 The Workbench status bar distinguishes the YAI Host connection from the current
 Participant's conversation model assignment. Click the Host entry for Host

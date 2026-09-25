@@ -42,6 +42,7 @@ export interface ResourceImportInput {
     participant_ids: string[]; operations: string[]; read_prefixes: string[]; names: string[];
     max_output_bytes: number; max_items: number; review_requirement: "require_review";
     address: { kind: "filesystem" | "discovery"; root: string }
+      | { kind: "process_runner"; root: string; runners: Record<string, { executable: string; executable_digest: string; argv: string[]; working_directory: string; environment: Record<string, string>; timeout_ms: number }> }
       | { kind: "sqlite"; root: string; path: string; queries: Record<string, string> }
       | { kind: "http_service"; endpoint: NetworkResourceInput; paths: Record<string, string> }
       | { kind: "mcp"; endpoint: NetworkResourceInput };
