@@ -254,6 +254,22 @@ def evaluate(test, variant, profile, host, impacts, allow_mutations, emit):
     return "PASS"
 
 
+def summarize(outcomes):
+    """Count observed verdicts, never promote a named dimension to competence."""
+    counts = {state: 0 for state in ("PASS", "FAIL", "INCOMPLETE", "NOT_RUN")}
+    dimensions = {dimension: dict(counts) for dimension in sorted(DIMENSIONS)}
+    for outcome in outcomes:
+        state = outcome["result"]
+        counts[state] += 1
+        for dimension in set(outcome["dimensions"]):
+            dimensions[dimension][state] += 1
+    result = ("FAIL" if counts["FAIL"] else "INCOMPLETE" if counts["INCOMPLETE"]
+              else "NOT_RUN" if not counts["PASS"] else "PARTIAL" if counts["NOT_RUN"]
+              else "PASS")
+    return dict(result=result, evaluations=len(outcomes), verdict_counts=counts,
+                dimensions=dimensions, language_quality="NOT_ASSESSED")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus", type=Path)
@@ -283,8 +299,7 @@ def main():
         raise ValueError("Capability discovery refused")
     impacts = {op["operation_id"]: op["impact"] for op in catalog["data"]["operations"]}
     run = f"behavioral-{time.time_ns()}"
-    failed = False
-    pending = False
+    outcomes = []
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x") as evidence:
         order = 0
@@ -297,20 +312,25 @@ def main():
                   host_instance=host.discovery["instance_id"], catalog=catalog,
                   evidence_class="behavioral", cwd=os.getcwd()))
         for test, variant, identity in selected:
+            outcome = dict(evaluation=identity, dimensions=test["dimensions"],
+                           language_quality="NOT_ASSESSED")
             try:
                 posture = evaluate(test, variant, profile, host, impacts,
                                    args.allow_mutations, lambda r: emit(dict(evaluation=identity, **r)))
-                emit(dict(evaluation=identity, dimensions=test["dimensions"], result=posture,
-                          language_quality="NOT_ASSESSED"))
+                outcome.update(result=posture)
             except PendingObservation as error:
-                pending = True
-                emit(dict(evaluation=identity, result="INCOMPLETE", error=str(error), language_quality="NOT_ASSESSED"))
+                outcome.update(result="INCOMPLETE", error=str(error))
             except (ValueError, KeyError, AssertionError, OSError) as error:
-                failed = True
-                emit(dict(evaluation=identity, result="FAIL", error=str(error)))
-        print(canonical(dict(run_id=run, result="FAIL" if failed else "INCOMPLETE" if pending else "EXECUTED",
-                             evaluations=len(selected), evidence=str(args.output))))
-    raise SystemExit(1 if failed else 2 if pending else 0)
+                outcome.update(result="FAIL", error=str(error))
+            outcomes.append(outcome)
+            emit(outcome)
+        summary = summarize(outcomes)
+        emit(dict(kind="summary", **summary))
+        print(canonical(dict(run_id=run, **summary, evidence=str(args.output))))
+    # Partial seed suites deliberately include unimplemented overlay requirements.
+    # Preserve their usable smoke exit status while reporting the exact gaps.
+    raise SystemExit(1 if summary["result"] == "FAIL" else
+                     2 if summary["result"] in {"INCOMPLETE", "NOT_RUN"} else 0)
 
 
 if __name__ == "__main__":

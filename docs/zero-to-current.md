@@ -85,6 +85,10 @@ The behavioral runner and seed are documented under
 external model responses, measured performance and human judgement are separate
 evidence. Empty overlay requirements remain NOT_RUN. No complete behavioral
 corpus or end-to-end enterprise inference PASS is implied by these initial checks.
+The final retained runner summary counts PASS/FAIL/INCOMPLETE/NOT_RUN per
+dimension, including dimensions not exercised. PARTIAL means passed structural
+checks plus unexecuted requirements; it does not assess model reasoning quality.
+An entirely unexecuted suite exits 2 rather than looking like a successful run.
 The enterprise overlay compares Recall with exact acquired Source/revision/digest
 from `enterprise.py inspect --profile NEW_PATH`. Its structural verdict is separate
 from the usefulness of a model answer. The bounded `portfolio.py` runner creates

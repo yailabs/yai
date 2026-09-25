@@ -54,6 +54,15 @@ work; RECOVERS exact retry/restart; ISOLATES cross-scope absence. PERFORMS is a
 separate measured axis. Structural PASS never grants a language-quality verdict.
 Current repeated-read coverage does not qualify actual process restart.
 
+Every run ends with a retained `summary` record and the same summary on stdout:
+verdict counts overall and per dimension, including zero-count dimensions.
+These are observed structural verdicts, not capability maturity or model scores.
+Failed and incomplete evaluations retain their dimensions too. A suite mixing
+PASS and NOT_RUN reports PARTIAL; an entirely unexecuted suite reports NOT_RUN
+with exit 2. FAIL exits 1, bounded pending observation exits 2, and an executed
+PASS/PARTIAL smoke suite exits 0. Inspect the summary rather than treating a zero
+exit status as complete coverage. Language quality remains NOT_ASSESSED.
+
 Case-specific suites supply independently selected expected facts and explicit
 controlled perturbations; they must not derive expected evidence from the same
 query under test. Historical Decision trajectory operations are reusable

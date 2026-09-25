@@ -3,6 +3,10 @@ import json
 import importlib.util
 from pathlib import Path
 import unittest
+import contextlib
+import io
+import tempfile
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location("corpus", ROOT / "tools/validation/behavioral_corpus.py")
@@ -20,6 +24,63 @@ class Client:
 
 
 class CorpusTest(unittest.TestCase):
+    def test_runner_retains_summary_and_failure_dimensions(self):
+        suite = json.loads((Path(__file__).parent / 'seed.json').read_text())
+        suite['evaluations'] = [suite['evaluations'][0]]
+        class RefusingHost:
+            discovery = {'instance_id': 'host:test'}
+            def call(self, operation, inputs, correlation):
+                if operation == 'application.capabilities':
+                    return dict(result_state='success', data={'operations':[
+                        {'operation_id':'case.summary', 'impact':'read'}]})
+                return dict(result_state='unauthorized')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'suite.json').write_text(json.dumps(suite))
+            (root/'profile.json').write_text(json.dumps({'case_ref':'case:test'}))
+            output = io.StringIO()
+            with patch('sys.argv', ['behavioral_corpus.py', str(root/'suite.json'),
+                        '--profile', str(root/'profile.json'), '--home', folder,
+                        '--output', str(root/'result.jsonl')]), \
+                    patch.object(corpus, 'Host', return_value=RefusingHost()), \
+                    contextlib.redirect_stdout(output), self.assertRaises(SystemExit) as exit:
+                corpus.main()
+            self.assertEqual(exit.exception.code, 1)
+            records = [json.loads(line) for line in (root/'result.jsonl').read_text().splitlines()]
+            self.assertEqual(records[-2]['dimensions'], ['SEES', 'ISOLATES'])
+            self.assertEqual(records[-2]['result'], 'FAIL')
+            summary = records[-1]
+            self.assertEqual(summary['kind'], 'summary')
+            self.assertEqual(summary['dimensions']['ISOLATES']['FAIL'], 1)
+            printed = json.loads(output.getvalue())
+            self.assertEqual(printed['dimensions'], summary['dimensions'])
+            self.assertEqual(printed['result'], 'FAIL')
+
+    def test_summary_preserves_missing_dimensions_and_separates_language_quality(self):
+        outcomes = [dict(result='PASS', dimensions=['SEES', 'REASONS']),
+                    dict(result='NOT_RUN', dimensions=['RECALLS'])]
+        summary = corpus.summarize(outcomes)
+        self.assertEqual(summary['result'], 'PARTIAL')
+        self.assertEqual(summary['evaluations'], 2)
+        self.assertEqual(summary['dimensions']['REASONS']['PASS'], 1)
+        self.assertEqual(summary['language_quality'], 'NOT_ASSESSED')
+        self.assertEqual(summary['dimensions']['RECALLS']['NOT_RUN'], 1)
+        self.assertEqual(sum(summary['dimensions']['KNOWS'].values()), 0)
+
+    def test_summary_never_promotes_empty_pending_or_failed_runs(self):
+        self.assertEqual(corpus.summarize([])['result'], 'NOT_RUN')
+        for state in ['PASS', 'NOT_RUN', 'INCOMPLETE', 'FAIL']:
+            with self.subTest(state=state):
+                summary = corpus.summarize([dict(result=state, dimensions=['RECOVERS'])])
+                self.assertEqual(summary['result'], state)
+                self.assertEqual(summary['dimensions']['RECOVERS'][state], 1)
+        summary = corpus.summarize([
+            dict(result='PASS', dimensions=['SEES']),
+            dict(result='INCOMPLETE', dimensions=['RECOVERS']),
+            dict(result='FAIL', dimensions=['ISOLATES'])])
+        self.assertEqual(summary['result'], 'FAIL')
+        self.assertEqual(summary['verdict_counts'], dict(PASS=1, FAIL=1, INCOMPLETE=1, NOT_RUN=0))
+
     def test_not_equal_is_structural_and_type_strict(self):
         corpus.assert_result(dict(path="/value",op="not_equal",value=True),dict(value=1))
         corpus.assert_result(dict(path="/value",op="not_equal",value=None),dict(value={"id":"retained"}))
