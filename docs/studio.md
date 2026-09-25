@@ -17,11 +17,14 @@ Public Contract Delta Checks. Only published contracts count as current support;
 running Host versions, local edits and public producer observations are separate
 evidence. Studio product control remains in `studio/ROADMAP.md`.
 
-`case:yai-enterprise-launch` is real release-readiness work, distinct from the
-persistent technical oracle `case:studio-live-qualification`. Reconstructible
-behavioral Cases supply controlled counterexamples without resetting either
-operator Case. A model's release opinion is evidence to inspect, never a release
-decision or a substitute for validation and human acceptance.
+`case:tech-infra-inference-service` is the operator's persistent internal
+infrastructure-service Case on Exon/Spark, distinct from the technical oracle
+`case:studio-live-qualification`. The operator retired `case:yai-enterprise-launch`;
+its cancelled/closed history remains retained, and it must not be recreated as
+the operational scenario. Reconstructible behavioral Cases supply controlled
+counterexamples without resetting operator Cases. A model's service-readiness
+opinion is candidate evidence, never deployment approval or a substitute for
+validation and human acceptance.
 
 Providers projects Tenant computational inventory independently of a Case's
 bindings. The Host carries this service; it does not own provider semantics.
@@ -51,9 +54,10 @@ The current [shell](../studio/README.md) has a bounded resident-Host live mode. 
 Start Center lists Cases visible to the authenticated local principal and its
 Workbench consumes authorized application projections for Overview, Environment,
 Knowledge, Memory, Authority, Work, Compute and committed Conversation Turns.
-Fixtures remain an explicit development mode only. This vertical does not
-establish remote, multi-client mutation or complete application-API qualification;
-ROADMAP owns its exact maturity.
+Fixtures remain an explicit development mode only. Local two-client event
+fanout, parallel Case isolation and restart have separate bounded qualification;
+they do not establish remote Host transport or universal mutation-conflict
+handling. ROADMAP and the retained product tests own the exact qualified scope.
 
 The persistent product oracle for this boundary is
 `case:studio-live-qualification` in an operator-owned non-Golden `YAI_HOME`.
@@ -96,13 +100,16 @@ loss or instance change. Settings > Advanced distinguishes advertised operations
 from explicitly integrated Studio interactions; `application_ready` does not
 imply a complete UI or current execution permission. See the generated
 [capability matrix](reference/application-capabilities.md).
-The current catalog exposes 81 typed operations and 31/31 eligible PRODUCT
-families are Application-ready. Studio consumes exact source attempts, governed
-Resource requests, bounded runtime submission/stop and execution observation.
-Ordinary SEND, exact Case resume, realization/composition and controlled effect
-submission/reconciliation now have typed backend lifecycles; their new Studio
-interactions remain explicitly unintegrated. Nine new operation IDs are marked
-as debt in the existing consumer evidence map, not silently promoted by discovery.
+The code-owned catalog and
+[Studio consumer map](../studio/src/contrib/settings/capabilityPosture.ts)
+provide the current operation inventory; the catalog-derived parity check reports
+counts without treating them as behavioral coverage. Studio now authors ordinary
+text SEND, exact Case resume, retained-Turn realization/composition and controlled
+effect submission/reconciliation, as well as Source acquisition, Resource requests
+and execution observation. Their consumer entries name the product suites and
+remaining action-level limits, including multimedia composition and process
+reconciliation. The map also records alternative presentations and unconnected
+operations such as cognitive planning and ambient refresh assessment.
 Ambiguous delivery stays indeterminate unless its domain permits reconciliation;
 Application readiness is not universal recovery or complete Studio parity.
 
