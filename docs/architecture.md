@@ -240,6 +240,13 @@ generation invalidation, it exposes identity/Tenant bootstrap and inspection,
 Case create/cancel/close, Participant administration, Policy and Review,
 Workflow/Handoff, provider governance, Resource attachment, Recall/W/paging/
 refresh, source declare/publish/revoke and cognitive bind/plan operations.
+`handoff.pending` reuses the existing authorized pending-offer scan across at
+most 1024 visible Tenant Cases. `handoff.inspect` projects one exact offer and
+the selected Case's committed protocol facts, preserving the former CLI read
+composition and current Case disclosure. CLI pending/show share these typed
+reads. Neither inspection nor visibility imports a target result into the source
+Case; reconciliation remains an explicit canonical operation. The projection
+has no independent inbox store or implied parent/child Case relation.
 `material.read` reuses
 `LmdbRecordStore::resolve_case_source_authorized`: it requires an acquired
 Source, re-evaluates the current permission, resolves the requested exact

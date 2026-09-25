@@ -40,6 +40,8 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "events.subscribe": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/operational-live.mjs" },
   "handoff.accept": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/work-actions.mjs" },
   "handoff.decline": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/work-actions.mjs" },
+  "handoff.inspect": { state: "debt", detail: "Typed exact Handoff read shares current Case disclosure with CLI; authored inbox/details consumption is next." },
+  "handoff.pending": { state: "debt", detail: "Existing owner pending incoming scan is now Application-ready; bounded inbox interaction remains unqualified." },
   "handoff.offer": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/work-actions.mjs" },
   "handoff.reconcile": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/work-actions.mjs" },
   "handoff.result.record": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/work-actions.mjs" },

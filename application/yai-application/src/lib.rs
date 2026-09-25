@@ -549,6 +549,31 @@ pub struct WorkflowPatchAdoptInput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct HandoffPendingInput { pub case_ref: String }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffInspectInput { pub case_ref: String, pub handoff_ref: String }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HandoffPendingProjection {
+    pub schema: String, pub case_ref: String, pub generation: u64,
+    pub offers: Vec<yai_core_engine::handoff::HandoffOffer>,
+    pub scope: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HandoffInspection {
+    pub schema: String, pub case_ref: String, pub generation: u64,
+    pub offer: yai_core_engine::handoff::HandoffOffer,
+    pub acceptance: Option<yai_core_engine::handoff::HandoffAcceptance>,
+    pub decline: Option<yai_core_engine::handoff::HandoffDecline>,
+    pub result: Option<yai_core_engine::handoff::HandoffResult>,
+    pub reconciliation: Option<yai_core_engine::handoff::HandoffReconciliation>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HandoffOfferInput {
     pub source_case_ref: String,
     pub target_case_ref: String,
@@ -1680,6 +1705,46 @@ impl LocalApplication {
                         now_unix_ms()?,
                     )?,
                 )
+            }
+            "handoff.pending" => {
+                let input: HandoffPendingInput = decode_input(request)?;
+                let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
+                let offers = store.list_pending_case_handoffs_authorized(&auth, &input.case_ref)?;
+                if store.get_case_state_authorized(&auth, &input.case_ref)?.generation != state.generation {
+                    return Err("handoff_observation_stale".into());
+                }
+                encode_result("handoff_pending", HandoffPendingProjection {
+                    schema: "yai.handoff_pending_projection.v1".into(), case_ref: input.case_ref,
+                    generation: state.generation, offers,
+                    scope: "pending_incoming_from_at_most_1024_authorized_tenant_cases".into(),
+                })
+            }
+            "handoff.inspect" => {
+                let input: HandoffInspectInput = decode_input(request)?;
+                let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
+                let local_offer = state.handoff_offers.iter().find(|v| v.handoff_id == input.handoff_ref).cloned();
+                let acceptance = state.handoff_acceptances.iter().find(|v| v.handoff_id == input.handoff_ref).cloned();
+                let decline = state.handoff_declines.iter().find(|v| v.handoff_id == input.handoff_ref).cloned();
+                let result = state.handoff_results.iter().find(|v| v.handoff_id == input.handoff_ref).cloned();
+                let reconciliation = state.handoff_reconciliations.iter().find(|v| v.handoff_id == input.handoff_ref).cloned();
+                let source = acceptance.as_ref().map(|v| &v.source_case_id)
+                    .or_else(|| decline.as_ref().map(|v| &v.source_case_id))
+                    .or_else(|| result.as_ref().map(|v| &v.source_case_id));
+                let offer = if let Some(offer) = local_offer { offer }
+                    else if let Some(source) = source {
+                        store.get_case_state_authorized(&auth, source)?.handoff_offers.into_iter()
+                            .find(|v| v.handoff_id == input.handoff_ref).ok_or("handoff_not_visible")?
+                    } else {
+                        store.list_pending_case_handoffs_authorized(&auth, &input.case_ref)?.into_iter()
+                            .find(|v| v.handoff_id == input.handoff_ref).ok_or("handoff_not_visible")?
+                    };
+                if store.get_case_state_authorized(&auth, &input.case_ref)?.generation != state.generation {
+                    return Err("handoff_observation_stale".into());
+                }
+                encode_result("handoff_inspect", HandoffInspection {
+                    schema: "yai.handoff_inspection.v1".into(), case_ref: input.case_ref,
+                    generation: state.generation, offer, acceptance, decline, result, reconciliation,
+                })
             }
             "handoff.offer" => {
                 let input: HandoffOfferInput = decode_input(request)?;
@@ -3651,6 +3716,8 @@ mod tests {
         typed::<WorkflowInputRecordInput>();
         typed::<WorkflowPatchProposeInput>();
         typed::<WorkflowPatchAdoptInput>();
+        typed::<HandoffPendingInput>();
+        typed::<HandoffInspectInput>();
         typed::<HandoffOfferInput>();
         typed::<HandoffAcceptInput>();
         typed::<HandoffDeclineInput>();

@@ -85,80 +85,34 @@ fn offer(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn pending(args: &[String]) -> Result<(), String> {
-    let target_case_id = named_arg(args, "--case")?;
-    let authenticated = authenticate_local()?;
-    let offers = LmdbRecordStore::open(record_store_path())?
-        .list_pending_case_handoffs_authorized(&authenticated, &target_case_id)?;
-    if args.iter().any(|arg| arg == "--json") {
-        return print_json(&offers);
+fn read_application(operation: &str, input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let result = yai_application::LocalApplication::from_yai_home(yai_home()).call(yai_application::OperationRequest {
+        protocol: yai_application::APPLICATION_PROTOCOL.into(), operation_ref: operation.into(),
+        correlation_ref: format!("cli:{operation}:{}", std::process::id()), input,
+    });
+    if result.result_state != yai_application::ResultState::Success {
+        return Err(result.error.map(|e| e.code).unwrap_or_else(|| "handoff_read_failed".into()));
     }
+    result.data.ok_or_else(|| "handoff_read_missing_projection".into())
+}
+
+fn pending(args: &[String]) -> Result<(), String> {
+    let value = read_application("handoff.pending", serde_json::json!({"case_ref": named_arg(args, "--case")?}))?;
+    let offers: Vec<yai_core_engine::handoff::HandoffOffer> = serde_json::from_value(value["offers"].clone())
+        .map_err(|error| format!("handoff_projection_invalid: {error}"))?;
+    if args.iter().any(|arg| arg == "--json") { return print_json(&offers); }
     println!("pending_handoffs: {}", offers.len());
     for offer in offers {
-        println!(
-            "handoff: {} source={} target={} roles={}",
-            offer.handoff_id,
-            offer.source_case_id,
-            offer.target_case_id,
-            offer.required_target_roles.join(",")
-        );
+        println!("handoff: {} source={} target={} roles={}", offer.handoff_id,
+            offer.source_case_id, offer.target_case_id, offer.required_target_roles.join(","));
     }
     Ok(())
 }
 
 fn show(args: &[String]) -> Result<(), String> {
-    let case_id = named_arg(args, "--case")?;
-    let handoff_id = named_arg(args, "--handoff")?;
-    let authenticated = authenticate_local()?;
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
-    let local_offer = state
-        .handoff_offers
-        .iter()
-        .find(|value| value.handoff_id == handoff_id)
-        .cloned();
-    let source_case_id = state
-        .handoff_acceptances
-        .iter()
-        .find(|value| value.handoff_id == handoff_id)
-        .map(|value| value.source_case_id.as_str())
-        .or_else(|| {
-            state
-                .handoff_declines
-                .iter()
-                .find(|value| value.handoff_id == handoff_id)
-                .map(|value| value.source_case_id.as_str())
-        })
-        .or_else(|| {
-            state
-                .handoff_results
-                .iter()
-                .find(|value| value.handoff_id == handoff_id)
-                .map(|value| value.source_case_id.as_str())
-        });
-    let offer = if let Some(offer) = local_offer {
-        offer
-    } else if let Some(source_case_id) = source_case_id {
-        store
-            .get_case_state_authorized(&authenticated, source_case_id)?
-            .handoff_offers
-            .into_iter()
-            .find(|value| value.handoff_id == handoff_id)
-            .ok_or_else(|| "handoff_source_offer_missing".to_string())?
-    } else {
-        store
-            .list_pending_case_handoffs_authorized(&authenticated, &case_id)?
-            .into_iter()
-            .find(|value| value.handoff_id == handoff_id)
-            .ok_or_else(|| "handoff_not_visible".to_string())?
-    };
-    let value = serde_json::json!({
-        "offer": offer,
-        "acceptance": state.handoff_acceptances.iter().find(|value| value.handoff_id == handoff_id),
-        "decline": state.handoff_declines.iter().find(|value| value.handoff_id == handoff_id),
-        "result": state.handoff_results.iter().find(|value| value.handoff_id == handoff_id),
-        "reconciliation": state.handoff_reconciliations.iter().find(|value| value.handoff_id == handoff_id),
-    });
+    let value = read_application("handoff.inspect", serde_json::json!({
+        "case_ref": named_arg(args, "--case")?, "handoff_ref": named_arg(args, "--handoff")?,
+    }))?;
     print_json(&value)
 }
 

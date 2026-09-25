@@ -1489,3 +1489,37 @@ fn resource_definition_import_resolves_native_identity_and_retries_without_dupli
     assert!(invalid.data.is_none());
     assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), before_invalid);
 }
+
+#[test]
+fn handoff_reads_preserve_protocol_facts_and_refuse_unrelated_cases() {
+    let f=Fixture::new("handoff-reads");
+    for case in ["case:target", "case:unrelated"] {
+        f.success("case.create",json!({"tenant_id":"tenant:audit","case_ref":case}));
+        f.success("participant.role.add",json!({"case_ref":case,"participant_ref":"participant:operator","role":"operator"}));
+        f.success("participant.principal.link",json!({"case_ref":case,"participant_ref":"participant:operator","principal_ref":"self"}));
+    }
+    let offered=f.success("handoff.offer",json!({"source_case_ref":"case:audit","target_case_ref":"case:target","request":{"kind":"text","value":"Inspect real deployment readiness"},"required_target_roles":["operator"]}));
+    let id=offered["state"]["handoff_offers"][0]["handoff_id"].as_str().unwrap();
+    let source_generation=f.generation();
+    let pending=f.success("handoff.pending",json!({"case_ref":"case:target"}));
+    assert_eq!(pending["offers"].as_array().unwrap().len(),1);
+    assert_eq!(pending["offers"][0]["handoff_id"],id);
+    let inspect=|case: &str| f.success("handoff.inspect",json!({"case_ref":case,"handoff_ref":id}));
+    let initial=inspect("case:target");
+    assert_eq!(initial["offer"],pending["offers"][0]);
+    assert!(initial["acceptance"].is_null());
+    assert_eq!(f.call("handoff.inspect",json!({"case_ref":"case:unrelated","handoff_ref":id})).result_state,ResultState::Unauthorized);
+    assert_eq!(f.call("handoff.pending",json!({"case_ref":"case:hidden"})).result_state,ResultState::Unauthorized);
+    assert_eq!(f.call("handoff.inspect",json!({"case_ref":"case:target","handoff_ref":"handoff:unknown"})).result_state,ResultState::Unauthorized);
+    assert_eq!(f.generation(),source_generation);
+    assert_eq!(f.success("case.summary",json!({"case_ref":"case:target"}))["case"]["generation"],pending["generation"]);
+    f.success("handoff.accept",json!({"source_case_ref":"case:audit","target_case_ref":"case:target","handoff_ref":id,"participant_ref":"participant:operator"}));
+    assert_eq!(f.success("handoff.pending",json!({"case_ref":"case:target"}))["offers"],json!([]));
+    assert_eq!(inspect("case:target")["acceptance"]["handoff_id"],id);
+    f.success("handoff.result.record",json!({"target_case_ref":"case:target","handoff_ref":id,"participant_ref":"participant:operator","outcome":"succeeded","result":{"kind":"text","value":"Readiness evidence inspected; no deployment performed"},"evidence_refs":[]}));
+    let completed=inspect("case:target");assert_eq!(completed["result"]["handoff_id"],id);
+    assert!(inspect("case:audit")["result"].is_null(),"Inspection reports Case-local committed facts; it does not imply cross-Case reconciliation");
+    f.success("handoff.reconcile",json!({"source_case_ref":"case:audit","handoff_ref":id}));
+    let reconciled=inspect("case:audit");assert_eq!(reconciled["reconciliation"]["handoff_id"],id);
+    let current=f.generation();assert_eq!(inspect("case:audit"),reconciled);assert_eq!(f.generation(),current);
+}

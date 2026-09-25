@@ -1060,6 +1060,17 @@ Workflow completion must be canonical progression, not final model prose.
 
 ## Isolation and explicit Handoff
 
+The Handoff read boundary now has typed `handoff.pending` and `handoff.inspect`.
+Pending uses the existing owner scan of at most 1024 authorized Tenant Cases;
+it is not a complete paginated Tenant inbox. Inspection returns the exact offer
+and only the selected Case's committed acceptance, decline, result and
+reconciliation. A source Case does not acquire the target result merely because
+it can inspect its offer: explicit reconciliation remains separate. The existing
+`yai case handoff pending/show` commands consume these same Application reads;
+pending retains its CLI offer-array presentation. Studio inbox consumption is
+still unqualified until its authored interaction and product tests pass.
+
+
 First create/open the empty isolation Case from the shell with
 `./yai open golden:isolation`, confirm its own setup and `/exit`. It must have
 no source resources or policy. Reopen the completed source with
