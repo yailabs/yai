@@ -1811,6 +1811,12 @@ Host restart. A changed Case invalidates the confirmation; a lost acknowledgemen
 allows inspection, never automatic resubmission. The suite verifies the read-only
 runner's exact output, final receipt identity and unchanged generation on retry.
 An effect receipt records dispatch outcome, not a guarantee of process exit success.
+Authorized Resource `execution.get` now projects retained process exit/signal,
+timeout, output-limit and elapsed-time facts separately from that receipt. Explicit
+`include_output: true` additionally returns bounded retained stdout/stderr with
+owner digests and UTF-8 posture. Current reuse/disclosure checks apply after restart;
+revoked authority discloses neither status nor output. This never dispatches a
+process. Studio consumption of these new process fields remains to be qualified.
 Pending, uncertain and terminal executions offer no continuation. Runner environment
 authoring and write bounds remain outside this bounded form.
 

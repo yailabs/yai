@@ -725,6 +725,22 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
     assert_eq!(observation["posture"]["outcome"], outcome);
     assert_eq!(observation["posture"]["external_execution_started"], dispatched);
     assert!(observation["posture"]["receipt_ref"].as_str().is_some());
+    if dispatched {
+        assert_eq!(observation["process"]["status"]["exit_code"], 7);
+        assert_eq!(observation["process"]["status"]["timed_out"], false);
+        assert!(observation["process"].get("output").is_none());
+        let output = f.success("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+            "include_output":true,"execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+        assert_eq!(output["process"]["observation_ref"], observation["posture"]["result_ref"]);
+        for field in ["stdout", "stderr", "stdout_digest", "stderr_digest", "lossy_utf8"] {
+            assert_eq!(output["process"]["output"][field], submitted["outcome"]["observation"]["result"][field]);
+        }
+        assert_eq!(f.generation(), generation);
+        let hidden = f.call("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:hidden",
+            "include_output":true,"execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+        assert_ne!(hidden.result_state, ResultState::Success);
+        assert!(hidden.data.is_none());
+    } else { assert!(observation.get("process").is_none()); }
     let repeated = f.success("resource.request", request);
     assert_eq!(repeated["execution"], observation);
     assert!(repeated["outcome"].is_null());
@@ -736,6 +752,10 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
         "execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
     assert_eq!(revoked.result_state, ResultState::Stale, "{revoked:?}");
     assert!(revoked.data.is_none(), "historical receipt is not current permission to disclose the result");
+    let output = f.call("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:operator",
+        "include_output":true,"execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+    assert_eq!(output.result_state, ResultState::Stale);
+    assert!(output.data.is_none(), "Revoked authority must not disclose retained stdout/stderr");
 }
 
 #[test]

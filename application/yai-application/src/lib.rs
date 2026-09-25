@@ -320,6 +320,8 @@ pub struct ExecutionGetInput {
     pub execution: ExecutionReference,
     #[serde(default)]
     pub include_context: bool,
+    #[serde(default)]
+    pub include_output: bool,
 }
 
 /// Domain-specific projections retain their own schema and lifecycle instead
@@ -1184,6 +1186,9 @@ impl LocalApplication {
                     ExecutionReference::Conversation {..} | ExecutionReference::CognitiveComposition {..}) {
                     return Err("execution_context_domain_not_supported".into());
                 }
+                if input.include_output && !matches!(&input.execution, ExecutionReference::ResourceRequest {..}) {
+                    return Err("execution_output_domain_not_supported".into());
+                }
                 match input.execution {
                     ExecutionReference::ControlledEffect { operation_ref } => {
                         encode_result("execution_get", ExecutionObservation::ControlledEffect(
@@ -1203,8 +1208,8 @@ impl LocalApplication {
                             _ => None,
                         }).ok_or("resource_execution_not_visible")?;
                         encode_result("execution_get", ExecutionObservation::ResourceRequest(
-                            resource_execution::observe(&store, &auth, &input.case_ref,
-                                &input.participant_ref, &operation.operation_id)?))
+                            resource_execution::observe_with_output(&store, &auth, &input.case_ref,
+                                &input.participant_ref, &operation.operation_id, input.include_output)?))
                     }
                     ExecutionReference::CognitiveRealization { plan_ref } => {
                         encode_result("execution_get", ExecutionObservation::CognitiveRealization(

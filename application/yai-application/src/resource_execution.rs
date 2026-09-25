@@ -194,8 +194,8 @@ pub enum ResourceActionOutcome {
     },
 }
 
-/// Reconnect-safe operational metadata. Payload/content retrieval remains a
-/// separate currently qualified Resource read; observation never dispatches.
+/// Reconnect-safe operational metadata. Retained process output is opt-in and
+/// requalifies current Resource result disclosure; observation never dispatches.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResourceExecutionObservation {
     pub operation_ref: String,
@@ -207,6 +207,35 @@ pub struct ResourceExecutionObservation {
     /// is not permission: resource.request rechecks the current admission chain.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub continuation: Option<crate::ResourceRequestInput>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<ProcessExecutionObservation>,
+}
+
+/// Projection of the existing bounded runner result, never a new execution owner.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProcessExecutionObservation {
+    pub observation_ref: String,
+    pub observed_at_unix_ms: u64,
+    pub status: ProcessExitStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<ProcessOutput>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProcessExitStatus {
+    pub exit_code: Option<i32>,
+    pub signal: Option<i32>,
+    pub timed_out: bool,
+    pub output_limit_exceeded: bool,
+    pub elapsed_ms: u64,
+    pub timeout_ms: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProcessOutput {
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_digest: String,
+    pub stderr_digest: String,
+    pub lossy_utf8: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -235,6 +264,17 @@ pub fn observe(
     participant_id: &str,
     operation_id: &str,
 ) -> Result<ResourceExecutionObservation, String> {
+    observe_with_output(store, authenticated, case_id, participant_id, operation_id, false)
+}
+
+pub fn observe_with_output(
+    store: &LmdbRecordStore,
+    authenticated: &AuthenticatedPrincipal,
+    case_id: &str,
+    participant_id: &str,
+    operation_id: &str,
+    include_output: bool,
+) -> Result<ResourceExecutionObservation, String> {
     let state = store.get_case_state_authorized(authenticated, case_id)?;
     if !state.principal_participant_links.iter().any(|link|
         link.principal_id == authenticated.projected_principal_id()
@@ -257,6 +297,7 @@ pub fn observe(
         .ok_or("resource_execution_not_visible")?)
         .map_err(|_| "resource_execution_not_visible")?;
     let mut posture = ResourceExecutionPosture::Admitted;
+    let mut process = None;
     for transition in &history {
         match &transition.payload {
             TransitionPayload::DecisionRecorded { decision }
@@ -279,6 +320,18 @@ pub fn observe(
                 if observation.operation_id == operation_id => {
                 store.validate_resource_result_reuse_authorized(authenticated, case_id,
                     operation_id, &observation.decision_id)?;
+                if observation.kind == yai_core_engine::effect::access::AccessKind::ProcessRun
+                    && observation.result.get("profile").and_then(Value::as_str)
+                        == Some(yai_core_engine::effect::access::PROCESS_EFFECT_BACKEND) {
+                    process = Some(ProcessExecutionObservation {
+                        observation_ref: observation.observation_id.clone(),
+                        observed_at_unix_ms: observation.observed_at_unix_ms,
+                        status: serde_json::from_value(observation.result.clone())
+                            .map_err(|_| "resource_execution_result_invalid")?,
+                        output: if include_output { Some(serde_json::from_value(observation.result.clone())
+                            .map_err(|_| "resource_execution_result_invalid")?) } else { None },
+                    });
+                }
                 posture = ResourceExecutionPosture::EffectRecorded {
                     result_ref: observation.observation_id.clone(),
                     receipt_ref: receipt.receipt_id.clone(),
@@ -331,7 +384,7 @@ pub fn observe(
         }
     } else { None };
     Ok(ResourceExecutionObservation { operation_ref: operation_id.into(), case_ref: case_id.into(),
-        participant_ref: participant_id.into(), generation: state.generation, posture, continuation })
+        participant_ref: participant_id.into(), generation: state.generation, posture, continuation, process })
 }
 
 /// Product attachment composes local resolution and the immutable canonical
