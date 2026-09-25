@@ -8,11 +8,11 @@ import { ExecutionContext } from "./ExecutionContext";
 
 const NarrativeText = lazy(() => import("./NarrativeText"));
 
-export function OverviewNarrative(props: { workspace: CasePresentation; platform: PlatformServices; configure(): void; inspect(ref: string): void }) {
+export function OverviewNarrative(props: { workspace: CasePresentation; platform: PlatformServices; configure(): void; openWorkingState(): void; inspect(ref: string): void }) {
   return <Narrative key={`${props.workspace.case.case_ref}:${props.workspace.case.participant_ref}`} {...props}/>;
 }
 
-function Narrative({ workspace, platform, configure, inspect }: { workspace: CasePresentation; platform: PlatformServices; configure(): void; inspect(ref: string): void }) {
+function Narrative({ workspace, platform, configure, openWorkingState, inspect }: { workspace: CasePresentation; platform: PlatformServices; configure(): void; openWorkingState(): void; inspect(ref: string): void }) {
   const app = platform.application;
   const availability = useApplicationAvailability(app);
   const {case_ref, participant_ref, generation} = workspace.case;
@@ -32,7 +32,8 @@ function Narrative({ workspace, platform, configure, inspect }: { workspace: Cas
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const supported = app?.supports("conversation.send") && app.supports("execution.get");
   const assigned = workspace.compute.targets.length > 0 && workspace.compute.cognitive_bindings?.some(binding => binding.participant_id === participant_ref && binding.role === "primary");
-  const canGenerate = supported && assigned && workspace.case.case_status === "open";
+  const modelContextAdmitted = workspace.overview.participants.find(item => item.id === participant_ref && item.is_current)?.model_context_admitted;
+  const canGenerate = supported && assigned && workspace.case.case_status === "open" && modelContextAdmitted === true;
   // Restored requests are observed through current authority; model text is never cached locally.
   useEffect(() => {
     setResult(undefined);
@@ -77,6 +78,7 @@ function Narrative({ workspace, platform, configure, inspect }: { workspace: Cas
     <header><div><small>Model interpretation · not operational authority</small><h2>The story of this Case</h2></div>{result && <Badge>{result.posture.replaceAll("_", " ")}</Badge>}</header>
     {!result && <p>Generate a grounded explanation of the purpose, history, workflow, evidence and remaining obstacles. The request uses the Case’s governed Conversation path and is retained in its history.</p>}
     {!assigned && <p>A primary conversation model must be bound before generating the explanation. <button className="object-link" onClick={configure}>Configure in Compute</button></p>}
+    {assigned && modelContextAdmitted !== true && <p>Model context needs admission before YAI can share Case evidence with the model. <button type="button" className="object-link" onClick={openWorkingState}>Open Working State</button></p>}
     {!supported && <p className="surface-note">{app?.reason("conversation.send") ?? "Native YAI Host required."}</p>}
     {result && <div className="narrative-text">{result.primary_result ? <Suspense fallback={<p>Rendering explanation…</p>}><NarrativeText text={result.primary_result.output} inspect={inspect} references={[workspace.case.case_ref, ...workspace.environment.sources.map(item => item.id), ...workspace.environment.resources.map(item => item.id), ...workspace.environment.files.map(item => item.id), ...workspace.knowledge.units.map(item => item.id), ...workspace.authority.policies.map(item => item.id), ...workspace.work.nodes.map(item => item.node_id), ...workspace.memory.timeline.map(item => item.id)]}/></Suspense> : conversationExecutionMessage(result)}</div>}
     {result?.primary_result && <p className="surface-note">Response observed {observed ? new Date(observed).toLocaleString() : "now"}. Verify its claims against the cited evidence.{request && generation !== request.expected_generation ? " The Case has changed since this request, including its execution history; this explanation is not a live snapshot." : ""}</p>}

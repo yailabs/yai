@@ -1734,8 +1734,11 @@ prompts and recent changes. These sections render authoritative projections with
 requiring a model. Main product headings/status do not display the technical
 Generation counter; exact cuts remain available in technical evidence.
 
-With a qualified primary conversation model bound, **Generate explanation** sends
-an explicit governed request for a readable Case story. It creates retained
+With a qualified primary conversation model bound, confirm **Generate explanation**
+stays unavailable until the current Participant's model-context view is explicitly
+admitted. Use **Open Working State** from Overview, admit the view there and return;
+the button becomes available without sending a request during admission. It then
+sends an explicit governed request for a readable Case story. It creates retained
 Conversation/execution history; opening Overview alone does not send anything.
 Inspect its context/evidence, follow disclosed object links, leave and reopen the
 tab: the existing result must be observed without another inference. Conversation

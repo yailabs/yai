@@ -89,7 +89,7 @@ function FileTree({ nodes, workspace, selection, open, inspect, depth }: { nodes
 
 export function PerspectiveSurface({ workspace, input, actions, selection, platform }: SurfaceRendererProps) {
   const perspective = (input.viewId ?? "Overview") as Perspective;
-  if (perspective === "Overview") return <Overview workspace={workspace} platform={platform} inspect={actions.inspect} navigate={actions.openPerspective} />;
+  if (perspective === "Overview") return <Overview workspace={workspace} platform={platform} inspect={actions.inspect} navigate={actions.openPerspective} openWorkingState={() => actions.openSurface(memoryInput("workingState"))} />;
   if (perspective === "Environment") return <Environment platform={platform} workspace={workspace} inspect={actions.inspect} openSurface={actions.openSurface} />;
   if (perspective === "Knowledge") return <Knowledge platform={platform} actions={actions} key={workspace.case.case_ref} selected={selection} workspace={workspace} inspect={actions.inspect} openSurface={actions.openSurface} />;
   if (perspective === "Memory") return <Memory workspace={workspace} openSurface={actions.openSurface} />;

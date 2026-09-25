@@ -1426,7 +1426,11 @@ Overview composes current qualified Case facts, Workflow prompts, Source links a
 recent committed history. Its separately requested model explanation uses the
 existing `conversation.send` and `execution.get` operations. It persists the exact
 submission envelope before dispatch, observes on reopen and never automatically
-regenerates or redispatches. Candidate text is not authority. Its Markdown supports
+regenerates or redispatches. Like Conversation, generation requires the current
+Participant's explicitly admitted `model_context` view; an absent projection
+blocks it and links to Working State for the owner-checked admission. Reading an
+already retained explanation remains separately authorized. Candidate text is not
+authority. Its Markdown supports
 readable structure; links can inspect only refs disclosed in the current Case
 projection, with no remote images or external navigation. A changed Case cut is
 explicitly distinguished from the retained explanation.

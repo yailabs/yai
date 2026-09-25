@@ -6,7 +6,7 @@ import type { CasePresentation } from "../../clients/dataSource";
 import { Icon } from "../../components/Icon";
 import { Badge, Button, EmptyState, PanelHeader } from "../../components/primitives";
 
-export function OverviewSurface({ workspace: w, inspect, navigate, platform }: { platform?: PlatformServices; workspace: CasePresentation; inspect: (id: string) => void; navigate: (id: string) => void }) {
+export function OverviewSurface({ workspace: w, inspect, navigate, openWorkingState, platform }: { platform?: PlatformServices; workspace: CasePresentation; inspect: (id: string) => void; navigate: (id: string) => void; openWorkingState: () => void }) {
   const identity = useId();
   const sections = ["Situation", "Workflow", "Sources", "Recent changes"] as const;
   type Section = typeof sections[number];
@@ -45,7 +45,7 @@ export function OverviewSurface({ workspace: w, inspect, navigate, platform }: {
       </dl>
       <p className="surface-note">Current projected facts. Resource attachment is not live availability; a model binding is not proof of readiness.</p>
     </section>
-    {platform && <OverviewNarrative workspace={w} platform={platform} inspect={inspect} configure={() => navigate("Compute")}/>}
+    {platform && <OverviewNarrative workspace={w} platform={platform} inspect={inspect} configure={() => navigate("Compute")} openWorkingState={openWorkingState}/>}
     {w.overview.attention.length > 0 && <section className="overview-attention" aria-label="Needs attention"><h2>Needs attention</h2>
       {w.overview.attention.map((item, index) => <button className="overview-attention-row" key={`${item.ref ?? item.kind}:${index}`} onClick={() => item.ref ? inspect(item.ref) : navigate(item.kind === "provider" ? "Compute" : item.kind === "review" ? "Authority" : "Work")}><Icon name="warning" size={16}/><span><strong>{item.title}</strong><small>{item.detail}</small></span><Icon name="chevron" size={13}/></button>)}
     </section>}
