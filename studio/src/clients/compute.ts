@@ -41,12 +41,34 @@ export interface CognitiveBindingInput { case_ref: string; participant_ref: stri
 
 export interface ProviderConnectionModelsInput { tenant_id: string; endpoint: string; locality: ProviderRegistration["locality"]; credential_ref: string }
 export type ProviderModelsInput = ProviderConnectionModelsInput | { tenant_id: string; target_ref: string };
-export interface ProviderModels { target_ref?: string | null; observed_at_unix_ms?: number; models: string[]; scope: "currently_exposed"; authority: "provider_metadata_only" }
+export interface ProviderModels { target_ref?: string | null; observed_at_unix_ms?: number; models: string[]; capacity?: ProviderCatalogCapacity | null; scope: "currently_exposed"; authority: "provider_metadata_only" }
+
+/** A dated public catalog claim for one exact deployment; not a reservation,
+ * successful request or proof that the engine remains resident. */
+export interface ProviderCatalogCapacity {
+  public_contract: "yvex.openai.compat.v3"; observation_kind: "public_model_catalog";
+  model_id: string; engine_generation: number;
+  runtime_binding_identity: string; runtime_model_identity: string; capacity_plan_identity: string;
+  input_capacity_tokens: number; sequence_capacity_tokens: number; http_body_limit_bytes: number;
+  resource_reservation: false; execution_or_resources_qualified: false;
+}
+export function readProviderCatalogCapacity(value: unknown, models: string[]): ProviderCatalogCapacity | undefined {
+  if (!value || typeof value !== "object") return;
+  const item = value as Record<string, unknown>;
+  if (item.public_contract !== "yvex.openai.compat.v3" || item.observation_kind !== "public_model_catalog"
+    || typeof item.model_id !== "string" || !models.includes(item.model_id)
+    || item.resource_reservation !== false || item.execution_or_resources_qualified !== false) return;
+  if (![item.engine_generation, item.input_capacity_tokens, item.sequence_capacity_tokens, item.http_body_limit_bytes]
+    .every(number => Number.isSafeInteger(number) && (number as number) > 0)) return;
+  if (![item.runtime_binding_identity, item.runtime_model_identity, item.capacity_plan_identity]
+    .every(identity => typeof identity === "string" && identity.length > 0 && identity.length <= 256)) return;
+  return item as unknown as ProviderCatalogCapacity;
+}
 
 /** Window-local, timestamped catalog metadata. Host loss invalidates it. */
 export type ProviderCatalogObservation =
   | { state: "checking" }
-  | { state: "observed"; models: string[]; at: number }
+  | { state: "observed"; models: string[]; at: number; capacity?: ProviderCatalogCapacity }
   | { state: "unavailable"; reason: string; empty: boolean };
 export function providerCatalogKey(tenant: string, target: string): string {
   return JSON.stringify([tenant, target]);

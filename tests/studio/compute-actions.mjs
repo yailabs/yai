@@ -373,6 +373,31 @@ try {
  await page.locator('.live-rail').getByRole('button',{name:'YVEX',exact:true}).click();
  await page.getByRole('heading',{name:'Select a deployment',exact:true}).waitFor();
  assert.equal(await page.locator('.compute-target').count(),0,'Generic target is not claimed as YVEX-compatible');
+ const yvexTarget=await accepted('provider.register',{tenant_id:'tenant:studio-ui',provider_key:'controlled-yvex',
+   adapter:'open_ai_compatible',endpoint,model_id:'controlled-yvex-model',credential_ref:'none',locality:'loopback',extension_adapter_id:'yvex.http.v1'});
+ catalogModels=[{id:'controlled-yvex-model',yvex_profile:'yvex.openai.compat.v3',engine_generation:2,
+   runtime_binding_identity:'binding:controlled',runtime_model_identity:'runtime:controlled',capacity_plan_identity:'capacity:controlled',
+   yvex_capacity:{schema:'yvex.execution.capacity.v1',input_accounting:'exact_tokenizer_including_template_and_tools',
+     resource_reservation:false,http_body_bytes:1048576,runtime_input_tokens:32768,runtime_sequence_tokens:32768}}];
+ await page.getByRole('button',{name:'Refresh inventory',exact:true}).click();
+ await page.getByRole('heading',{name:'controlled-yvex',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.locator('.deployment-capacity').getByText('32,768').first().waitFor();
+ const capacityRead=exchanges.findLast(x=>x.request.operation_ref==='provider.models' && x.request.input.target_ref===yvexTarget.target_id);
+ assert.equal(capacityRead.result.data.capacity.input_capacity_tokens,32768);
+ assert.equal(capacityRead.result.data.capacity.execution_or_resources_qualified,false);
+ assert.match(await page.locator('.deployment-model-observation').innerText(),/does not reserve capacity/);
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+   await page.setViewportSize({width,height});
+   await page.screenshot({path:`${evidence}/yvex-capacity-${width}x${height}.png`});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ }
+ await page.setViewportSize({width:1440,height:900});
+ catalogModels[0].yvex_capacity.input_accounting='unknown';
+ await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.locator('.deployment-model-observation').getByRole('alert').waitFor();
+ assert.equal(await page.locator('.deployment-capacity').count(),0,'Invalid optional capacity must clear the prior observation');
+ catalogModels[0].yvex_capacity.input_accounting='exact_tokenizer_including_template_and_tools';
  await page.locator('.live-rail').getByRole('button',{name:'Compute',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===1);
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.view.customizeRail'));
@@ -393,6 +418,6 @@ try {
  assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
  await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','YVEX exact public capacity is visible; malformed contract clears stale capacity','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

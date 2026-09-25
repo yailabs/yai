@@ -200,8 +200,11 @@ regenerate its human matrix. Never infer authority from discoverability.
 Current published `models2@dabbc09dacf500684b60a3ae8675956a016436b9`
 adds load-only text context selection (`--ctx`, native `load_context_capacity`)
 with protocol v22. Compiled model/resource admission remains YVEX-owned; this
-neither resizes an existing generation nor expands remote management. Posture:
-**partially consumable** through existing generic capacity observation, native
+neither resizes an existing generation nor expands remote management. A registered
+compatibility target's authorized `provider.models` read now projects the exact
+public HTTP v3 catalog input/sequence capacity into Studio as dated metadata;
+it is not a residency, reservation or execution claim. Posture:
+**partially consumable** through generic preflight and this catalog projection; native
 load control still blocked on the shared management contract. Running 4K evidence
 is not relabeled as a larger-context result. The registry now has 172 entries,
 158 non-removed, including the remote bootstrap additions; this is inventory,

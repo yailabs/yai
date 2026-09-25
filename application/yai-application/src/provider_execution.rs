@@ -1447,6 +1447,24 @@ pub fn discover_provider_models(
     credential_ref: &str,
     credential: impl Fn(&str) -> Option<String>,
 ) -> Result<Vec<String>, String> {
+    Ok(discover_provider_catalog(endpoint, locality, credential_ref, None, credential)?.models)
+}
+
+/// Public metadata only. Capacity is projected only for the exact selected
+/// model of a registered compatibility target, never inferred for a generic
+/// OpenAI-compatible provider or treated as a reservation/health claim.
+pub struct DiscoveredProviderCatalog {
+    pub models: Vec<String>,
+    pub capacity: Option<yai_core_engine::context::ProviderCapacityObservation>,
+}
+
+pub fn discover_provider_catalog(
+    endpoint: &str,
+    locality: &yai_core_engine::provider_governance::ProviderLocality,
+    credential_ref: &str,
+    selected_compat_model: Option<&str>,
+    credential: impl Fn(&str) -> Option<String>,
+) -> Result<DiscoveredProviderCatalog, String> {
     let endpoint =
         yai_core_engine::provider_governance::normalize_provider_endpoint(endpoint, locality)?;
     let endpoint = crate::provider_transport::parse_provider_endpoint(&endpoint)?;
@@ -1481,7 +1499,15 @@ pub fn discover_provider_models(
             public_error_code(&response.body)
         ));
     }
-    catalog_models(&response.body)
+    let models = catalog_models(&response.body)?;
+    let capacity = if let Some(model) = selected_compat_model.filter(|model| models.iter().any(|id| id == model)) {
+        let value = strict_json(&response.body).map_err(|_| "provider_catalog_invalid")?;
+        let row = value["data"].as_array().ok_or("provider_catalog_invalid")?
+            .iter().find(|row| row["id"] == model).ok_or("provider_catalog_invalid")?;
+        (row["yvex_profile"] == "yvex.openai.compat.v3")
+            .then(|| preflight::advertised(row, model)).transpose()?
+    } else { None };
+    Ok(DiscoveredProviderCatalog { models, capacity })
 }
 
 pub fn catalog_models(body: &[u8]) -> Result<Vec<String>, String> {

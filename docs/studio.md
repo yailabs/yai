@@ -32,6 +32,12 @@ Compute projects the current Case's bound capability and cognitive assignments.
 The YVEX platform view lists compatible deployments using qualified extension
 metadata, which is not proof of producer identity or native management support.
 Public management, inventory and generic inference remain distinct contracts.
+For an authorized registered `yvex.http.v1` target, `provider.models` can also
+project the exact model's validated public HTTP v3 catalog capacity. Studio dates
+that observation and shows input/sequence token limits alongside the exposed
+model. The catalog read neither reserves resources nor proves current residency,
+health, request fit or a successful generation. Generic OpenAI-compatible
+connections retain model-name discovery without a YVEX capacity claim.
 
 Workbench renderers declare Material, Product or Canvas presentation archetypes
 independently of their interaction roles. The rail contribution metadata keeps

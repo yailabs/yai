@@ -865,6 +865,11 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .deployment-content dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .deployment-health small, .deployment-content code { display: block; color: var(--yai-text-muted); font-size: 10px; margin-top: 8px; overflow-wrap: anywhere; }
 .deployment-model > strong { display: block; overflow-wrap: anywhere; font-size: 12px; margin-top: 12px; font-weight: 500; }
+.deployment-capacity { display: flex; flex-wrap: wrap; gap: 0 22px; padding: 12px 0; margin: 12px 0; border-block: 1px solid var(--yai-divider); }
+.deployment-capacity > div { display: grid; gap: 4px; min-width: 120px; }
+.deployment-capacity strong { color: var(--yai-text); font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.deployment-capacity span { color: var(--yai-text-muted); font-size: 10px; }
+.deployment-model-observation > small { display: block; margin-top: 6px; color: var(--yai-text-muted); font-size: 10px; line-height: 1.5; }
 .deployment-capabilities { list-style: none; padding: 0; }
 .deployment-capabilities li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 12px; border-bottom: 1px solid var(--yai-divider); }
 .deployment-capabilities span { color: var(--yai-text-muted); }

@@ -1,6 +1,6 @@
 import type { ProviderProbeInput } from "./compute";
 import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
-import { providerCatalogKey, type ProviderCatalogObservation, type ProviderModelsInput } from "./compute";
+import { providerCatalogKey, readProviderCatalogCapacity, type ProviderCatalogObservation, type ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
 import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput } from "./cognitive";
@@ -172,7 +172,10 @@ export class ApplicationAccess implements Disposable {
         if (result.result_state === "success" && data?.target_ref === input.target_ref
           && Array.isArray(data.models) && data.models.every(model => typeof model === "string")
           && typeof data.observed_at_unix_ms === "number" && Number.isSafeInteger(data.observed_at_unix_ms)) {
-          publish({ state: "observed", models: data.models, at: data.observed_at_unix_ms });
+          const capacity = data.capacity == null ? undefined : readProviderCatalogCapacity(data.capacity, data.models);
+          if (data.capacity != null && !capacity) publish({ state: "unavailable", empty: false,
+            reason: "The Host returned mismatched catalog capacity identity. Observation withheld." });
+          else publish({ state: "observed", models: data.models, at: data.observed_at_unix_ms, capacity });
         } else publish({ state: "unavailable", empty: result.error?.code.startsWith("provider_catalog_empty") ?? false,
           reason: result.error?.safe_message ?? "The Host returned no matching timestamped target catalog." });
       }

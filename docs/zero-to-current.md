@@ -41,6 +41,13 @@ Providers must show authorized Tenant deployments even before Case binding;
 Compute must show only the Case's bound targets. Inspect an unbound target and
 verify the Inspector does not substitute Settings or unrelated Case metadata.
 YVEX compatibility metadata must not imply acquisition/loading controls exist.
+For a registered YVEX-compatible target, open YVEX → Runtime and check its
+exposed model. If the producer publishes the exact HTTP v3 capacity record,
+Studio must display its input and sequence token limits with the observation
+time and engine generation. A malformed capacity record must show an error and
+clear the previous observation. This is catalog metadata, not a claim that the
+model is still loaded or that the next Case request will fit. A generic target
+must not acquire a YVEX capacity label from model-name discovery alone.
 The shared provider qualification carrier now retains an exact synthetic probe
 submission before HTTP. CLI `provider qualify TARGET --submission-ref REF` can
 repeat the same input to observe the retained result without another probe;

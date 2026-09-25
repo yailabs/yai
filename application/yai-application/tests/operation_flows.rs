@@ -1601,7 +1601,8 @@ fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_c
     let mut wrong_locality = input.clone(); wrong_locality["locality"] = json!("remote");
     assert_ne!(f.call("provider.models", wrong_locality).result_state, ResultState::Success);
     let target = f.success("provider.register", json!({"tenant_id":"tenant:audit", "provider_key":"catalog-target",
-        "adapter":"open_ai_compatible", "endpoint":endpoint, "model_id":"qualified-model-a", "credential_ref":"none", "locality":"loopback"}));
+        "adapter":"open_ai_compatible", "endpoint":endpoint, "model_id":"qualified-model-a", "credential_ref":"none",
+        "locality":"loopback", "extension_adapter_id":"yvex.http.v1"}));
     for denied in [
         json!({"tenant_id":"tenant:hidden","target_ref":target["target_id"]}),
         json!({"tenant_id":"tenant:audit","target_ref":"provider-target:missing"}),
@@ -1609,25 +1610,39 @@ fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_c
     ] { let result=f.call("provider.models",denied); assert_ne!(result.result_state,ResultState::Success); assert!(result.data.is_none()); }
     let generation = f.generation();
     let peer = std::thread::spawn(move || {
-        for _ in 0..2 {
+        for attempt in 0..3 {
         let (mut stream, _) = listener.accept().unwrap();
         stream.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
         let mut reader = BufReader::new(stream.try_clone().unwrap());
         let mut line = String::new();reader.read_line(&mut line).unwrap();
         assert!(line.starts_with("GET /v1/models "));
         loop { line.clear();reader.read_line(&mut line).unwrap();if line == "\r\n" { break } }
-        let body = r#"{"data":[{"id":"qualified-model-a"}]}"#;
+        let body = if attempt == 2 {
+            r#"{"data":[{"id":"qualified-model-a","yvex_profile":"yvex.openai.compat.v3","engine_generation":2,"runtime_binding_identity":"binding:one","runtime_model_identity":"runtime:one","capacity_plan_identity":"capacity:one","yvex_capacity":{"schema":"yvex.execution.capacity.v1","input_accounting":"unknown","resource_reservation":false,"http_body_bytes":1048576,"runtime_input_tokens":32768,"runtime_sequence_tokens":32768}}]}"#
+        } else {
+            r#"{"data":[{"id":"qualified-model-a","yvex_profile":"yvex.openai.compat.v3","engine_generation":2,"runtime_binding_identity":"binding:one","runtime_model_identity":"runtime:one","capacity_plan_identity":"capacity:one","yvex_capacity":{"schema":"yvex.execution.capacity.v1","input_accounting":"exact_tokenizer_including_template_and_tools","resource_reservation":false,"http_body_bytes":1048576,"runtime_input_tokens":32768,"runtime_sequence_tokens":32768}}]}"#
+        };
         write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
         }
     });
     let result = f.success("provider.models", input);
     let registered=f.success("provider.models",json!({"tenant_id":"tenant:audit","target_ref":target["target_id"]}));
     assert_eq!(registered["models"],result["models"]);
+    assert!(result["capacity"].is_null(), "An ad hoc connection has no registered compatibility posture");
+    assert_eq!(registered["capacity"]["model_id"], "qualified-model-a");
+    assert_eq!(registered["capacity"]["observation_kind"], "public_model_catalog");
+    assert_eq!(registered["capacity"]["engine_generation"], 2);
+    assert_eq!(registered["capacity"]["input_capacity_tokens"], 32768);
+    assert_eq!(registered["capacity"]["sequence_capacity_tokens"], 32768);
+    assert_eq!(registered["capacity"]["execution_or_resources_qualified"], false);
     assert_eq!(registered["target_ref"],target["target_id"]);
     assert!(registered["observed_at_unix_ms"].as_u64().unwrap()>0);
-    peer.join().unwrap();
     assert_eq!(result["models"],json!(["qualified-model-a"]));
     assert_eq!(result["authority"],"provider_metadata_only");
+    let malformed = f.call("provider.models", json!({"tenant_id":"tenant:audit","target_ref":target["target_id"]}));
+    assert_ne!(malformed.result_state, ResultState::Success);
+    assert!(malformed.data.is_none(), "Invalid capacity metadata must not be projected");
+    peer.join().unwrap();
     assert_eq!(f.generation(),generation);
     assert!(f.success("case.summary",json!({"case_ref":"case:audit"}))["compute"]["targets"].as_array().unwrap().is_empty());
 }

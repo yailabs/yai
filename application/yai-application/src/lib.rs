@@ -2140,21 +2140,26 @@ impl LocalApplication {
             }
             "provider.models" => {
                 let input: ProviderModelDiscoveryInput = decode_input(request)?;
-                let (connection, target_ref) = match input {
-                    ProviderModelDiscoveryInput::Connection(input) => (input, None),
+                let (connection, target_ref, selected_compat_model) = match input {
+                    ProviderModelDiscoveryInput::Connection(input) => (input, None, None),
                     ProviderModelDiscoveryInput::Registered(input) => {
                         store.resolve_security_context(&auth, &input.tenant_id)?.require_owner()?;
                         let target = store.list_provider_targets_authorized(&auth, &input.tenant_id)?
                             .into_iter().find(|target| target.target_id == input.target_ref)
                             .ok_or("provider_target_not_found")?;
+                        let selected_compat_model = (target.extension_adapter_id.as_deref() == Some("yvex.http.v1"))
+                            .then_some(target.model_id);
                         (ProviderModelsInput { tenant_id: input.tenant_id, endpoint: target.endpoint,
-                            locality: target.locality, credential_ref: target.credential_ref }, Some(input.target_ref))
+                            locality: target.locality, credential_ref: target.credential_ref }, Some(input.target_ref), selected_compat_model)
                     }
                 };
                 store.resolve_security_context(&auth, &connection.tenant_id)?.require_owner()?;
-                let models = provider_execution::discover_provider_models(&connection.endpoint, &connection.locality,
-                    &connection.credential_ref, |key| provider_execution::credential_from_profile(&self.home_path, key))?;
-                encode_result("provider_models", json!({ "models": models, "scope": "currently_exposed", "authority": "provider_metadata_only", "target_ref":target_ref, "observed_at_unix_ms":now_unix_ms()? }))
+                let catalog = provider_execution::discover_provider_catalog(&connection.endpoint, &connection.locality,
+                    &connection.credential_ref, selected_compat_model.as_deref(),
+                    |key| provider_execution::credential_from_profile(&self.home_path, key))?;
+                encode_result("provider_models", json!({ "models": catalog.models, "capacity": catalog.capacity,
+                    "scope": "currently_exposed", "authority": "provider_metadata_only", "target_ref":target_ref,
+                    "observed_at_unix_ms":now_unix_ms()? }))
             }
             "provider.register" => {
                 let input: ProviderRegisterInput = decode_input(request)?;

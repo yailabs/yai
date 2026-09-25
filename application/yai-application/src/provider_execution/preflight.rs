@@ -22,7 +22,7 @@ fn boolean(value: &Value, key: &str) -> Result<bool, String> {
     value[key].as_bool().ok_or_else(|| format!("capacity_field_invalid:{key}"))
 }
 
-fn advertised(row: &Value, model: &str) -> Result<ProviderCapacityObservation, String> {
+pub(super) fn advertised(row: &Value, model: &str) -> Result<ProviderCapacityObservation, String> {
     let limits = &row["yvex_capacity"];
     if row["yvex_profile"] != "yvex.openai.compat.v3"
         || limits["schema"] != "yvex.execution.capacity.v1"
