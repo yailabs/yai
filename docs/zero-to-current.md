@@ -41,6 +41,14 @@ Providers must show authorized Tenant deployments even before Case binding;
 Compute must show only the Case's bound targets. Inspect an unbound target and
 verify the Inspector does not substitute Settings or unrelated Case metadata.
 YVEX compatibility metadata must not imply acquisition/loading controls exist.
+The shared provider qualification carrier now retains an exact synthetic probe
+submission before HTTP. CLI `provider qualify TARGET --submission-ref REF` can
+repeat the same input to observe the retained result without another probe;
+`provider.probe` / `provider.probe.get` expose the equivalent typed boundary.
+It does not send Case material, approve trust or bind a target. An interrupted
+run stays interrupted, and credential rotation prevents stale qualification.
+The authored Studio start/observe interaction remains pending qualification;
+manual evidence import is still the currently qualified Studio action.
 Open Manage → Customize Activity Rail: core YAI and first-party platform entries
 are fixed; eligible additional contributions support pin/unpin, ordering and
 Restore defaults. Preferences survive reopening without changing Case history.

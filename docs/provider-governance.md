@@ -91,6 +91,30 @@ After cooldown, one exact boot-ID/PID/process-start identity owns the half-open
 probe; live ownership excludes concurrent probes and dead ownership is
 reclaimable. Provider/model text cannot write health.
 
+Synthetic probes have an exact retained submission in this same Tenant owner.
+`provider.probe` admits bounded synthetic work; `provider.probe.get` observes it
+under current Owner authority. The CLI qualification and onboarding adapters
+reuse this carrier. Admission and the existing probe lease commit before HTTP;
+an identical submission observes its existing run, while different input under
+the same identity refuses. Reopening an interrupted submission never dispatches
+it again. This operational record is not a Case Turn or Transition.
+
+Measured evidence and optional qualification commit together. Credential rotation
+during a run retains the measurement with `provider_probe_credentials_changed`
+and does not qualify the new credential revision. Trust and Case binding remain
+separate actions. Retention is bounded to 64 runs per target and 4096 per profile;
+reaching either limit refuses a new submission without network activity. The
+current contract provides no destructive cleanup of these retained identities.
+Studio consumption of this new start/observe pair is not yet qualified.
+
+The shared probe reuses the current Rust CLI's exact response validation and
+correlated function roundtrip. Catalog membership alone cannot establish exact
+response identity: text and JSON probes reject missing or different response
+model identities. Historical `yai-dev` commit `dda93ee3a` used a C
+socket/curl probe and substring discovery in
+`src/runtime/provider/runtime_provider_lifecycle.c`; those weaker mechanisms and
+their lifecycle ownership are not recovered.
+
 The target stores a credential reference, never credential material. Rotating
 the secret behind the same reference records a non-secret monotonically
 ordered credential revision in the existing governance owner. It preserves the

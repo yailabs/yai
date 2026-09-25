@@ -3,6 +3,7 @@
 //! profile selection enter this reusable execution boundary.
 
 mod preflight;
+pub mod probes;
 
 /// Explicit-profile credential lookup for resident application carriers.
 /// Never search the Host's working directory: it is not the client's profile.

@@ -81,7 +81,14 @@ add_output=$("$YAI_BIN" provider add \
 TARGET_ID=$(awk '/target_id:/ {print $2}' <<<"$add_output")
 [[ "$TARGET_ID" == provider-target:* ]]
 
-qualification_before=$("$YAI_BIN" provider qualify --target "$TARGET_ID")
+qualification_before=$("$YAI_BIN" provider qualify --target "$TARGET_ID" --submission-ref probe:h18-exact)
+qualification_retry=$("$YAI_BIN" provider qualify --target "$TARGET_ID" --submission-ref probe:h18-exact)
+[[ "$(sed -n 's/^qualification_id: //p' <<<"$qualification_before")" == "$(sed -n 's/^qualification_id: //p' <<<"$qualification_retry")" ]]
+if "$YAI_BIN" provider probe --target "$TARGET_ID" --submission-ref probe:h18-exact >"$RUN_ROOT/conflict.out" 2>&1; then
+  printf 'probe_identity_conflict_was_accepted\n' >&2
+  exit 1
+fi
+grep -Fq 'provider_probe_submission_conflict' "$RUN_ROOT/conflict.out"
 "$YAI_BIN" provider trust approve --target "$TARGET_ID" >/dev/null
 rotation=$("$YAI_BIN" provider credential rotate "$TARGET_ID" --revision operator-rotation-1)
 grep -Fq 'credential_revision: 1' <<<"$rotation"

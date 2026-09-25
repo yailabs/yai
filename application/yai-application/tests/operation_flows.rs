@@ -1389,6 +1389,130 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
 }
 
 #[test]
+fn interrupted_provider_probe_is_observed_without_redispatch_after_reopen() {
+    use yai_core_engine::{provider_governance::ProviderProbeRequest, security::AuthenticatedPrincipal, store::lmdb::LmdbRecordStore};
+    let f = Fixture::new("interrupted-provider-probe");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let target = f.success("provider.register", json!({"tenant_id":"tenant:audit", "provider_key":"interrupted-probe",
+        "adapter":"open_ai_compatible", "endpoint":format!("http://{}", listener.local_addr().unwrap()),
+        "model_id":"probe-model", "credential_ref":"none", "locality":"loopback"}));
+    let target_id = target["target_id"].as_str().unwrap();
+    let auth = AuthenticatedPrincipal::authenticate_local().unwrap();
+    let store = LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+    // Admission committed, carrier never started: the crash boundary before first HTTP.
+    let (run, created) = store.begin_provider_probe_run_authorized(&auth, ProviderProbeRequest {
+        target_id:target_id.into(), submission_ref:"probe:interrupted".into(), embedding:false,
+        realization_shapes:vec![], qualify:false, valid_for_ms:None,
+    }).unwrap();
+    assert!(created); drop(store);
+    let before = f.generation();
+    let reconnected = LocalApplication::from_yai_home(&f.home);
+    for operation in ["provider.probe.get", "provider.probe"] {
+        let mut input = json!({"target_ref":target_id,"submission_ref":"probe:interrupted"});
+        if operation == "provider.probe" { input["embedding"] = json!(false); input["realization_shapes"] = json!([]); input["qualify"] = json!(false); }
+        let result = reconnected.call(OperationRequest { protocol:APPLICATION_PROTOCOL.into(), operation_ref:operation.into(),
+            correlation_ref:"test:interrupted-probe".into(), input });
+        assert_eq!(result.result_state, ResultState::Success, "{result:?}");
+        let result = result.data.unwrap(); assert_eq!(result["posture"], "interrupted");
+        assert_eq!(result["created"], false); assert_eq!(result["run"], serde_json::to_value(&run).unwrap());
+    }
+    assert!(listener.accept().is_err(), "observation must never dispatch an interrupted run");
+    assert_eq!(f.generation(), before);
+}
+
+#[test]
+fn provider_probe_dispatcher_retains_exact_retry_and_qualification_without_case_binding() {
+    qualify_probe_with_credential_rotation(false);
+}
+
+#[test]
+fn provider_probe_credential_rotation_refuses_stale_qualification_without_redispatch() {
+    qualify_probe_with_credential_rotation(true);
+}
+
+fn qualify_probe_with_credential_rotation(rotate: bool) {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::time::{Duration, Instant};
+    let f = Fixture::new("durable-provider-probe");
+    fs::write(f.home.join("env"), "YAI_DISPOSABLE_PROBE_CREDENTIAL=synthetic-test-only\n").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let target = f.success("provider.register", json!({"tenant_id":"tenant:audit", "provider_key":"durable-probe",
+        "adapter":"open_ai_compatible", "endpoint":endpoint, "model_id":"probe-model", "credential_ref":if rotate { "env:YAI_DISPOSABLE_PROBE_CREDENTIAL" } else { "none" }, "locality":"loopback"}));
+    let before = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    let input = json!({"target_ref":target["target_id"],"submission_ref":"probe:retained", "embedding":true,"realization_shapes":[],"qualify":true});
+    let (entered, received) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let peer = std::thread::spawn(move || {
+        for index in 0..2 {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut line = String::new(); reader.read_line(&mut line).unwrap();
+            assert!(line.starts_with(if index == 0 { "GET /v1/models " } else { "POST /v1/embeddings " }));
+            let mut length = 0;
+            loop { line.clear(); reader.read_line(&mut line).unwrap(); if line == "\r\n" { break; }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") { length = value.trim().parse::<usize>().unwrap(); }
+            }
+            let mut body = vec![0; length]; reader.read_exact(&mut body).unwrap();
+            if index == 0 { entered.send(()).unwrap(); released.recv_timeout(Duration::from_secs(10)).unwrap(); }
+            else { let body: Value = serde_json::from_slice(&body).unwrap(); assert_eq!(body["model"], "probe-model");
+                assert_eq!(body["input"], json!(["Synthetic YAI embedding contract probe. No Case data."])); }
+            let body = if index == 0 { r#"{"data":[{"id":"probe-model"}]}"# }
+                else { r#"{"model":"probe-model","data":[{"index":0,"embedding":[0.25,0.5]}],"usage":{"prompt_tokens":3,"total_tokens":3}}"# };
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+        }
+        listener.set_nonblocking(true).unwrap();
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(listener.accept().is_err(), "exact retry dispatched a duplicate probe");
+    });
+    let accepted = f.success("provider.probe", input.clone());
+    assert_eq!(accepted["created"], true);
+    received.recv_timeout(Duration::from_secs(10)).unwrap();
+    // Lose the first acknowledgement and reconnect while the carrier is busy.
+    let reconnected = LocalApplication::from_yai_home(&f.home);
+    let retry = reconnected.call(OperationRequest { protocol:APPLICATION_PROTOCOL.into(), operation_ref:"provider.probe".into(),
+        correlation_ref:"test:lost-probe-ack".into(), input:input.clone() });
+    assert_eq!(retry.result_state, ResultState::Success, "{retry:?}");
+    let retry = retry.data.unwrap(); assert_eq!(retry["created"], false); assert_eq!(retry["posture"], "running");
+    assert_eq!(retry["run"]["owner"], accepted["run"]["owner"]);
+    let mut conflict = input.clone(); conflict["qualify"] = json!(false);
+    let refused = f.call("provider.probe", conflict);
+    assert_ne!(refused.result_state, ResultState::Success); assert!(refused.data.is_none());
+    if rotate {
+        let auth = yai_core_engine::security::AuthenticatedPrincipal::authenticate_local().unwrap();
+        let store = yai_core_engine::store::lmdb::LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
+        store.rotate_provider_credential_authorized(&auth, target["target_id"].as_str().unwrap(), "revision:changed-during-probe").unwrap();
+    }
+    release.send(()).unwrap();
+    let get = json!({"target_ref":target["target_id"],"submission_ref":"probe:retained"});
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let result = loop {
+        let result = f.success("provider.probe.get", get.clone());
+        if result["posture"] != "running" { break result; }
+        assert!(Instant::now() < deadline); std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(result["posture"], if rotate { "failed" } else { "completed" }, "{result}");
+    assert_eq!(result["run"]["evidence"]["text_embedding_envelope_valid"], true);
+    assert_eq!(result["run"]["evidence"]["embedding_dimension"], 2);
+    if rotate {
+        assert_eq!(result["run"]["failure_code"], "provider_probe_credentials_changed");
+        assert!(result["run"]["qualification"].is_null());
+    } else { assert!(result["run"]["qualification"].is_object()); }
+    let retained = f.success("provider.probe", input); assert_eq!(retained["created"], false);
+    assert_eq!(retained["run"], result["run"]);
+    peer.join().unwrap();
+    let inventory = f.success("provider.inventory", json!({"tenant_id":"tenant:audit"}));
+    assert!(inventory["targets"][0]["posture"]["trust"].is_null(), "A probe must not approve administrative trust");
+    if rotate { assert!(inventory["targets"][0]["posture"]["qualification"].is_null()); }
+    assert_eq!(f.success("case.summary", json!({"case_ref":"case:audit"})), before);
+    let hidden = f.call("provider.probe.get", json!({"target_ref":"provider-target:hidden","submission_ref":"probe:retained"}));
+    assert_ne!(hidden.result_state, ResultState::Success); assert!(hidden.data.is_none());
+}
+
+#[test]
 fn provider_model_discovery_dispatcher_authorizes_before_network_and_preserves_case() {
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;

@@ -60,6 +60,8 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "policy.revoke": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/policy-intake.mjs" },
   "policy.validate": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/policy-intake.mjs" },
   "provider.case.bind": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
+  "provider.probe": { state: "debt", detail: "Typed durable synthetic qualification is available; authored start and retry interaction awaits product qualification." },
+  "provider.probe.get": { state: "debt", detail: "Current-owner observation of retained synthetic probe runs is available; Studio recovery interaction awaits product qualification." },
   "provider.qualify": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
   "provider.inventory": { state: "integrated", detail: "Tenant Providers inventory and unbound-target Inspector; Case bindings remain separate", proof: "tests/studio/compute-actions.mjs" },
   "provider.models": { state: "integrated", detail: "Explicit bounded model discovery during target setup", proof: "tests/studio/conversation-actions.mjs" },

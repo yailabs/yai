@@ -755,6 +755,35 @@ pub struct ProviderQualifyInput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ProviderProbeInput {
+    pub target_ref: String,
+    pub submission_ref: String,
+    pub embedding: bool,
+    pub realization_shapes: Vec<yai_core_engine::provider_governance::ProviderRealizationShape>,
+    pub qualify: bool,
+    #[serde(default)]
+    pub valid_for_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderProbeGetInput {
+    pub target_ref: String,
+    pub submission_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProviderProbeExecution {
+    pub schema: String,
+    pub target_ref: String,
+    pub submission_ref: String,
+    pub created: bool,
+    pub posture: String,
+    pub run: yai_core_engine::provider_governance::ProviderProbeRun,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderTrustInput {
     pub target_ref: String,
     pub posture: ProviderTrustPosture,
@@ -2135,6 +2164,20 @@ impl LocalApplication {
                     store.register_provider_target_authorized(&auth, target)?,
                 )
             }
+            "provider.probe" => {
+                let input: ProviderProbeInput = decode_input(request)?;
+                encode_result("provider_probe", provider_execution::probes::submit(&self.home_path, &store, &auth,
+                    yai_core_engine::provider_governance::ProviderProbeRequest {
+                        target_id: input.target_ref, submission_ref: input.submission_ref,
+                        embedding: input.embedding, realization_shapes: input.realization_shapes,
+                        qualify: input.qualify, valid_for_ms: input.valid_for_ms,
+                    })?)
+            }
+            "provider.probe.get" => {
+                let input: ProviderProbeGetInput = decode_input(request)?;
+                encode_result("provider_probe", provider_execution::probes::observe(&self.home_path, &store, &auth,
+                    &input.target_ref, &input.submission_ref, false)?)
+            }
             "provider.qualify" => {
                 let input: ProviderQualifyInput = decode_input(request)?;
                 encode_result(
@@ -3445,6 +3488,7 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
         (ResultState::Unauthorized,
             "This Participant is not admitted to inspect the Case capabilities.")
     } else if error == "historical_scope_unavailable"
+        || error == "provider_probe_submission_not_authorized"
         || error.contains("not_visible")
         || error.contains("authentication")
         || error.contains("principal")
@@ -3739,6 +3783,8 @@ mod tests {
         typed::<ProviderModelDiscoveryInput>();
         typed::<ProviderRegisterInput>();
         typed::<ProviderQualifyInput>();
+        typed::<ProviderProbeInput>();
+        typed::<ProviderProbeGetInput>();
         typed::<ProviderTrustInput>();
         typed::<ProviderSuitabilityRecordInput>();
         typed::<ProviderCaseBindInput>();

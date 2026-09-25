@@ -985,6 +985,94 @@ pub struct ProviderProbeOwner {
     pub started_at_unix_ms: u64,
 }
 
+/// Exact operational submission for synthetic qualification, not a Case Turn or
+/// permission to infer on Case material. Reusing a submission never dispatches.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderProbeRequest {
+    pub target_id: String,
+    pub submission_ref: String,
+    pub embedding: bool,
+    pub realization_shapes: Vec<ProviderRealizationShape>,
+    pub qualify: bool,
+    pub valid_for_ms: Option<u64>,
+}
+
+impl ProviderProbeRequest {
+    pub fn validate(&self) -> Result<(), String> {
+        require_identifier("provider_probe_target", &self.target_id, 256)?;
+        require_identifier("provider_probe_submission", &self.submission_ref, 256)?;
+        if self.realization_shapes.len() > 5
+            || self.realization_shapes.iter().collect::<BTreeSet<_>>().len() != self.realization_shapes.len()
+            || (self.embedding && !self.realization_shapes.is_empty())
+            || (!self.qualify && self.valid_for_ms.is_some())
+            || self.valid_for_ms == Some(0) {
+            return Err("provider_probe_request_invalid".into());
+        }
+        Ok(())
+    }
+
+    pub fn key(&self) -> String {
+        format!("probe-run:{}", digest_bytes(format!("{}\0{}", self.target_id, self.submission_ref).as_bytes()))
+    }
+}
+
+/// Retained operational evidence inside the existing Tenant provider owner.
+/// Neither completion nor an observed HTTP response changes administrative trust.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderProbeRun {
+    pub schema: String,
+    pub request: ProviderProbeRequest,
+    pub target_digest: String,
+    pub principal_id: String,
+    pub credential_revision: u64,
+    pub owner: ProviderProbeOwner,
+    pub evidence: Option<ProviderProbeEvidence>,
+    pub qualification: Option<ProviderQualification>,
+    pub failure_code: Option<String>,
+    pub integrity_digest: String,
+}
+
+impl ProviderProbeRun {
+    fn computed_digest(&self) -> Result<String, String> {
+        let mut value = self.clone();
+        value.integrity_digest.clear();
+        digest_of(&value, "provider_probe_run")
+    }
+
+    pub fn reseal(&mut self) -> Result<(), String> {
+        self.integrity_digest = self.computed_digest()?;
+        Ok(())
+    }
+
+    pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
+        self.request.validate()?;
+        if self.schema != "yai.provider_probe_run.v1"
+            || self.request.target_id != target.target_id
+            || self.target_digest != target.integrity_digest
+            || self.integrity_digest != self.computed_digest()?
+            || self.owner.pid == 0 || self.owner.process_start_ticks == 0
+            || self.owner.token != self.request.submission_ref {
+            return Err("provider_probe_run_integrity_invalid".into());
+        }
+        require_identifier("provider_probe_principal", &self.principal_id, 256)?;
+        if let Some(evidence) = &self.evidence {
+            evidence.validate()?;
+            if evidence.target_id != target.target_id || evidence.run_id != self.request.submission_ref {
+                return Err("provider_probe_run_evidence_mismatch".into());
+            }
+        }
+        if let Some(qualification) = &self.qualification {
+            qualification.validate(target)?;
+            if !self.request.qualify || self.evidence.as_ref() != Some(&qualification.evidence)
+                || qualification.credential_revision != self.credential_revision {
+                return Err("provider_probe_run_qualification_mismatch".into());
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Serialize)]
 struct ProviderHealthIdentity<'a> {
     schema: &'a str,

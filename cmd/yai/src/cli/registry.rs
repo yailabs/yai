@@ -478,12 +478,14 @@ const PROVIDER_REFERENCE: &[FlagSpec] = &[
 const PROVIDER_PROBE: &[FlagSpec] = &[
     flag("--tenant", Some("TENANT"), false),
     flag("--provider-key", Some("KEY"), false),
+    flag("--submission-ref", Some("REF"), false),
     bool_flag("--embedding"),
     repeat_flag("--realization-shape", "SHAPE"),
 ];
 const PROVIDER_QUALIFY: &[FlagSpec] = &[
     flag("--tenant", Some("TENANT"), false),
     flag("--provider-key", Some("KEY"), false),
+    flag("--submission-ref", Some("REF"), false),
     flag("--valid-for-ms", Some("MS"), false),
     bool_flag("--embedding"),
     repeat_flag("--realization-shape", "SHAPE"),

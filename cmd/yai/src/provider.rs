@@ -1272,8 +1272,7 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
 }
 
 pub(super) use yai_application::provider_execution::{ProviderConfig, SemanticInvocation, SemanticInvocationOptions,
-    ProviderTransportResult, ProviderUsageTelemetry, ProviderWireInputPart, NativeFunctionDefinition,
-    native_function_tools, decode_native_function_reply, append_openai_parts};
+    ProviderTransportResult, ProviderUsageTelemetry, ProviderWireInputPart};
 #[cfg(test)]
 use yai_application::provider_execution::{decode_provider_response, validate_provider_wire_parts, provider_http_request};
 struct PromptRuntime {
@@ -2890,7 +2889,7 @@ pub(super) fn terminal_context(args: &[String]) -> Result<(String, Option<String
 mod tests {
     #[test]
     fn native_function_candidates_are_bounded_typed_and_never_prose_authority() {
-        use super::{decode_native_function_reply, NativeFunctionDefinition};
+        use yai_application::provider_execution::{decode_native_function_reply, NativeFunctionDefinition};
         let definitions = [NativeFunctionDefinition {
             name: "bounded_read".into(),
             description: "candidate read".into(),
