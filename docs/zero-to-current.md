@@ -144,6 +144,10 @@ sent no Conversation Turn. Recent retained attempts still include
 identity and is not an automatic retry. The full Case observation remains local;
 the published evidence contains only the public catalog, identity profile and
 unedited command output.
+The separate [synthetic HTTP generation](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/synthetic-transport-manifest.json)
+returned HTTP 200 and 16 output tokens from the same exposed model without
+Case content. Its 12-token input does not qualify a full 32K prompt or the
+governed infrastructure question.
 
 The historical release-only opt-in `STUDIO_ENTERPRISE_WORKFLOW=1` mode of
 `tests/studio/operational-live.mjs` uses the authored Work forms to define/bind

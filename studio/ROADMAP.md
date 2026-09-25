@@ -245,6 +245,9 @@ primary target and model agree with the independently observed public catalog.
 This is `SEES` metadata evidence only. Recent retained Conversation attempts
 remain indeterminate or unresolved, and no successful infrastructure-Case
 DeepSeek answer follows from the 32K load.
+A [separate synthetic transport probe](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/synthetic-transport-manifest.json)
+returned HTTP 200 with a 12-token input and 16 output tokens; it proves small
+generation only. The governed infrastructure-Case result remains open.
 
 ### Case portfolio and machine qualification
 

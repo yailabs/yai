@@ -1,0 +1,21 @@
+{
+  "run_id": "deepseek-32k-synthetic-1790375450",
+  "evidence_class": "direct_transport_characterization",
+  "yai_sha": "ae9d2c6373edc5bc0a54bcbb8e7ee0b482945704",
+  "endpoint": "http://127.0.0.1:18001/v1/chat/completions",
+  "model": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "request": "One synthetic text prompt, no Case content, maximum 16 output tokens",
+  "result": {
+    "http_status": 200,
+    "completion_id": "chatcmpl-yvex-000000000004",
+    "prompt_tokens": 12,
+    "completion_tokens": 16,
+    "finish_reason": "length"
+  },
+  "unedited_command_stdout_stderr": "synthetic-transport-evidence.jsonl",
+  "limitations": [
+    "This proves that a small generation request returned tokens on the loaded deployment; output stopped at its 16-token limit. It does not prove that a 32K prompt fits or completes.",
+    "Direct transport characterization is separate from YAI's governed Case execution and cannot qualify Studio or Conversation.",
+    "The response is candidate model text; this run does not assess language quality or grant operational authority."
+  ]
+}
