@@ -216,6 +216,27 @@ the corresponding retained artifact through `context inspect --id`.
 Optional evidence refitting remains open: this boundary refuses rather than
 truncating content or synthesizing a summary. Working State W is not YVEX E.
 
+Refitting must preserve the existing disclosure/admission boundary, not merely
+the eventual inference call. `execute_prepared` commits the exact invocation
+lineage before sending its serialized content to preflight.
+`commit_cognitive_invocation_authorized` requalifies W, Recall/source closure,
+Participant and projection in the same write transaction. A policy revocation
+can invalidate W even without a new Case generation; cached compilation is not
+an authorization lease. Moving content-bearing preflight ahead of this check
+would disclose Case material before that admission. Replacing W afterwards
+would contradict the committed invocation lineage.
+
+The remaining preparation boundary must therefore authorize each disclosed
+candidate against current authority, retain its exact W/request identity and
+capacity observation, and select one final admitted context without implicit
+inference retry. Optional groups remain atomic, required references remain
+required, and lack of room for mandatory state remains a refusal. Existing
+W compilation budgets and exact-wire preflight are reusable parts of this
+boundary, not proof that their adaptive composition already exists. The engine
+`working_recall_policy_current_asof_freshness_tamper_and_atomic_budget` test
+protects same-generation revocation; the Application exact-preflight test
+protects unchanged wire bytes and refusal without inference.
+
 The [external Golden forensic evidence](../labs/external-runtime/external-golden-closure/REPORT.md)
 shows why these contracts cannot be conflated: YVEX accepts a 40,277-byte
 whitespace-padded synthetic body but rejects the actual same-sized Golden body
