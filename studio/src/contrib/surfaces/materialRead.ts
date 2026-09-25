@@ -58,7 +58,10 @@ export function useReadableMaterial(props: SurfaceRendererProps, representation:
   const identity = expectedMaterialIdentity({ workspace, input });
   // Tab flags and Inspector selection cannot invalidate an exact material read.
   const expected = useMemo(() => identity, [identity?.key]);
-  const activeKey = expected?.key ?? `authored:${workspace.case.case_ref}:${input.identity}:${workspace.case.generation}`;
+  // A refreshed live snapshot requalifies disclosure even when the Case and
+  // material revision are unchanged (for example, Tenant policy revocation).
+  // This read token is separate from the exact baseline identity of local edits.
+  const activeKey = JSON.stringify([expected?.key ?? `authored:${workspace.case.case_ref}:${input.identity}:${workspace.case.generation}`, workspace.presentation.observationRef]);
   const fence = useRef(new MaterialReadFence());
   const [state, setState] = useState<ReadableMaterialState>({ identityKey: activeKey, loading: authored === undefined });
 
@@ -83,7 +86,7 @@ export function useReadableMaterial(props: SurfaceRendererProps, representation:
       return;
     }
     const request = fence.current.begin(expected.key);
-    setState({ identityKey: expected.key, loading: true });
+    setState({ identityKey: activeKey, loading: true });
     void readMaterial({
       case_ref: expected.caseRef,
       source_ref: expected.sourceRef,
@@ -93,22 +96,22 @@ export function useReadableMaterial(props: SurfaceRendererProps, representation:
     }).then(async (result) => {
       if (!fence.current.accepts(request, expected.key)) return;
       if (result.result_state !== "success" || !result.data) {
-        setState({ identityKey: expected.key, error: result.error?.safe_message ?? `Material read ${result.result_state}.`, loading: false });
+        setState({ identityKey: activeKey, error: result.error?.safe_message ?? `Material read ${result.result_state}.`, loading: false });
         return;
       }
       const mismatch = validateMaterialRead(expected, result.data) ?? await validateMaterialContent(result.data);
       if (!fence.current.accepts(request, expected.key)) return;
       if (mismatch) {
-        setState({ identityKey: expected.key, error: `Exact material identity mismatch. ${mismatch}`, loading: false });
+        setState({ identityKey: activeKey, error: `Exact material identity mismatch. ${mismatch}`, loading: false });
         return;
       }
       if (result.data.encoding !== "utf-8" && representation === "text") {
-        setState({ identityKey: expected.key, error: "This exact revision is binary and requires a trusted binary renderer.", loading: false });
+        setState({ identityKey: activeKey, error: "This exact revision is binary and requires a trusted binary renderer.", loading: false });
         return;
       }
-      setState({ identityKey: expected.key, content: result.data.encoding === "utf-8" ? result.data.content : undefined, data: result.data, source: bufferSource(expected), loading: false });
+      setState({ identityKey: activeKey, content: result.data.encoding === "utf-8" ? result.data.content : undefined, data: result.data, source: bufferSource(expected), loading: false });
     }).catch((error: unknown) => {
-      if (fence.current.accepts(request, expected.key)) setState({ identityKey: expected.key, error: error instanceof Error ? error.message : String(error), loading: false });
+      if (fence.current.accepts(request, expected.key)) setState({ identityKey: activeKey, error: error instanceof Error ? error.message : String(error), loading: false });
     });
     return () => fence.current.cancel(request);
   }, [activeKey, authored, expected, fixture?.path, input.identity, input.metadata?.path, input.metadata?.sourceRef, input.metadata?.revisionRef, input.metadata?.digest, input.objectRef, input.title, readMaterial, representation, skipRead, workspace.case.case_ref, workspace.case.generation]);

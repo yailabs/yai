@@ -40,6 +40,15 @@ try {
       resolve({ operation_ref: 'material.read', result_state: 'success', correlation_ref: `test:${path}`, data: { ...file, case_ref: request.case_ref, generation: request.expected_generation, encoding: 'utf-8', content } });
     };
     window.renderTest = () => root.render(createElement(WorkbenchKernel, { workspace: {...workspace}, platform, registry, stream: 'fixture', readMaterial, refresh() {}, openCaseSwitcher() {} }));
+    window.refreshDisclosure = () => {
+      workspace.presentation.observationRef = `snapshot:${Number(workspace.presentation.observationRef?.split(':')[1] ?? 0) + 1}`;
+      window.renderTest();
+    };
+    window.refuseRead = path => {
+      const index = window.testPending.findIndex(entry => entry.request.path === path);
+      if(index < 0) throw new Error(`No pending read for ${path}`);
+      window.testPending.splice(index,1)[0].resolve({operation_ref:'material.read',correlation_ref:'refused',result_state:'unauthorized',error:{safe_message:'Current policy no longer permits this material.'}});
+    };
     window.advanceRevision = async () => {
       const file = workspace.environment.files[0];
       file.testContent = 'NEW_AUTHORITATIVE_A'; file.bytes = new TextEncoder().encode(file.testContent).length;
@@ -78,9 +87,22 @@ try {
   await file('b').click(); await pending('b'); await complete('b', true);
   await page.getByText(/Exact material identity mismatch/).waitFor();
   assert.equal(await editor.count(), 0, 'corrupted equal-length bytes were accepted');
+  await file('a').click(); await pending('a'); await complete('a'); await editor.waitFor();
+  assert.equal(await editor.textContent(),'NEW_AUTHORITATIVE_A');
+  await page.evaluate(()=>window.refreshDisclosure()); await pending('a');
+  assert.equal(await editor.count(),0,'Clean cached content must wait for refreshed disclosure');
+  await page.evaluate(()=>window.refuseRead('a/README.md'));
+  await page.getByText('Current policy no longer permits this material.',{exact:true}).waitFor();
+  assert.equal(await editor.count(),0,'Same-generation authority refusal retained visible clean content');
+  await page.evaluate(()=>window.refreshDisclosure()); await pending('a'); await complete('a'); await editor.waitFor();
+  await editor.fill('LOCAL_DRAFT_AFTER_REVIEW');
+  await page.evaluate(()=>window.refreshDisclosure()); await pending('a');
+  await page.evaluate(()=>window.refuseRead('a/README.md'));
+  await page.getByRole('alert').filter({hasText:'Local edits are retained and have not been saved.'}).waitFor();
+  assert.equal(await editor.textContent(),'LOCAL_DRAFT_AFTER_REVIEW','Disclosure refusal must not discard local work');
   const readCount = await page.evaluate(()=>window.testReads.length);
   await page.waitForTimeout(300);
   assert.equal(await page.evaluate(()=>window.testReads.length), readCount, 'presentation render restarted material reads');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({run_id:'studio-material-lifecycle',result:'PASS',reads:readCount,proof:'A→B→C late reads, same names/directories/source, dirty isolation, retained undo, incoming revision, byte digest refusal, bounded reads',lane:'authored asynchronous application-response component test'}));
+  console.log(JSON.stringify({run_id:'studio-material-lifecycle',result:'PASS',reads:readCount,proof:'A→B→C late reads, same names/directories/source, dirty isolation, retained undo, incoming revision, byte digest refusal, same-generation disclosure refresh/refusal, dirty draft retention, bounded reads',lane:'authored asynchronous application-response component test'}));
 } finally { await browser.close(); }

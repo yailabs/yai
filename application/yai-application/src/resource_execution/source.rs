@@ -4,7 +4,7 @@ use std::path::Path;
 use super::ResourceActionOutcome;
 use yai_core_engine::effect::access::source::*;
 use yai_core_engine::effect::access::{ResourceAction, ResourceRequest, RESOURCE_REQUEST_SCHEMA};
-use yai_core_engine::effect::{digest_bytes, DecisionOutcome};
+use yai_core_engine::effect::digest_bytes;
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
 use yai_core_engine::transition::TransitionPayload;
@@ -307,15 +307,13 @@ fn request(
             _ => false,
         });
     if outcome_exists
-        && store
-            .case_source_permission(
+        && !store
+            .case_source_material_allowed(
                 auth,
                 case,
                 &d.source_id,
                 op.resource_request.as_ref().map(|r| r.action.clone()),
             )?
-            .outcome
-            != DecisionOutcome::Allow
     {
         return Err("source_current_authority_refused".into());
     }
@@ -385,8 +383,8 @@ fn acquire_governed(
             if let Some(admission) = prior {
                 // New discovery observed this exact revision. Reuse canonical
                 // backing only after fresh admission semantics and integrity.
-                if store
-                    .case_source_permission(
+                if !store
+                    .case_source_material_allowed(
                         auth,
                         case,
                         &d.source_id,
@@ -395,8 +393,6 @@ fn acquire_governed(
                             candidate_digest: digest.into(),
                         }),
                     )?
-                    .outcome
-                    != DecisionOutcome::Allow
                 {
                     return Err("source_current_authority_refused".into());
                 }

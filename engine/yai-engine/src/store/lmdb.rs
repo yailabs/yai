@@ -13300,6 +13300,29 @@ impl LmdbRecordStore {
             return Err("resource_result_not_available".into());
         }
         let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let operation = history.iter().find_map(|t| match &t.payload {
+            TransitionPayload::OperationRecorded { operation } if operation.operation_id == operation_id => Some(operation),
+            _ => None,
+        }).ok_or("resource_result_not_available")?;
+        Self::authorize_resource_operation(&state, &context, operation)?;
+        let now = self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let status = self.materialize_case_policy_at_txn(&txn, case_id, now, floor)?;
+        Self::qualify_retained_resource_authority(&state, &history, &status, operation_id, decision_id)?;
+        txn.commit()
+            .map_err(|e| format!("resource_result_reuse:{e}"))?;
+        Ok(())
+    }
+
+    // Shared retained-result gate. This never returns an executable Decision,
+    // issues a Grant or treats an approved historical request as a new dispatch.
+    fn qualify_retained_resource_authority(
+        state: &CaseState, history: &[Transition], status: &NormativeStatus,
+        operation_id: &str, decision_id: &str,
+    ) -> Result<(), String> {
+        if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+            return Err("resource_result_not_available".into());
+        }
         // Exact committed history, not last_operation/last_decision: returning
         // old evidence must not rewind current control state or execute it again.
         let operations: Vec<_> = history
@@ -13329,7 +13352,6 @@ impl LmdbRecordStore {
         };
         operation.validate()?;
         original.validate_integrity()?;
-        Self::authorize_resource_operation(&state, &context, operation)?;
         if operation.case_id != state.case_id
             || original.operation_id != operation_id
             || original.operation_digest != operation.operation_digest
@@ -13337,9 +13359,7 @@ impl LmdbRecordStore {
         {
             return Err("resource_result_not_available".into());
         }
-        let now = self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
-        let floor = self.authority_time_floor_txn(&txn)?;
-        let status = self.materialize_case_policy_at_txn(&txn, case_id, now, floor)?;
+        let now = status.authority_time_unix_ms;
         if status.readiness != NormativeReadiness::Ready
             || status.validity != PolicyValidityPosture::Valid
         {
@@ -13370,7 +13390,7 @@ impl LmdbRecordStore {
             .ok_or("resource_result_not_available")?;
         let temporal = AuthorityTemporalContext {
             authority_time_unix_ms: status.authority_time_unix_ms,
-            binding_validity: status.binding_validity.into_values().collect(),
+            binding_validity: status.binding_validity.values().cloned().collect(),
         };
         if let Some(action_id) = &basis.review_action_ref {
             let review = state
@@ -13408,8 +13428,6 @@ impl LmdbRecordStore {
                 return Err("resource_result_not_available".into());
             }
         }
-        txn.commit()
-            .map_err(|e| format!("resource_result_reuse:{e}"))?;
         Ok(())
     }
 

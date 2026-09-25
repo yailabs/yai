@@ -2,7 +2,7 @@
 // Only a freshly created temporary YAI_HOME is mutated; never operator state.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import http from 'node:http';
@@ -18,7 +18,7 @@ const evidence = process.env.STUDIO_EVIDENCE_DIR ?? '/tmp/yai-studio-execution';
 await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
 let telemetry, serial=0, browser, dropAcknowledgement, abandonResponse;
-let sourceServer; const sourceRequests = [];
+let sourceServer, serveSource = false; const sourceRequests = [];
 const exchanges = [];
 function rpc(request) {
  return new Promise((resolve,reject) => {
@@ -122,7 +122,7 @@ try {
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await queries.locator('.knowledge-resolved').waitFor({state:'hidden'});
  // A real HTTP acquisition remains blocked in its producer while the UI loses
  // its acknowledgement. Kill only the disposable Host after observing its lease.
- sourceServer=http.createServer((request,response)=>{sourceRequests.push({path:request.url});response.on('error',()=>{});});
+ sourceServer=http.createServer((request,response)=>{sourceRequests.push({path:request.url});response.on('error',()=>{});if(serveSource){const bytes=Buffer.from('{"qualification":"reviewed-source-exact"}');response.writeHead(200,{'Content-Type':'application/json','Content-Length':bytes.length});response.end(bytes);}});
  await new Promise(resolve=>sourceServer.listen(0,'127.0.0.1',resolve));
  const binding={schema:'yai.local_resource_access_binding.v1',case_id:caseRef,attachment_id:'resource:interrupted-http',address:{kind:'http_service',endpoint:{endpoint:`http://127.0.0.1:${sourceServer.address().port}`,allowed_ip_addresses:['127.0.0.1'],credential_ref:null},paths:{document:'document'}}};
  await accepted('resource.attach',{binding,access:{schema:'yai.resource_access.v1',configuration_digest:'sha256:'+createHash('sha256').update(JSON.stringify(binding)).digest('hex'),participant_ids:['participant:operator'],operations:['http_fetch'],read_prefixes:[],names:['document'],max_output_bytes:4096,max_items:8},policy_owner_participant_ref:'participant:operator',review_requirement:'automatic'});
@@ -174,7 +174,83 @@ try {
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,generationAfterCrash);
  assert.equal(sourceRequests.length,1,'Restart, observation and explicit retry cannot redispatch uncertain acquisition');
  await page.screenshot({path:`${evidence}/source-carrier-lost.png`});
+ // A settled Review differs from unknown delivery: only the former can resume.
+ const reviewPolicy={...httpPolicy,policy_key:'source-review',rules:[...httpPolicy.rules,
+  {kind:'review_requirement',rule_id:'review',operation_kind:'http.fetch',resource_kind:'http_service',required:true,reason:'Review before acquisition'},
+  {kind:'authority_requirement',rule_id:'reviewer',operation_kind:'http.fetch',resource_kind:'http_service',subject:'reviewer',required_role:'operator',reason:'Exact eligible reviewer'}]};
+ const reviewedArtifact=(await accepted('policy.ingest',{tenant_id:'tenant:studio-ui',source_bytes:[...Buffer.from(JSON.stringify(reviewPolicy))]})).view.artifact.artifact_id;
+ for(const operation of ['policy.validate','policy.publish'])await accepted(operation,{artifact_ref:reviewedArtifact,reason:'Source Review continuation qualification'});
+ await accepted('policy.case.bind',{case_ref:caseRef,artifact_ref:reviewedArtifact,expected_generation:(await accepted('case.summary',{case_ref:caseRef})).case.generation,reason:'Review before explicit continuation'});
+ await accepted('source.declare',{case_ref:caseRef,participant_ref:'participant:operator',perimeter:'qualification',logical_name:'reviewed-http',resource_ref:binding.attachment_id,roles:['knowledge'],action:{action:'http_fetch',name:'document'},bootstrap_policy:false,media_type:'application/json'});
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await page.locator('.live-sidebar').getByRole('button',{name:'reviewed-http',exact:true}).click();
+ await page.getByRole('button',{name:'Acquire Source…',exact:true}).click();form=page.getByRole('dialog',{name:'Acquire Source'});
+ await form.getByRole('button',{name:'Acquire exact Source'}).click();await form.waitFor({state:'hidden'});
+ const waiting=exchanges.findLast(x=>x.request?.operation_ref==='source.acquire');assert.equal(waiting.result.result_state,'success');assert.equal(waiting.result.data.execution.posture,'waiting_for_review');
+ await sourceReceipt.getByText('waiting for review',{exact:true}).waitFor();
+ assert.equal(sourceRequests.length,1,'Review-required acquisition must not fetch');
+ const pendingSummary=await accepted('case.summary',{case_ref:caseRef});
+ const reviewRef=pendingSummary.authority.reviews.find(review=>review.status==='pending').id;
+ const hiddenApproval=await call('review.approve',{case_ref:caseRef,participant_ref:'participant:hidden',review_ref:reviewRef,reason:'Must refuse'});assert.equal(hiddenApproval.result_state,'unauthorized');assert.equal(sourceRequests.length,1);
+ await page.locator('.live-rail button[aria-label="Authority"]').click();
+ await page.locator('.collection-row').filter({hasText:reviewRef}).click();
+ await page.getByRole('button',{name:'Approve review',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Reason').fill('Read the exact bounded HTTP source.');
+ await page.getByRole('button',{name:'Submit decision',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ assert.equal(exchanges.findLast(x=>x.request?.operation_ref==='review.approve').result.data.external_effect,false);
+ assert.equal(sourceRequests.length,1,'Approval alone must not fetch');
+ const oldHost=telemetry.instance_id;telemetry=cli('host','restart').data.value;assert.notEqual(telemetry.instance_id,oldHost);
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await page.locator('.live-rail button[aria-label="Environment"]').click();
+ await page.locator('.live-sidebar').getByRole('button',{name:'reviewed-http',exact:true}).click();
+ await sourceReceipt.getByText('waiting for review',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Resume acquisition…',exact:true}).click();form=page.getByRole('dialog',{name:'Resume acquisition'});
+ // Case mutation invalidates the confirmation before it can dispatch.
+ await accepted('participant.role.add',{case_ref:caseRef,participant_ref:'participant:operator',role:'observation-reader'});
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ assert.equal(await form.getByRole('button',{name:'Resume exact attempt'}).isEnabled(),false);assert.equal(sourceRequests.length,1);
+ await form.getByRole('button',{name:'Cancel',exact:true}).click();
+ serveSource=true;
+ await page.getByRole('button',{name:'Resume acquisition…',exact:true}).click();form=page.getByRole('dialog',{name:'Resume acquisition'});dropAcknowledgement='source.resume';
+ await form.getByRole('button',{name:'Resume exact attempt'}).click();await form.getByText('Confirmation was lost',{exact:true}).waitFor();
+ assert.equal(await form.getByRole('button',{name:'Resume exact attempt'}).isEnabled(),false);
+ const completed=exchanges.findLast(x=>x.request?.operation_ref==='source.resume');
+ assert.equal(completed.result.result_state,'success');assert.equal(completed.request.input.attempt,1);assert.equal(completed.request.input.source_ref,waiting.request.input.source_ref);
+ assert.equal(completed.request.input.previous_progress_ref,waiting.result.data.execution.progress_ref);
+ assert.equal(completed.result.data.execution.phase,'acquired');assert.equal(sourceRequests.length,2);
+ await form.getByRole('button',{name:'Close and inspect state'}).click();
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await sourceReceipt.getByText('acquired',{exact:true}).first().waitFor();
+ const terminal=(await accepted('case.summary',{case_ref:caseRef})).case.generation;
+ const exactRetry=await accepted('source.resume',completed.request.input);assert.equal(exactRetry.created,false);assert.deepEqual(exactRetry.execution,completed.result.data.execution);
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,terminal);assert.equal(sourceRequests.length,2,'Completed resume retry must not fetch again');
+ await page.screenshot({path:`${evidence}/source-review-resumed.png`});
+ // Later current work must not hide the earlier approved retained Source.
+ const nextRequest=await accepted('resource.request',{case_ref:caseRef,participant_ref:'participant:operator',resource_ref:binding.attachment_id,submission_ref:'request:later-reviewed-http',expected_generation:terminal,request:{schema:'yai.resource_request.v1',configuration_digest:'sha256:'+createHash('sha256').update(JSON.stringify(binding)).digest('hex'),action:{action:'http_fetch',name:'document'}}});
+ assert.equal(nextRequest.execution.posture.state,'waiting_for_review');assert.equal(sourceRequests.length,2,'Historical approval cannot authorize a fresh request');
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ const readSummary=await accepted('case.summary',{case_ref:caseRef});
+ const reviewedFile=readSummary.environment.files.find(file=>file.path==='reviewed-http');assert.ok(reviewedFile,'Approved exact Source material must be projected');
+ const readRequest={case_ref:caseRef,source_ref:reviewedFile.source_ref,revision_ref:reviewedFile.revision_ref,path:reviewedFile.path,expected_generation:readSummary.case.generation};
+ const retained=await accepted('material.read',readRequest);assert.ok(retained.content.includes('reviewed-source-exact'));
+ for(const field of ['source_ref','revision_ref','path','digest'])assert.equal(retained[field],reviewedFile[field]);
+ await page.locator('.source-surface .fact-row').filter({hasText:'reviewed-http'}).click();
+ await page.locator('.cm-content').filter({hasText:'reviewed-source-exact'}).waitFor();
+ const cliRead=cli('case','sources','read',caseRef,'--source',waiting.request.input.source_ref).data.value;
+ exchanges.push({order:exchanges.length+1,cli:['case','sources','read',caseRef,'--source',waiting.request.input.source_ref],result:cliRead});
+ assert.ok(JSON.stringify(cliRead).includes('reviewed-source-exact'));
+ assert.equal(sourceRequests.length,2,'Reading retained evidence cannot fetch again');
+ await accepted('policy.revoke',{artifact_ref:reviewedArtifact,reason:'Current reviewed Source disclosure must refuse'});
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,readSummary.case.generation,'Tenant policy revocation does not require a Case generation change');
+ const revokedRead=await call('material.read',readRequest);assert.notEqual(revokedRead.result_state,'success');assert.equal(revokedRead.data,undefined);
+ const refusedCli=spawnSync(binary,['case','sources','read',caseRef,'--source',waiting.request.input.source_ref,'--json'],{env:{...process.env,YAI_HOME:home},encoding:'utf8',timeout:30000});
+ assert.notEqual(refusedCli.status,0);assert.equal(refusedCli.error,undefined);assert.equal(refusedCli.stdout,'');assert.ok(!refusedCli.stderr.includes('reviewed-source-exact'));
+ exchanges.push({order:exchanges.length+1,cli:['case','sources','read',caseRef,'--source',waiting.request.input.source_ref],exit:refusedCli.status,stdout:refusedCli.stdout,stderr:refusedCli.stderr});
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await page.locator('.cm-content').filter({hasText:'reviewed-source-exact'}).waitFor({state:'hidden'});
+ assert.equal(sourceRequests.length,2);
+
+
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,source:ordinary,generation:stable,proof:['UI acquire missing material -> resume same exact attempt','UI source policy publication and binding','Lost acknowledgement retained reference and no auto-retry','Exact execution observation after real Host restart','Duplicate submit does not create generation','Stale generation and hidden Participant refused','Owner Knowledge inspect/search/resolve/navigation','Revocation refuses old resolution and clears UI','Four sizes and CLI replay','Real in-flight HTTP Source carrier loss: UI running -> delivery indeterminate, disabled redispatch, exact retry and hidden refusal, one remote request']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,source:ordinary,generation:stable,proof:['UI acquire missing material -> resume same exact attempt','UI source policy publication and binding','Lost acknowledgement retained reference and no auto-retry','Exact execution observation after real Host restart','Duplicate submit does not create generation','Stale generation and hidden Participant refused','Owner Knowledge inspect/search/resolve/navigation','Revocation refuses old resolution and clears UI','Four sizes and CLI replay','Real in-flight HTTP Source carrier loss: UI running -> delivery indeterminate, disabled redispatch, exact retry and hidden refusal, one remote request','Source Review approval does not fetch; explicit same-attempt resume after Host restart with stale confirmation and lost-ACK retry preserves one fetch','Reviewed material exact identity matches Studio/CLI; current policy revocation hides clean cached content at the same Case generation']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();sourceServer?.closeAllConnections();sourceServer?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

@@ -2043,6 +2043,16 @@ in total, preserve Case generation and expose no result to a hidden Participant.
 This qualifies truthful uncertainty, not automatic recovery or a successful
 acquisition after carrier loss.
 
+For a Source awaiting Review, approve in Authority and return to the Source.
+Approval alone must not fetch. **Resume acquisition** explicitly continues the
+same attempt after reconnect; a changed Case disables an already-open confirmation.
+The retained HTTP result now finalizes into an exact readable Source revision,
+using the same current Review/policy disclosure checks as other Resource results.
+A lost response and exact retry do not fetch again. CLI Source read and Studio
+material read must disclose the same retained evidence. Revoke its governing policy
+and refresh: clean editor contents must disappear even if the Case version did
+not change. Dirty drafts remain local and explicitly unsaved.
+
 For an already completed model response, use the behavioral
 `retained-conversation.json` suite with identities pinned from its original
 result/context evidence. It performs only reads, compares exact archived request

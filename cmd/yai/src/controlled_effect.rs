@@ -9,7 +9,7 @@ use crate::command_adapters::security::authenticate_local;
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::{
     normalize_write_prefix,
-    validate_finalized_effect_chain, DecisionOutcome,
+    validate_finalized_effect_chain,
     LocalFilesystemBinding, LocalProcessBinding,
     Operation, OperationKind,
     ProcessSignalAction, OPERATION_PROPOSAL_SCHEMA,

@@ -8,6 +8,8 @@ export interface CasePresentation extends LiveWorkspace {
   presentation: {
     dataKind: CaseDataKind;
     backendPosture: BackendPosture;
+    /** Local snapshot identity: authority may change without Case generation. */
+    observationRef?: string;
     fixture?: { id: string; label: string; provenance: string };
     materials?: readonly MaterialView[];
   };
@@ -352,7 +354,7 @@ export class LiveDataSource implements CaseDataSource {
     }
     return {
       ...result,
-      data: { ...result.data, presentation: { dataKind: "live" as const, backendPosture: "resident-host-connected" as const } },
+      data: { ...result.data, presentation: { dataKind: "live" as const, backendPosture: "resident-host-connected" as const, observationRef: result.correlation_ref } },
     } satisfies OperationResult<CasePresentation>;
   }
   readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }) { return this.client.readMaterial(input); }

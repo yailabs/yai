@@ -526,6 +526,24 @@ refusal, real approval and exact `source.resume` before that single HTTP dispatc
 Replaying either the initial acquisition or the admitted resume observes the
 same indeterminate attempt and cannot invoke the carrier again.
 
+A completed reviewed acquisition reuses the current retained Resource-result
+qualification gate when finalizing and reading its exact Source revision. It
+requires canonical completed backing, the exact Operation/ALLOW Decision, the
+same current policy basis, linked Participant and still-eligible Review action.
+This returns disclosure permission only; it never creates an executable Decision,
+Grant or another acquisition. Fresh requests retain their admission/review fences.
+The shared gate was established at `94e23ed`; Source reconstruction previously
+called only pre-Review admission and could reject finalization after a successful
+reviewed HTTP read. Archaeology at `yai-dev` `2a4018147` found source-intake
+materialization of review blockers, not this exact retained-result algorithm;
+no historical C ownership was recovered.
+
+Studio material reads also requalify after each authoritative live snapshot,
+independently of Case generation and immutable material identity. Tenant policy
+revocation need not append a Case Transition. A refused refreshed read hides clean
+cached content; local dirty drafts retain their original identity and an explicit
+unsaved warning. Local snapshot tokens confer no authority.
+
 Resource-request observation projects exact canonical Operation/Decision and
 receipt identities. A recorded effect carries its domain outcome and whether
 external execution began; a terminal receipt is not normalized into success.

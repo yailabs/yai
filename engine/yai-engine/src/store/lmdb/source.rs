@@ -17,7 +17,7 @@ impl LmdbRecordStore {
             return Err("source_not_available".into());
         }
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        if self.source_permission_txn(&txn, &state, &source.declaration, source.declaration.action.clone())?.outcome != DecisionOutcome::Allow {
+        if !self.source_material_allowed_txn(&txn, &state, &source.declaration, source.declaration.action.clone())? {
             return Err("source_not_available".into());
         }
         let history = self.list_case_transitions_txn(&txn, case)?;
@@ -35,8 +35,8 @@ impl LmdbRecordStore {
                     &txn, state.tenant_id.as_deref().ok_or("source_requires_tenant")?, source_id, artifact_id
                 )?.original_bytes().to_vec(),
                 SourceBacking::Content { admission_id } => {
-                    if self.source_permission_txn(&txn, &state, &source.declaration,
-                        ResourceAction::ContentRead { admission_id: admission_id.clone() })?.outcome != DecisionOutcome::Allow {
+                    if !self.source_material_allowed_txn(&txn, &state, &source.declaration,
+                        ResourceAction::ContentRead { admission_id: admission_id.clone() })? {
                         return Err("source_not_available".into());
                     }
                     let a = history.iter().find_map(|t| match &t.payload {
@@ -58,7 +58,7 @@ impl LmdbRecordStore {
         }
         drop(txn);
         if self.get_case_state_authorized(auth, case)?.generation != state.generation
-            || self.case_source_permission(auth, case, name, None)?.outcome != DecisionOutcome::Allow {
+            || !self.case_source_material_allowed(auth, case, name, None)? {
             return Err("source_visibility_changed_during_read".into());
         }
         Ok(ResolvedCaseSource { declaration: source.declaration, revision: captured, items })
@@ -272,8 +272,8 @@ impl LmdbRecordStore {
                     .as_ref()
                     .is_none_or(|p| p.phase != SourcePhase::Acquired)
                 || !self
-                    .source_permission_resolved(state, d, d.action.clone(), &status, history)
-                    .is_ok_and(|v| v.outcome == DecisionOutcome::Allow)
+                    .source_material_allowed_resolved(state, d, d.action.clone(), &status, history)
+                    .unwrap_or(false)
             {
                 continue;
             }
@@ -301,7 +301,7 @@ impl LmdbRecordStore {
                             }
                             let admitted = match &item.backing {
                                 SourceBacking::Content { admission_id } => self
-                                    .source_permission_resolved(
+                                    .source_material_allowed_resolved(
                                         state,
                                         d,
                                         ResourceAction::ContentRead {
@@ -310,7 +310,7 @@ impl LmdbRecordStore {
                                         &status,
                                         history,
                                     )
-                                    .is_ok_and(|v| v.outcome == DecisionOutcome::Allow),
+                                    .unwrap_or(false),
                                 _ => true,
                             };
                             if admitted {
@@ -377,7 +377,7 @@ impl LmdbRecordStore {
                 // permission. Reject the source as a whole before reading bytes.
                 if revision.items.iter().any(|item| match &item.backing {
                     SourceBacking::Content { admission_id } => !self
-                        .source_permission_resolved(
+                        .source_material_allowed_resolved(
                             state,
                             d,
                             ResourceAction::ContentRead {
@@ -386,7 +386,7 @@ impl LmdbRecordStore {
                             &status,
                             history,
                         )
-                        .is_ok_and(|v| v.outcome == DecisionOutcome::Allow),
+                        .unwrap_or(false),
                     _ => false,
                 }) {
                     continue;
@@ -910,6 +910,68 @@ impl LmdbRecordStore {
         )
     }
 
+    /// Current disclosure of an exact retained result, never permission to
+    /// execute another acquisition. An approved Review is requalified by the
+    /// same retained Resource result gate used outside Source reconstruction.
+    pub fn case_source_material_allowed(
+        &self, auth: &AuthenticatedPrincipal, case: &str, name: &str,
+        action: Option<ResourceAction>,
+    ) -> Result<bool, String> {
+        let (state, source) = self.case_source_authorized(auth, case, name)?;
+        if source.progress.as_ref().is_some_and(|p| p.phase == SourcePhase::Revoked) {
+            return Err("source_not_available".into());
+        }
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.source_material_allowed_txn(&txn, &state, &source.declaration,
+            action.unwrap_or(source.declaration.action.clone()))
+    }
+
+    fn source_material_allowed_txn<T: Transaction>(
+        &self, txn: &T, state: &CaseState, d: &CaseSourceDeclaration, action: ResourceAction,
+    ) -> Result<bool, String> {
+        let status = self.materialize_case_policy_txn(txn, &state.case_id)?;
+        let history = self.list_case_transitions_txn(txn, &state.case_id)?;
+        self.source_material_allowed_resolved(state, d, action, &status, &history)
+    }
+
+    fn source_material_allowed_resolved(
+        &self, state: &CaseState, d: &CaseSourceDeclaration, action: ResourceAction,
+        status: &NormativeStatus, history: &[Transition],
+    ) -> Result<bool, String> {
+        let current = self.source_permission_resolved(state, d, action.clone(), status, history)?;
+        if current.outcome == DecisionOutcome::Allow { return Ok(true); }
+        if current.outcome != DecisionOutcome::RequireReview { return Ok(false); }
+        let request = ResourceRequest { schema: crate::effect::access::RESOURCE_REQUEST_SCHEMA.into(),
+            configuration_digest: d.configuration_digest.clone(), action };
+        // A Review without a completed exact result cannot satisfy this gate.
+        // Fresh acquisition still goes through admission/review/effect fences.
+        Ok(history.iter().any(|t| {
+            let (operation_id, decision_id) = match &t.payload {
+                TransitionPayload::ResourceObservationRecorded { observation }
+                    if observation.resource_attachment_id == d.resource_attachment_id
+                        && observation.participant_id == d.participant_id
+                        && observation.configuration_digest == d.configuration_digest
+                        && observation.request_digest == request.digest() =>
+                    (&observation.operation_id, &observation.decision_id),
+                TransitionPayload::CaseContentAdmitted { admission } =>
+                    (&admission.operation_id, &admission.decision_id),
+                _ => return false,
+            };
+            let Some(operation) = history.iter().find_map(|t| match &t.payload {
+                TransitionPayload::OperationRecorded { operation } if operation.operation_id == *operation_id => Some(operation),
+                _ => None,
+            }) else { return false; };
+            if operation.participant_id != d.participant_id
+                || operation.resource_attachment_id != d.resource_attachment_id
+                || operation.resource_request.as_ref() != Some(&request)
+                || !matches!(&operation.origin, OperationOrigin::ParticipantRequest { principal_id, participant_link_id, .. }
+                    if *principal_id == d.declared_by_principal_id && state.principal_participant_links.iter().any(|link|
+                        link.link_id == *participant_link_id && link.principal_id == *principal_id
+                            && link.participant_id == d.participant_id)) { return false; }
+            Self::qualify_retained_resource_authority(state, history, status, operation_id, decision_id).is_ok()
+        }))
+    }
+
     fn source_permission_txn<T: Transaction>(
         &self,
         txn: &T,
@@ -1059,10 +1121,7 @@ impl LmdbRecordStore {
             .ok_or("source_access_missing")?
             .admits_request(&d.participant_id, &d.request())?;
         if !d.bootstrap_policy
-            && self
-                .source_permission_txn(txn, state, d, d.action.clone())?
-                .outcome
-                != DecisionOutcome::Allow
+            && !self.source_material_allowed_txn(txn, state, d, d.action.clone())?
         {
             return Err("source_current_authority_refused".into());
         }
@@ -1186,7 +1245,7 @@ impl LmdbRecordStore {
                     {
                         return Err("source_content_backing_mismatch".into());
                     }
-                    let decision = self.source_permission_txn(
+                    let allowed = self.source_material_allowed_txn(
                         txn,
                         state,
                         d,
@@ -1195,7 +1254,7 @@ impl LmdbRecordStore {
                             candidate_digest: item.digest.clone(),
                         },
                     )?;
-                    if decision.outcome != DecisionOutcome::Allow {
+                    if !allowed {
                         return Err("source_current_authority_refused".into());
                     }
                 }
@@ -1221,10 +1280,7 @@ impl LmdbRecordStore {
                     {
                         return Err("source_observation_backing_mismatch".into());
                     }
-                    if self
-                        .source_permission_txn(txn, state, d, d.action.clone())?
-                        .outcome
-                        != DecisionOutcome::Allow
+                    if !self.source_material_allowed_txn(txn, state, d, d.action.clone())?
                     {
                         return Err("source_current_authority_refused".into());
                     }

@@ -251,8 +251,8 @@ fn inventory(
             .as_ref()
             .is_some_and(|p| p.phase == SourcePhase::Acquired)
             && store
-                .case_source_permission(auth, case, &d.source_id, None)
-                .is_ok_and(|d| d.outcome == DecisionOutcome::Allow);
+                .case_source_material_allowed(auth, case, &d.source_id, None)
+                .unwrap_or(false);
         let material_revision_id = source.progress.as_ref().and_then(|progress| {
             progress
                 .revision
