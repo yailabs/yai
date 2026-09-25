@@ -149,7 +149,7 @@ try {
  const oldInstance=telemetry.instance_id;cli('host','stop');telemetry=cli('host','start').data.value;
  assert.notEqual(telemetry.instance_id,oldInstance);
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
- await page.locator('.live-rail button[aria-label="Work"]').click();
+ await page.locator('.live-rail button[aria-label="Work"]').click();await page.getByRole('tab',{name:'Executions',exact:true}).click();
  const receipt=page.getByRole('main').locator('.execution-receipt').filter({hasText:waiting.request.input.submission_ref});
  await receipt.getByRole('button',{name:'Continue recorded request…',exact:true}).click();
  let continueForm=page.getByRole('dialog',{name:'Continue recorded request',exact:true});
@@ -261,7 +261,7 @@ try {
  for(const field of ['source_ref','revision_ref','path','digest'])assert.equal(material.result.data[field],file[field]);
  assert.equal(await readFile(path.join(root,'evidence.txt'),'utf8'),'Exact retained evidence.');
  // Revocation must remove a previously disclosed process result, not leave cached stdout.
- await page.locator('.live-rail button[aria-label="Work"]').click();
+ await page.locator('.live-rail button[aria-label="Work"]').click();await page.getByRole('tab',{name:'Executions',exact:true}).click();
  await retainedRow.click();
  await processView.getByRole('button',{name:'Read retained process output',exact:true}).click();
  await processView.locator('.process-stdout').waitFor();

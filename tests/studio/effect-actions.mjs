@@ -95,7 +95,7 @@ try {
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await page.locator('.live-rail button[aria-label="Environment"]').click();
  await page.getByRole('button',{name:'Attach process…',exact:true}).click();form=page.getByRole('dialog',{name:'Attach process Resource'});await form.getByLabel('Resource reference').fill('resource:owned-process');await form.getByLabel('Exact PID').fill('2147483647');await form.getByLabel('suspend',{exact:true}).check();await form.getByRole('button',{name:'Attach process',exact:true}).click();await form.locator('.action-result').waitFor();assert.notEqual(exchanges.findLast(item=>item.request.operation_ref==='resource.attach_process').result.result_state,'success');
  child=spawn('/usr/bin/sleep',['60']);await form.getByLabel('Exact PID').fill(String(child.pid));await form.getByRole('button',{name:'Attach process',exact:true}).click();await form.waitFor({state:'hidden'});assert.equal(exchanges.findLast(item=>item.request.operation_ref==='resource.attach_process').result.result_state,'success');assert.ok((await accepted('case.summary',{case_ref:caseRef})).environment.resources.some(item=>item.id==='resource:owned-process'));assert.equal(child.exitCode,null,'Attachment does not execute a signal');
- await page.locator('.live-rail button[aria-label="Work"]').click();await page.getByRole('button',{name:'Run bounded work…',exact:true}).click();form=page.getByRole('dialog',{name:'Run bounded work'});await form.getByLabel('Task',{exact:true}).fill('Complete one bounded controlled task');await form.getByLabel('Resource',{exact:true}).selectOption('workspace');await form.getByLabel('Maximum invocations').fill('2');dropAcknowledgement='case.run';await form.getByRole('button',{name:'Submit work'}).click();await form.getByText('Confirmation was lost',{exact:true}).waitFor();await form.getByRole('button',{name:'Close and inspect state'}).click();
+ await page.locator('.live-rail button[aria-label="Work"]').click();await page.getByRole('tab',{name:'Executions',exact:true}).click();await page.getByRole('button',{name:'Run bounded work…',exact:true}).click();form=page.getByRole('dialog',{name:'Run bounded work'});await form.getByLabel('Task',{exact:true}).fill('Complete one bounded controlled task');await form.getByLabel('Resource',{exact:true}).selectOption('workspace');await form.getByLabel('Maximum invocations').fill('2');dropAcknowledgement='case.run';await form.getByRole('button',{name:'Submit work'}).click();await form.getByText('Confirmation was lost',{exact:true}).waitFor();await form.getByRole('button',{name:'Close and inspect state'}).click();
  const run=exchanges.findLast(item=>item.request.operation_ref==='case.run');assert.equal(run.result.result_state,'success',JSON.stringify(run));
  const receipt=page.locator('.work-surface .execution-receipt').filter({hasText:run.request.input.submission_ref});await receipt.waitFor();
  for(let attempt=0;attempt<100 && !dispatches;attempt++)await new Promise(resolve=>setTimeout(resolve,50));assert.equal(dispatches,1,JSON.stringify(await accepted('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:{domain:'runtime_work',submission_ref:run.request.input.submission_ref}})));
@@ -130,7 +130,7 @@ try {
  await page.locator('.work-surface .execution-catalog-row').filter({hasText:continuation.request.input.submission_ref}).click();
  await page.locator('.work-surface .execution-receipt').filter({hasText:continuation.request.input.submission_ref}).getByRole('button',{name:'Refresh observation'}).click();
  // Historical Decisions are read through the same typed Host dispatcher.
- const history=page.getByRole('region',{name:'Decision history'});
+ await page.getByRole('tab',{name:'Decisions',exact:true}).click();const history=page.getByRole('region',{name:'Decision history'});
  await history.getByRole('button',{name:'Load Decision history',exact:true}).click();
  await history.locator('.decision-corpus .fact-row').first().waitFor();
  const corpus=exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.corpus').result;
@@ -165,12 +165,12 @@ try {
  assert.equal(dispatches,resumeLimit,'Effect observation must not redispatch provider');
  const hiddenEffect=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'controlled_effect',operation_ref:controlledDecision.decision.operation_id}});
  assert.notEqual(hiddenEffect.result_state,'success');assert.equal(hiddenEffect.data,undefined);
- await page.getByRole('button',{name:'Observe exact execution…',exact:true}).click();
+ await page.getByRole('tab',{name:'Executions',exact:true}).click();await page.getByRole('button',{name:'Observe exact execution…',exact:true}).click();
  const manual=page.locator('.execution-observe-form');await manual.getByLabel('Execution family').selectOption('controlled_effect');await manual.getByLabel('Exact reference').fill('operation:not-visible');await manual.getByRole('button',{name:'Observe reference',exact:true}).click();
  await page.locator('.execution-history .execution-receipt').filter({hasText:'operation:not-visible'}).getByRole('alert').waitFor();
  assert.equal(await page.locator('.execution-history .execution-receipt').filter({hasText:'operation:not-visible'}).getByRole('region',{name:'Controlled effect evidence'}).count(),0);
 
- await history.getByRole('button',{name:'Evaluate reconstruction',exact:true}).click();await history.locator('.decision-evaluation').waitFor();
+ await page.getByRole('tab',{name:'Decisions',exact:true}).click();await history.getByRole('button',{name:'Evaluate reconstruction',exact:true}).click();await history.locator('.decision-evaluation').waitFor();
  const evaluated=exchanges.findLast(item=>item.request.operation_ref==='decision.trajectory.evaluate').result;
  assert.equal(evaluated.result_state,'success');assert.equal(evaluated.data.trajectory_count,corpus.data.trajectories.length);
  assert.equal(evaluated.data.cross_case_leakage_violations,0);
@@ -198,7 +198,7 @@ try {
   for(const item of decisions.trajectories){const response=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:{domain:'controlled_effect',operation_ref:item.decision.operation_id}});if(response.result_state==='success' && response.data.progress?.status==='indeterminate'){prepared=response.data;break;}}
   assert.ok(prepared,'Prepared effect must remain observable after CLI interruption');
   await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
-  await page.getByRole('button',{name:'Observe exact execution…',exact:true}).click();
+  await page.getByRole('tab',{name:'Executions',exact:true}).click();await page.getByRole('button',{name:'Observe exact execution…',exact:true}).click();
   await manual.getByLabel('Execution family').selectOption('controlled_effect');await manual.getByLabel('Exact reference').fill(prepared.operation_ref);await manual.getByRole('button',{name:'Observe reference',exact:true}).click();
   const recovery=page.locator('.execution-history .execution-receipt').filter({hasText:prepared.operation_ref});
   await recovery.getByRole('button',{name:'Reconcile outcome…',exact:true}).click();

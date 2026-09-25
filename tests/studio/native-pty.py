@@ -88,7 +88,9 @@ try:
         print(json.dumps({'result':'PASS','proof':'Native rich Overview, explicit narrative control, observed Host PID and exact Case Resource inventory'}))
     if a.decision_history:
         script('document.querySelector(`.live-rail button[aria-label="Work"]`).click()')
-        wait('return document.querySelector(".decision-history")')
+        wait('return document.querySelector(`[data-work-section="Decisions"]`)')
+        script('document.querySelector(`[data-work-section="Decisions"]`).click()')
+        wait('return document.querySelector(".decision-history")?.getBoundingClientRect().height > 0')
         script('const button=[...document.querySelectorAll(".decision-history button")].find(item=>item.textContent==="Load Decision history");button.click()')
         wait('return document.querySelector(".decision-corpus .fact-row")')
         decision_ref=script('return document.querySelector(".decision-corpus .fact-row small").textContent')
@@ -118,7 +120,9 @@ try:
         assert expected, 'An authorized retained process result is required; this lane never creates one'
         (a.evidence/'execution-output.json').write_text(json.dumps(expected))
         script('document.querySelector(`.live-rail button[aria-label="Work"]`).click()')
-        wait('return document.querySelector(".work-surface .execution-catalog-row")')
+        wait('return document.querySelector(`[data-work-section="Executions"]`)')
+        script('document.querySelector(`[data-work-section="Executions"]`).click()')
+        wait('return document.querySelector(".work-surface .execution-catalog-row")?.getBoundingClientRect().height > 0')
         script('const select=document.querySelector(`.work-surface select[aria-label="Recent execution limit"]`);select.value="32";select.dispatchEvent(new Event("change",{bubbles:true}))')
         wait('return [...document.querySelectorAll(".work-surface .execution-catalog-row")].some(row=>row.title===arguments[0])',exact['submission_ref'])
         script('const row=[...document.querySelectorAll(".work-surface .execution-catalog-row")].find(row=>row.title===arguments[0]);row.click();row.scrollIntoView()',exact['submission_ref'])

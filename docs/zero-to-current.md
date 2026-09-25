@@ -2112,3 +2112,11 @@ input and the Overview story must show the new checkpoint’s exact prompt.
 A stale competing patch must leave the Case unchanged. Base definitions remain
 immutable; effective topology comes from the engine resolution, shared with CLI
 Workflow status. `tests/studio/work-actions.mjs` exercises this path through Host.
+
+Work uses separate **Workflow**, **Executions**, **Handoffs**, **Decisions** and
+**Activity** sections. Arrow keys, Home and End navigate the section tabs;
+selection is local to the Case and Participant. Changing section keeps mounted
+working state, including a selected Handoff or execution observation. Run remains
+a Case action in the compact header. Section navigation never submits work.
+Verify this at 1000×650 as well as larger windows: the section bar remains
+reachable while its content scrolls, and hidden sections do not take layout space.

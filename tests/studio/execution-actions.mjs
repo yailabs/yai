@@ -102,7 +102,7 @@ try {
  await page.setViewportSize({width:1440,height:900});
  const hidden=await call('execution.get',{...observation,participant_ref:'participant:hidden'});assert.equal(hidden.result_state,'unauthorized');assert.equal(hidden.data,undefined);
  const stale=await call('source.acquire',{...acquired.request.input,attempt:2,expected_generation:0});assert.notEqual(stale.result_state,'success');assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,stable);
- await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await page.locator('.live-rail button[aria-label="Work"]').click();
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await page.locator('.live-rail button[aria-label="Work"]').click();await page.getByRole('tab',{name:'Executions',exact:true}).click();
  await page.locator('.work-surface .execution-receipt').filter({hasText:ordinary}).waitFor();
  const submissions=exchanges.filter(item=>item.request.operation_ref==='source.acquire').length;
  telemetry=cli('host','restart').data.value;await page.getByRole('button',{name:'Refresh Case',exact:true}).click();await page.locator('.work-surface .execution-receipt').filter({hasText:ordinary}).getByRole('button',{name:'Refresh observation'}).click();

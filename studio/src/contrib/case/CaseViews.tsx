@@ -37,13 +37,17 @@ export const perspectiveMeta: Record<Perspective, { icon: IconName; meaning: str
   Compute: { icon: "compute", meaning: "Provider and runtime posture" },
 };
 
-export function CaseSidebarView({ workspace, containerId, selection, actions }: SidebarViewProps) {
+export function CaseSidebarView({ workspace, containerId, selection, actions, platform }: SidebarViewProps) {
   const [query, setQuery] = useState("");
   useEffect(() => setQuery(""), [containerId, workspace.case.case_ref]);
   const needle = query.trim().toLocaleLowerCase();
   const perspective = containerId as Perspective;
   const rows = perspectiveRows(workspace, perspective).map(group => ({ ...group, total: group.items.length, items: group.items.filter(item => `${item.label} ${item.detail}`.toLocaleLowerCase().includes(needle)) }));
   const openRow = (item: Row, pinned = false) => {
+    if (perspective === "Work") {
+      platform.context.update(`studio.work.section:${JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref])}`, "Workflow");
+      actions.openPerspective("Work");
+    }
     if (item.surface) {
       actions.openSurface({ ...item.surface, id: pinned ? item.surface.identity : "surface:preview", pinned });
     } else if (item.material) {
