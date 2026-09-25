@@ -46,7 +46,12 @@ submission before HTTP. CLI `provider qualify TARGET --submission-ref REF` can
 repeat the same input to observe the retained result without another probe;
 `provider.probe` / `provider.probe.get` expose the equivalent typed boundary.
 If the local receipt is unavailable, `yai provider probes TARGET` observes the
-bounded retained inventory without starting another check.
+bounded retained inventory without starting another check. Studio exposes the same
+inventory under Evidence → Previous checks, including requests from other clients.
+Losing browser storage must not hide those records or dispatch a replacement.
+Refresh check history only reads; a running retained check disables new checks.
+Each new qualification replaces the current capability assessment with what that
+check tests; it does not merge untested capabilities from an older assessment.
 It does not send Case material, approve trust or bind a target. An interrupted
 run stays interrupted, and credential rotation prevents stale qualification.
 In Providers (or a compatible YVEX deployment), open Evidence → Check & qualify.

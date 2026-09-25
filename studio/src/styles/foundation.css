@@ -931,6 +931,8 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .provider-check-controls label { display:grid; gap:6px; font-size:11px; color:var(--yai-text-secondary); min-width:0; }
 .provider-check-controls select, .deployment-compact-picker select { min-width:0; max-width:100%; height:30px; border:1px solid var(--yai-divider); border-radius:5px; background:var(--yai-inset); color:var(--yai-text); padding:0 8px; }
 .provider-qualification ul { font-size:12px; padding-left:18px; line-height:1.7; }
+.provider-check-history > details { padding:8px 0; border-top:1px solid var(--yai-divider); }
+.provider-check-history code { overflow-wrap:anywhere; }
 .provider-qualification details { margin-top:10px; font-size:11px; color:var(--yai-text-secondary); }
 @container (max-width: 640px) {
   .provider-workspace-body { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }

@@ -1,4 +1,4 @@
-import type { ProviderProbeInput, ProviderProbeExecution } from "./compute";
+import type { ProviderProbeInput, ProviderProbeExecution, ProviderProbeList } from "./compute";
 import type { DecisionHistoryInput, DecisionInspectInput, DecisionCorpus, DecisionTrajectory, DecisionEvaluation } from "./work";
 import type { ProviderModelsInput, ProviderModels } from "./compute";
 import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBindingInput } from "./compute";
@@ -197,6 +197,7 @@ export class LiveClient {
   discoverProviderModels(input: ProviderModelsInput) { return this.call<ProviderModels>("provider.models", input); }
   registerProvider(input: ProviderRegistration) { return this.call<ProviderTarget>("provider.register", input); }
   probeProvider(input: ProviderProbeInput) { return this.call<ProviderProbeExecution>("provider.probe", input); }
+  listProviderProbes(target_ref: string) { return this.call<ProviderProbeList>("provider.probe.list", { target_ref }); }
   observeProviderProbe(input: Pick<ProviderProbeInput, "target_ref" | "submission_ref">) { return this.call<ProviderProbeExecution>("provider.probe.get", input); }
   qualifyProvider(input: ProviderQualificationInput) { return this.call<ProviderQualification>("provider.qualify", input); }
   trustProvider(input: { target_ref: string; posture: "approved" | "denied" }) { return this.call<unknown>("provider.trust.set", input); }

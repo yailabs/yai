@@ -272,6 +272,17 @@ try {
  await check.getByRole('button',{name:'Retry exact request',exact:true}).click();
  await check.getByText('Exact model not proven',{exact:true}).waitFor();
  assert.equal(probeHttp.length,beforeUIRetry,'Explicit exact retry observes the retained result without another HTTP request');
+ // Losing browser storage must not hide durable checks or dispatch a replacement.
+ const beforeHistoryRecovery=exchanges.filter(item=>item.request.operation_ref==='provider.probe').length;
+ await page.evaluate(()=>{for(const key of Object.keys(localStorage))if(key.startsWith('yai.studio.provider-probe.'))localStorage.removeItem(key);});
+ await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Runtime',exact:true}).click();
+ await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Evidence',exact:true}).click();
+ const history=check.locator('.provider-check-history');
+ await history.locator(':scope > summary').click();
+ await history.locator('details').last().locator('summary').click();
+ assert.ok((await history.textContent()).includes(probeInput.submission_ref),'Durable request remains discoverable without local storage');
+ assert.equal(exchanges.filter(item=>item.request.operation_ref==='provider.probe').length,beforeHistoryRecovery);
+ assert.equal(probeHttp.length,beforeUIRetry,'History is observation only');
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
    await page.setViewportSize({width,height});
    await page.screenshot({path:`${evidence}/qualification-${width}x${height}.png`});
@@ -332,6 +343,6 @@ try {
  assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
  await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Shared provider footer observation, exact target isolation and invalidation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

@@ -56,12 +56,42 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [history, setHistory] = useState<{ catalog: NonNullable<typeof availability>["catalog"]; runs?: ProviderProbeExecution[]; error?: string }>();
   const epoch = useRef(0);
   const sending = useRef(false);
   const notified = useRef<string | undefined>(undefined);
   const complete = useRef(onCompleted); complete.current = onCompleted;
   useEffect(() => () => { epoch.current++; }, []);
   const available = application?.supports("provider.probe") && application.supports("provider.probe.get");
+  const listAvailable = application?.supports("provider.probe.list");
+  const currentHistory = available && history?.catalog === availability?.catalog ? history : undefined;
+  const anotherRunning = currentHistory?.runs?.some(run => run.posture === "running");
+  const canStart = available && listAvailable && Boolean(currentHistory?.runs) && !anotherRunning;
+  useEffect(() => {
+    if (!application || !listAvailable || submitting) return;
+    let active = true, timer: number | undefined;
+    const read = async () => {
+      try {
+        const reply = await application.listProviderProbes(target);
+        if (!active) return;
+        if (reply.result_state !== "success" || !reply.data) {
+          setHistory({ catalog: availability?.catalog, error: refusal(reply.error) }); return;
+        }
+        const data = reply.data;
+        if (data.schema !== "yai.provider_probe_list.v1" || data.target_ref !== target || !Array.isArray(data.runs) || data.runs.length > 64
+          || data.runs.some(run => run.schema !== "yai.provider_probe_execution.v1" || run.target_ref !== target
+            || run.run?.request?.target_id !== target || run.submission_ref !== run.run?.request?.submission_ref
+            || !["running", "completed", "failed", "interrupted"].includes(run.posture)
+            || !Number.isFinite(run.run?.owner?.started_at_unix_ms))) {
+          setHistory({ catalog: availability?.catalog, error: "Provider history identity mismatch. Results withheld." }); return;
+        }
+        setHistory({ catalog: availability?.catalog, runs: data.runs });
+        if (data.runs.some(run => run.posture === "running")) timer = window.setTimeout(read, 3000);
+      } catch { if (active) setHistory({ catalog: availability?.catalog, error: "Cannot observe retained checks. Refresh before starting a new one." }); }
+    };
+    void read();
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [application, listAvailable, availability?.catalog, target, receipt, submitting, refresh, result?.posture]);
   useEffect(() => {
     if (!available) { setResult(undefined); return; }
     if (!receipt || !application || submitting) return;
@@ -110,13 +140,17 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
   const qualification = visible?.run.qualification;
   return <section className="provider-qualification" aria-label="Deployment qualification">
     <header><h3>Check this deployment</h3>{visible && <Badge tone={visible.posture === "completed" && measured?.exact_model_addressed && qualification?.capabilities.length ? "success" : "warning"}>{visible.posture === "running" ? "Checking" : visible.posture === "completed" ? !measured?.exact_model_addressed ? "Exact model not proven" : qualification?.capabilities.length ? "Evidence recorded" : "No capability proven" : visible.posture === "interrupted" ? "Interrupted" : "Check invalidated"}</Badge>}</header>
-    <p>Small synthetic requests through YAI. No Case content is sent; trust and Case binding stay separate.</p>
+    <p>Small synthetic requests through YAI, without Case content. This replaces current qualification with the capabilities tested; trust and Case binding stay separate.</p>
     <div className="provider-check-controls"><label>Check capabilities<select value={mode} disabled={submitting || Boolean(receipt && !terminal)} onChange={event => setMode(event.target.value as Mode)}><option value="text">Text conversation</option><option value="tools">Text, JSON and tool roundtrip</option><option value="embedding">Embeddings</option></select></label>
-      <Button disabled={!available || submitting || Boolean(receipt && !terminal)} onClick={() => void submit({ submission: `studio-probe:${crypto.randomUUID()}`, mode })}>{submitting ? "Submitting…" : receipt ? "Run a new check" : "Check & qualify"}</Button>
+      <Button disabled={!canStart || submitting || Boolean(receipt && !terminal)} onClick={() => void submit({ submission: `studio-probe:${crypto.randomUUID()}`, mode })}>{submitting ? "Submitting…" : receipt ? "Run a new check" : "Check & qualify"}</Button>
       {receipt && <Button disabled={!available || submitting} onClick={() => setRefresh(value => value + 1)}>Observe result</Button>}
       {receipt && !visible && !submitting && <Button disabled={!available} onClick={() => void submit(receipt)}>Retry exact request</Button>}
     </div>
     {!available && <p>This Host does not currently expose qualification start and observation.</p>}
+    {!listAvailable && <p>The connected Host does not expose retained-check recovery yet.</p>}
+    {currentHistory?.error && <p role="alert">{currentHistory.error}</p>}
+    {anotherRunning && !receipt && <p role="status">A retained check is still running. Observe it below; no new check has been started.</p>}
+    <Button disabled={!listAvailable || submitting} onClick={() => setRefresh(value => value + 1)}>Refresh check history</Button>
     {error && <p role="alert">{error}</p>}
     {visible?.posture === "running" && <p role="status">YAI is checking the endpoint. You can leave this view and return to observe the same request.</p>}
     {visible?.posture === "interrupted" && <p>The carrier was interrupted. This request has not been dispatched again.</p>}
@@ -125,6 +159,14 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
       {qualification?.capabilities.length ? <ul>{qualification.capabilities.map(item => <li key={item.capability}>{item.capability.replaceAll("_", " ")}</li>)}</ul> : <p>No qualified capability was recorded by this check.</p>}
       {measured.failure_codes.length > 0 && <details><summary>Reported limitations</summary><ul>{measured.failure_codes.map(code => <li key={code}>{code.replaceAll("_", " ")}</li>)}</ul></details>}
     </>}
+    {currentHistory?.runs && <details className="provider-check-history"><summary>Previous checks ({currentHistory.runs.length})</summary>
+      {!currentHistory.runs.length && <p>No retained check for this deployment.</p>}
+      {currentHistory.runs.map(run => <details key={run.submission_ref}><summary>{new Date(run.run.owner.started_at_unix_ms).toLocaleString()} · {run.posture}</summary>
+        <code>{run.submission_ref}</code><p>{run.run.request.embedding ? "Embeddings" : run.run.request.realization_shapes.join(", ") || "Text and JSON"} · {run.run.request.qualify ? "Qualification requested" : "Observation only"}</p>
+        {run.run.evidence && <p>Exact model: {run.run.evidence.exact_model_addressed ? "proven" : "not proven"}. {run.run.evidence.failure_codes.join(", ") || "No reported failure."}</p>}
+        {run.run.failure_code && <p>{run.run.failure_code.replaceAll("_", " ")}</p>}
+      </details>)}
+    </details>}
     {receipt && <details><summary>Recovery reference</summary><code>{receipt.submission}</code><p>Observation uses current Tenant authority. This reference is not permission to execute.</p></details>}
   </section>;
 }

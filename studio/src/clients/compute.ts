@@ -65,5 +65,8 @@ export interface ProviderProbeExecution {
     request: { target_id: string; submission_ref: string; embedding: boolean; realization_shapes: string[]; qualify: boolean; valid_for_ms?: number | null };
     evidence?: ProviderProbeEvidence | null; qualification?: ProviderQualification | null;
     failure_code?: string | null;
+    owner: { started_at_unix_ms: number };
   };
 }
+
+export interface ProviderProbeList { schema: "yai.provider_probe_list.v1"; target_ref: string; runs: ProviderProbeExecution[] }
