@@ -127,6 +127,7 @@ try {
  assert.equal((await call('case.resume',{...continuation.request.input,submission_ref:'request:stale-resume',checkpoint_digest:'wrong'})).result_state,'stale');
  telemetry=cli('host','restart').data.value;assert.equal((await accepted('execution.get',resumedRef)).execution_ref,resumed.execution_ref);assert.equal(dispatches,resumeLimit);
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await page.locator('.work-surface .execution-catalog-row').filter({hasText:continuation.request.input.submission_ref}).click();
  await page.locator('.work-surface .execution-receipt').filter({hasText:continuation.request.input.submission_ref}).getByRole('button',{name:'Refresh observation'}).click();
  // Historical Decisions are read through the same typed Host dispatcher.
  const history=page.getByRole('region',{name:'Decision history'});

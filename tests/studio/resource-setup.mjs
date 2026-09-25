@@ -215,8 +215,21 @@ try {
  const hiddenArgs=[...observeArgs];hiddenArgs[hiddenArgs.indexOf('--participant')+1]='participant:hidden';refusedCli(hiddenArgs);
 
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,terminalGeneration);
+ // Lose every window-local recovery reference; rediscover from the restarted Host.
+ await page.evaluate(async ([caseRef,participant])=>{
+  const {executionKey}=await import('/src/clients/execution.ts');const key=executionKey(caseRef,participant);
+  sessionStorage.removeItem(key);window.dispatchEvent(new CustomEvent('yai:execution-reference',{detail:{key}}));
+ },[caseRef,waiting.request.input.participant_ref]);
+ await page.getByRole('button',{name:'Refresh executions',exact:true}).click();
+ const retainedRow=page.getByRole('main').locator('.execution-catalog-row').filter({hasText:waiting.request.input.submission_ref});
+ await retainedRow.waitFor();assert.equal(await retainedRow.count(),1,'Local and canonical references do not duplicate rows');
+ await retainedRow.click();await processView.getByRole('button',{name:'Read retained process output',exact:true}).click();
+ await processView.locator('.process-stdout').waitFor();assert.equal(await processView.locator('.process-stdout').textContent(),'exact-run\n');
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
-  await page.setViewportSize({width,height});await processView.scrollIntoViewIfNeeded();
+  await page.setViewportSize({width,height});await retainedRow.scrollIntoViewIfNeeded();
+  const rowBox=await retainedRow.evaluate(node=>({width:node.clientWidth,scroll:node.scrollWidth}));assert.ok(rowBox.scroll<=rowBox.width+1);
+  await page.screenshot({path:`${evidence}/execution-catalog-${width}x${height}.png`});
+  await processView.scrollIntoViewIfNeeded();
   const box=await processView.evaluate(node=>({width:node.clientWidth,scroll:node.scrollWidth}));assert.ok(box.scroll<=box.width+1);
   await page.screenshot({path:`${evidence}/process-result-${processExit}-${width}x${height}.png`});
  }
@@ -249,6 +262,7 @@ try {
  assert.equal(await readFile(path.join(root,'evidence.txt'),'utf8'),'Exact retained evidence.');
  // Revocation must remove a previously disclosed process result, not leave cached stdout.
  await page.locator('.live-rail button[aria-label="Work"]').click();
+ await retainedRow.click();
  await processView.getByRole('button',{name:'Read retained process output',exact:true}).click();
  await processView.locator('.process-stdout').waitFor();
  await accepted('policy.revoke',{artifact_ref:artifact,reason:'Current output disclosure refusal'});
@@ -258,5 +272,5 @@ try {
  assert.equal(await receipt.locator('.process-stdout,.process-stderr').count(),0);
  assert.equal(await receipt.getByRole('region',{name:'Recorded process result'}).count(),0);
  assert.deepEqual(errors,[]);assert.equal(cli('case','verify',caseRef).status,'ok');
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','Process exit status and explicit retained stdout/stderr match owner; revoked policy clears disclosed output','CLI exact definition retry preserves identities and generation; canonical replay','CLI retained observation matches Host/Studio exactly; explicit output, hidden Participant and revoked authority qualified']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','Process exit status and explicit retained stdout/stderr match owner; revoked policy clears disclosed output','Canonical execution discovery recovers exact output after losing all local refs; compact selection deduplicates identities', 'CLI exact definition retry preserves identities and generation; canonical replay','CLI retained observation matches Host/Studio exactly; explicit output, hidden Participant and revoked authority qualified']}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

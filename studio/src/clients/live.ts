@@ -4,7 +4,7 @@ import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBin
 import type { ConversationSendInput, ConversationSubmission } from "./conversation";
 import type { InspectedConversationExecution } from "./executionContext";
 import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput, CognitivePlan } from "./cognitive";
-import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, EffectProposal, ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
+import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, EffectProposal, ExecutionGetInput, ExecutionListInput, ExecutionList, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
@@ -161,6 +161,7 @@ export class LiveClient {
   submitEffect(input: EffectSubmitInput) { return this.call<ExecutionObservation>("effect.submit", input); }
   acquireSource(input: SourceAcquireInput) { return this.call<ExecutionSubmission>("source.acquire", input); }
   resumeSource(input: SourceResumeInput) { return this.call<ExecutionSubmission>("source.resume", input); }
+  executions(input: ExecutionListInput) { return this.call<ExecutionList>("execution.list", input); }
   execution(input: ExecutionGetInput) { return this.call<ExecutionObservation>("execution.get", input); }
   composeCognition(input: CognitiveComposeInput) { return this.call<ConversationSubmission>("cognitive.compose", input); }
   prepareCognition(input: CognitivePrepareInput) { return this.call<CognitivePlan>("cognitive.realization.prepare", input); }

@@ -3,7 +3,7 @@ import { providerCatalogKey, type ProviderCatalogObservation, type ProviderModel
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
 import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput } from "./cognitive";
-import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
+import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, ExecutionGetInput, ExecutionListInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderQualificationInput, ProviderBindingInput } from "./compute";
@@ -120,6 +120,7 @@ export class ApplicationAccess implements Disposable {
   submitEffect(input: EffectSubmitInput) { return this.invoke("effect.submit", () => this.client.submitEffect(input)); }
   acquireSource(input: SourceAcquireInput) { return this.invoke("source.acquire", () => this.client.acquireSource(input)); }
   resumeSource(input: SourceResumeInput) { return this.invoke("source.resume", () => this.client.resumeSource(input)); }
+  executions(input: ExecutionListInput) { return this.invoke("execution.list", () => this.client.executions(input)); }
   execution(input: ExecutionGetInput) { return this.invoke("execution.get", () => this.client.execution(input)); }
   composeCognition(input: CognitiveComposeInput) { return this.invoke("cognitive.compose", () => this.client.composeCognition(input)); }
   prepareCognition(input: CognitivePrepareInput) { return this.invoke("cognitive.realization.prepare", () => this.client.prepareCognition(input)); }

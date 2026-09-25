@@ -1825,7 +1825,16 @@ is 16, maximum 32; at most 128 recent distinct candidates are requalified. This
 bounded discovery covers Resource requests, controlled effects, Source attempts,
 Conversation composition/realization and runtime work. It returns only references
 and recorded times, never output, and is not a complete execution ledger.
-Studio's automatic catalog consumption remains to be qualified.
+Studio's Work → Executions and bottom Executions panel discover these references
+automatically, including after Host restart or loss of window-local recovery refs.
+Choose the recent limit (16/32), refresh, then select one compact row to inspect
+its current authorized state. Discovery does not read process output or submit work.
+Case/Participant changes and mismatched/late responses cannot cross the list's
+identity; local and returned refs merge by exact domain identity.
+`tests/studio/execution-discovery.mjs` qualifies these fences; the Resource setup
+product suite clears local refs after Host restart and recovers the exact output.
+Runtime continuation retains its confirmation dialog even as its new reference
+enters the list; uncertain delivery still requires observation, never automatic retry.
 Work → Executions now shows the recorded process exit separately from
 its effect receipt. **Read retained process output** requests stdout/stderr;
 refresh, Case/Participant changes and refused re-observation remove prior output.

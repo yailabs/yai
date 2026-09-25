@@ -3,7 +3,28 @@
 export type ExecutionReference = { domain: "runtime_work" | "resource_request"; submission_ref: string }
   | { domain: "controlled_effect"; operation_ref: string }
   | { domain: "cognitive_realization"; plan_ref: string }
+  | { domain: "cognitive_composition"; request_ref: string }
   | { domain: "source_acquisition"; source_ref: string; attempt: number };
+export interface ExecutionListInput { case_ref: string; participant_ref: string; limit?: number }
+export interface ExecutionListEntry { execution: ExecutionReference; recorded_at_unix_ms: number }
+export interface ExecutionList { schema: string; case_ref: string; participant_ref: string; generation: number; entries: ExecutionListEntry[]; limit: number; scope: string }
+export function isExecutionReference(value: unknown): value is ExecutionReference {
+  if (!value || typeof value !== "object") return false;
+  const ref = value as Record<string, unknown>;
+  const text = (name: string) => typeof ref[name] === "string" && (ref[name] as string).length > 0;
+  switch (ref.domain) {
+    case "source_acquisition": return text("source_ref") && Number.isSafeInteger(ref.attempt) && Number(ref.attempt) > 0;
+    case "controlled_effect": return text("operation_ref");
+    case "cognitive_realization": return text("plan_ref");
+    case "cognitive_composition": return text("request_ref");
+    case "runtime_work": case "resource_request": return text("submission_ref");
+    default: return false;
+  }
+}
+export function executionReferenceKey(ref: ExecutionReference): string {
+  return JSON.stringify(ref.domain === "source_acquisition" ? [ref.domain, ref.source_ref, ref.attempt]
+    : [ref.domain, ref.domain === "controlled_effect" ? ref.operation_ref : ref.domain === "cognitive_realization" ? ref.plan_ref : ref.domain === "cognitive_composition" ? ref.request_ref : ref.submission_ref]);
+}
 export interface ExecutionGetInput { case_ref: string; participant_ref: string; execution: ExecutionReference; include_output?: boolean }
 export interface EffectProposeInput { case_ref: string; participant_ref: string; resource_ref: string; candidate_ref: string; expected_generation: number }
 export interface EffectSubmitInput { case_ref: string; participant_ref: string; operation_ref: string; expected_generation: number }
@@ -31,7 +52,7 @@ export interface ExecutionObservation {
   posture?: string | { state: string; result_ref?: string; receipt_ref?: string; effect_ref?: string; outcome?: string; review_ref?: string; decision_ref?: string; external_execution_started?: boolean };
   runner?: { run_ref: string; checkpoint_digest: string; posture: string; stop_requested: boolean };
   progress?: { status: "normalization_rejected" | "denied" | "awaiting_review" | "finalized" | "indeterminate"; operation_id?: string | null; decision_id?: string | null; review_id?: string | null; effect_id?: string | null; receipt_id?: string | null; outcome?: string | null } | null;
-  plan_ref?: string;
+  plan_ref?: string; request_ref?: string;
   provider_result?: { result_id: string; output: string; invocation_id: string } | null;
   attempt_outcomes?: import("./conversation").ProviderAttemptObservation[];
 }
@@ -50,13 +71,13 @@ export interface ProcessAttachmentInput { case_ref: string; attachment_ref: stri
  * Case/Participant. No task text, results, authority or canonical execution store. */
 export function executionKey(caseRef: string, participant: string) { return `yai.studio.execution-refs.v1:${caseRef}:${participant}`; }
 export function readExecutionRefs(key: string): ExecutionReference[] {
-  try { const items: unknown = JSON.parse(sessionStorage.getItem(key) ?? "[]"); return Array.isArray(items) ? items.filter((item): item is ExecutionReference => item && (item.domain === "source_acquisition" ? typeof item.source_ref === "string" && Number.isSafeInteger(item.attempt) && item.attempt > 0 : item.domain === "controlled_effect" ? typeof item.operation_ref === "string" && item.operation_ref.length > 0 : item.domain === "cognitive_realization" ? typeof item.plan_ref === "string" && item.plan_ref.length > 0 : ["runtime_work", "resource_request"].includes(item.domain) && typeof item.submission_ref === "string")).slice(-12) : []; } catch { return []; }
+  try { const items: unknown = JSON.parse(sessionStorage.getItem(key) ?? "[]"); return Array.isArray(items) ? items.filter(isExecutionReference).slice(-12) : []; } catch { return []; }
 }
-export function rememberExecution(key: string, execution: ExecutionReference) {
-  const next = [...readExecutionRefs(key).filter(item => JSON.stringify(item) !== JSON.stringify(execution)), execution].slice(-12);
+export function rememberExecution(key: string, execution: ExecutionReference, activate = true) {
+  const next = [...readExecutionRefs(key).filter(item => executionReferenceKey(item) !== executionReferenceKey(execution)), execution].slice(-12);
   // Fail before submission if its recovery reference cannot be retained locally.
   sessionStorage.setItem(key, JSON.stringify(next));
-  window.dispatchEvent(new CustomEvent("yai:execution-reference", { detail: { key } }));
+  window.dispatchEvent(new CustomEvent("yai:execution-reference", { detail: { key, activate } }));
 }
 
 export interface CaseResumeInput { case_ref: string; participant_ref: string; previous_submission_ref: string; submission_ref: string; run_ref: string; checkpoint_digest: string; budgets: RuntimeBudgets }

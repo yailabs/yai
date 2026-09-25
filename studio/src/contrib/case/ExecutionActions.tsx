@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
-import type { ExecutionObservation, ExecutionReference, ResourceAction, ResourceRequestInput } from "../../clients/execution";
-import { executionKey, readExecutionRefs, rememberExecution } from "../../clients/execution";
+import type { ExecutionObservation, ExecutionReference, ExecutionListEntry, ResourceAction, ResourceRequestInput } from "../../clients/execution";
+import { executionKey, executionReferenceKey, isExecutionReference, readExecutionRefs, rememberExecution } from "../../clients/execution";
 import { ApplicationActionDialog } from "../../components/ApplicationActionDialog";
 import { Badge, Button } from "../../components/primitives";
 import { ConversationAttempt } from "./ConversationAttempt";
@@ -10,23 +10,68 @@ import { useApplicationAvailability } from "./applicationActions";
 type Context = Pick<SurfaceRendererProps, "workspace" | "platform">;
 const refresh = (platform: Context["platform"]) => platform.commands.executeCommand("studio.case.refresh").then(() => undefined);
 const keyFor = (workspace: Context["workspace"]) => executionKey(workspace.case.case_ref, workspace.case.participant_ref);
-const label = (ref: ExecutionReference) => ref.domain === "source_acquisition" ? `${ref.source_ref} · attempt ${ref.attempt}` : ref.domain === "cognitive_realization" ? ref.plan_ref : ref.domain === "controlled_effect" ? ref.operation_ref : ref.submission_ref;
+const label = (ref: ExecutionReference) => ref.domain === "source_acquisition" ? `${ref.source_ref} · attempt ${ref.attempt}` : ref.domain === "cognitive_realization" ? ref.plan_ref : ref.domain === "controlled_effect" ? ref.operation_ref : ref.domain === "cognitive_composition" ? ref.request_ref : ref.submission_ref;
 
 export function ExecutionHistory({ workspace, platform }: Context) {
-  const key = keyFor(workspace);
-  const [refs, setRefs] = useState(() => readExecutionRefs(key));
+  const key = keyFor(workspace); const application = platform.application;
+  const availability = useApplicationAvailability(application);
+  const [local, setLocal] = useState(() => ({ key, refs: readExecutionRefs(key) }));
+  const [selected, setSelected] = useState(() => ({ key, ref: readExecutionRefs(key).at(-1) }));
   const [manual, setManual] = useState(false);
-  const [domain, setDomain] = useState<ExecutionReference["domain"]>("runtime_work");
-  useEffect(() => { setRefs(readExecutionRefs(key)); const update = () => setRefs(readExecutionRefs(key)); window.addEventListener("yai:execution-reference", update); return () => window.removeEventListener("yai:execution-reference", update); }, [key]);
-  return <section className="work-section execution-history"><h2>Executions</h2><p>Exact submission references retained in this window. Observation rechecks current YAI authority and never dispatches work. This is not a complete execution catalog.</p><Button onClick={() => setManual(!manual)}>Observe exact execution…</Button>
-    {manual && <form className="execution-observe-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); rememberExecution(key, domain === "source_acquisition" ? { domain, source_ref: String(form.get("reference")).trim(), attempt: Number(form.get("attempt")) } : domain === "cognitive_realization" ? { domain, plan_ref: String(form.get("reference")).trim() } : domain === "controlled_effect" ? { domain, operation_ref: String(form.get("reference")).trim() } : { domain, submission_ref: String(form.get("reference")).trim() }); setManual(false); }}><label>Execution family<select value={domain} onChange={event => setDomain(event.target.value as ExecutionReference["domain"])}><option value="controlled_effect">Controlled effect</option><option value="runtime_work">Runtime work</option><option value="cognitive_realization">Cognitive realization</option><option value="source_acquisition">Source acquisition</option><option value="resource_request">Resource request</option></select></label><label>Exact reference<input name="reference" required /></label>{domain === "source_acquisition" && <label>Attempt<input name="attempt" type="number" min={1} defaultValue={1} required /></label>}<Button type="submit">Observe reference</Button></form>}
-    {refs.slice().reverse().map(ref => <ExecutionReceipt key={JSON.stringify(ref)} workspace={workspace} platform={platform} reference={ref} />)}
+  const [domain, setDomain] = useState<Exclude<ExecutionReference["domain"], "cognitive_composition">>("runtime_work");
+  const [limit, setLimit] = useState(16); const [revision, setRevision] = useState(0);
+  const identity = JSON.stringify([key, workspace.case.generation, revision, limit, availability]);
+  const active = useRef(identity); active.current = identity;
+  const [catalog, setCatalog] = useState<{ identity: string; entries: ExecutionListEntry[]; error?: string }>();
+  useEffect(() => {
+    const update = (event?: Event) => {
+      if (event && (event as CustomEvent).detail?.key !== key) return;
+      const refs = readExecutionRefs(key); setLocal({ key, refs });
+      if (event && (event as CustomEvent).detail?.activate !== false) setSelected({ key, ref: refs.at(-1) });
+    };
+    update(); window.addEventListener("yai:execution-reference", update);
+    return () => window.removeEventListener("yai:execution-reference", update);
+  }, [key]);
+  useEffect(() => {
+    if (!application?.supports("execution.list")) return;
+    let disposed = false; const stamp = identity;
+    void application.executions({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, limit }).then(response => {
+      if (disposed || active.current !== stamp) return;
+      const value = response.data;
+      if (response.result_state === "success" && value?.case_ref === workspace.case.case_ref && value.participant_ref === workspace.case.participant_ref && value.generation === workspace.case.generation && value.schema === "yai.execution_list_projection.v1" && value.limit === limit && Array.isArray(value.entries) && value.entries.length <= limit && value.entries.every(entry => isExecutionReference(entry.execution) && Number.isSafeInteger(entry.recorded_at_unix_ms) && entry.recorded_at_unix_ms >= 0)) {
+        setCatalog({ identity: stamp, entries: value.entries });
+      } else setCatalog({ identity: stamp, entries: [], error: response.error?.safe_message ?? "The Case changed. Refresh the Case before inspecting executions." });
+    }).catch(() => { if (!disposed && active.current === stamp) setCatalog({ identity: stamp, entries: [], error: "Execution discovery is unavailable. No work was submitted." }); });
+    return () => { disposed = true; };
+  }, [application, identity]);
+  const current = catalog?.identity === identity ? catalog : undefined;
+  const entries = new Map<string, { execution: ExecutionReference; recorded_at_unix_ms?: number }>();
+  for (const entry of current?.entries ?? []) entries.set(executionReferenceKey(entry.execution), entry);
+  for (const execution of local.key === key ? local.refs.slice().reverse() : []) {
+    const id = executionReferenceKey(execution); if (!entries.has(id)) entries.set(id, { execution });
+  }
+  const selection = selected.key === key && selected.ref ? entries.get(executionReferenceKey(selected.ref))?.execution : undefined;
+  return <section className="work-section execution-history"><header className="execution-catalog-toolbar"><h2>Executions</h2>
+    <label>Recent limit<select aria-label="Recent execution limit" value={limit} onChange={event => setLimit(Number(event.target.value))}><option value={16}>16</option><option value={32}>32</option></select></label>
+    <Button disabled={!application?.supports("execution.list")} onClick={() => setRevision(value => value + 1)}>Refresh executions</Button>
+    <Button onClick={() => setManual(!manual)}>Observe exact execution…</Button></header>
+    <p>Recent authorized references from YAI, plus requests retained in this window. Select one to inspect its current state. This bounded view is not a complete execution ledger.</p>
+    {application?.supports("execution.list") ? !current ? <p role="status">Reading retained executions…</p> : current.error ? <p role="alert">{current.error}</p> : null : <p role="status">This Host does not expose execution discovery. Exact local references remain available.</p>}
+    {manual && <form className="execution-observe-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); rememberExecution(key, domain === "source_acquisition" ? { domain, source_ref: String(form.get("reference")).trim(), attempt: Number(form.get("attempt")) } : domain === "cognitive_realization" ? { domain, plan_ref: String(form.get("reference")).trim() } : domain === "controlled_effect" ? { domain, operation_ref: String(form.get("reference")).trim() } : { domain, submission_ref: String(form.get("reference")).trim() }); setManual(false); }}><label>Execution family<select value={domain} onChange={event => setDomain(event.target.value as typeof domain)}><option value="controlled_effect">Controlled effect</option><option value="runtime_work">Runtime work</option><option value="cognitive_realization">Cognitive realization</option><option value="source_acquisition">Source acquisition</option><option value="resource_request">Resource request</option></select></label><label>Exact reference<input name="reference" required /></label>{domain === "source_acquisition" && <label>Attempt<input name="attempt" type="number" min={1} defaultValue={1} required /></label>}<Button type="submit">Observe reference</Button></form>}
+    <div className="execution-catalog" aria-label="Recent executions">
+      {[...entries].map(([id, entry]) => <button type="button" key={id} className="execution-catalog-row" aria-pressed={Boolean(selection && executionReferenceKey(selection) === id)} title={label(entry.execution)} onClick={() => setSelected({ key, ref: entry.execution })}>
+        <span>{entry.execution.domain.replaceAll("_", " ")}</span><small>{label(entry.execution)}</small>
+        <time>{entry.recorded_at_unix_ms == null ? "This window" : new Date(entry.recorded_at_unix_ms).toLocaleString()}</time>
+      </button>)}
+    </div>
+    {current && !entries.size && !current.error && <p>No recent execution references are currently visible.</p>}
+    {selection ? <ExecutionReceipt key={executionReferenceKey(selection)} workspace={workspace} platform={platform} reference={selection} refreshRevision={revision} /> : entries.size > 0 && <p>Select an execution to inspect its current authorized state.</p>}
   </section>;
 }
 
-export function ExecutionReceipt({ workspace, platform, reference, compact = false }: Context & { reference: ExecutionReference; compact?: boolean }) {
+export function ExecutionReceipt({ workspace, platform, reference, compact = false, refreshRevision = 0 }: Context & { reference: ExecutionReference; compact?: boolean; refreshRevision?: number }) {
   const application = platform.application; const availability = useApplicationAvailability(application);
-  const identity = JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref, workspace.case.generation, reference]);
+  const identity = JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref, workspace.case.generation, reference, refreshRevision]);
   const current = useRef(identity); current.current = identity; const sequence = useRef(0);
   const [observation, setObservation] = useState<{ identity: string; value: ExecutionObservation }>();
   const result = observation?.identity === identity ? observation.value : undefined; const [error, setError] = useState<string>(); const [busy, setBusy] = useState(false); const [stop, setStop] = useState(false);
@@ -38,7 +83,7 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
     if (reference.domain === "resource_request") setObservation(undefined);
     try { const response = await application.execution({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, execution: reference, ...(includeOutput ? { include_output: true } : {}) });
       if (stamp !== current.current || request !== sequence.current) return;
-      if (response.result_state === "success" && response.data?.case_ref === workspace.case.case_ref && response.data.participant_ref === workspace.case.participant_ref && (reference.domain !== "cognitive_realization" || response.data.plan_ref === reference.plan_ref) && (reference.domain !== "controlled_effect" || response.data.operation_ref === reference.operation_ref)) setObservation({ identity: stamp, value: response.data });
+      if (response.result_state === "success" && response.data?.case_ref === workspace.case.case_ref && response.data.participant_ref === workspace.case.participant_ref && (reference.domain !== "cognitive_realization" || response.data.plan_ref === reference.plan_ref) && (reference.domain !== "controlled_effect" || response.data.operation_ref === reference.operation_ref) && (reference.domain !== "cognitive_composition" || response.data.request_ref === reference.request_ref) && (reference.domain !== "runtime_work" || response.data.submission_ref === reference.submission_ref) && (reference.domain !== "source_acquisition" || (response.data.source_ref === reference.source_ref && response.data.attempt === reference.attempt))) setObservation({ identity: stamp, value: response.data });
       else { setObservation(undefined); setError(response.error?.safe_message ?? "No currently authorized observation for this exact reference."); }
     } catch {
       if (stamp === current.current && request === sequence.current) { setObservation(undefined); setError("Execution observation is unavailable."); }
@@ -96,7 +141,7 @@ export function ExecutionReceipt({ workspace, platform, reference, compact = fal
     {reference.domain === "runtime_work" && result?.runner && <Button disabled={!application?.supports("case.stop") || result.runner.stop_requested || result.runner.posture !== "running"} onClick={() => setStop(true)}>Stop this run…</Button>}
     {reference.domain === "runtime_work" && result?.runner?.posture === "operator_stopped" && <Button disabled={busy || !application?.supports("case.resume") || !result.runner.checkpoint_digest} onClick={() => setResume({ identity, submission: `request:studio:${crypto.randomUUID()}`, run: result.runner!.run_ref, digest: result.runner!.checkpoint_digest })}>Resume stopped work…</Button>}
     {resume && application && reference.domain === "runtime_work" && <ApplicationActionDialog title="Resume stopped work" description="Continue the exact observed run under new total limits. Previously consumed budgets and delivery history remain; this does not restart the task or replay an uncertain provider request. YAI rechecks the checkpoint and current authority." submitLabel="Submit continuation" close={() => setResume(undefined)} enabled={resume.identity === identity} submit={form => {
-      rememberExecution(keyFor(workspace), { domain: "runtime_work", submission_ref: resume.submission });
+      rememberExecution(keyFor(workspace), { domain: "runtime_work", submission_ref: resume.submission }, false);
       return application.resumeCase({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, previous_submission_ref: reference.submission_ref, submission_ref: resume.submission, run_ref: resume.run, checkpoint_digest: resume.digest, budgets: { max_invocations: Number(form.get("invocations")), max_operations: Number(form.get("operations")), max_runtime_ms: Number(form.get("seconds")) * 1000, max_semantic_units: 16384, max_resident_items: 48, max_estimated_input_units: 32768, max_provider_retries: 0, stop_on_deny: true, continue_after_malformed: false } });
     }} committed={() => refresh(platform)} resync={() => refresh(platform)}><label>Total invocation limit<input name="invocations" type="number" min={1} max={16} defaultValue={2} required /></label><label>Total operation limit<input name="operations" type="number" min={1} max={16} defaultValue={2} required /></label><label>Maximum runtime, seconds<input name="seconds" type="number" min={1} max={300} defaultValue={30} required /></label><p>Limits include work already consumed. Insufficient remaining budget may stop the continuation without another invocation.</p><small>Recovery reference: {resume.submission}</small>{resume.identity !== identity && <p role="alert">The Case changed. Close and refresh the observation before continuing.</p>}</ApplicationActionDialog>}
     {stop && application && reference.domain === "runtime_work" && result?.runner && <ApplicationActionDialog title="Stop this run" description="Request cooperative stop of this exact runner. This neither cancels nor closes the Case, and does not claim an external effect has been undone." submitLabel="Request stop" close={() => setStop(false)} submit={() => application.stopCase({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, submission_ref: reference.submission_ref, run_ref: result.runner!.run_ref })} committed={observe}><code>{result.runner.run_ref}</code></ApplicationActionDialog>}

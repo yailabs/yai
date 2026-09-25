@@ -15,7 +15,7 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build --no-bundle",
     "test:kernel": "tsc -p ../tests/studio/tsconfig.kernel.json && node ../tests/studio/kernel.test.cjs",
-    "test:reliability": "node ../tests/studio/reliability.mjs && node ../tests/studio/material-lifecycle.mjs && node ../tests/studio/attachment-lifecycle.mjs && node ../tests/studio/surface-context.mjs && node ../tests/studio/retained-output.mjs",
+    "test:reliability": "node ../tests/studio/reliability.mjs && node ../tests/studio/material-lifecycle.mjs && node ../tests/studio/attachment-lifecycle.mjs && node ../tests/studio/surface-context.mjs && node ../tests/studio/retained-output.mjs && node ../tests/studio/execution-discovery.mjs",
     "test:browser": "node ../tests/studio/workbench.mjs",
     "test:browser:fixture": "node ../tests/studio/workbench.mjs",
     "test:desktop:csp": "node ../tests/studio/desktop-csp.mjs",

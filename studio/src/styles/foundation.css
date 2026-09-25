@@ -893,3 +893,15 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .process-result p, .process-result small { color:var(--yai-text-muted); font-size:11px; }
 .process-result h4 { margin:12px 0 5px; font-size:11px; }
 .process-result pre { max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; user-select:text; }
+
+.execution-catalog-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.execution-catalog-toolbar h2 { margin-right:auto; }
+.execution-catalog-toolbar label { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--yai-text-muted); }
+.execution-catalog { max-height:260px; overflow:auto; border-block:1px solid var(--yai-divider); }
+.execution-catalog-row { display:grid; grid-template-columns:145px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; padding:8px; border:0; border-bottom:1px solid var(--yai-divider); background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.execution-catalog-row span { font-size:12px; text-transform:capitalize; }
+.execution-catalog-row small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--yai-text-muted); }
+.execution-catalog-row time { font-size:10px; color:var(--yai-text-muted); }
+.execution-catalog-row:hover, .execution-catalog-row[aria-pressed="true"] { background:var(--yai-selected); }
+.execution-catalog-row:focus-visible { outline:1px solid var(--yai-accent); outline-offset:-2px; }
+@media(max-width:1100px) { .execution-catalog-row { grid-template-columns:115px minmax(0,1fr); } .execution-catalog-row time { grid-column:2; } }
