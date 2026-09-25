@@ -62,6 +62,12 @@ Exact model not proven, never a green success. Trust and Case binding still
 require their separate actions. Narrow Work Surfaces use the Deployment picker
 in place of a second list; the Inspector keeps model and endpoint on full rows.
 Manual evidence import remains available for independently measured records.
+The [retained native qualification](../labs/external-runtime/runs/20260925-native-provider-qualification/manifest.json)
+records a successful small real DeepSeek text check. Its first screenshot timed
+out after completion; a separate native read on an isolated X display recovered
+the exact check after Host upgrade without redispatch. Case and Conversation were
+unchanged. This is synthetic provider qualification, not proof that the populated
+infrastructure Case fits the 4K context or a human acceptance result.
 Open Manage → Customize Activity Rail: core YAI and first-party platform entries
 are fixed; eligible additional contributions support pin/unpin, ordering and
 Restore defaults. Preferences survive reopening without changing Case history.

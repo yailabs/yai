@@ -1,0 +1,46 @@
+{
+  "run_id": "native-provider-probe-1790314416245781447",
+  "yai_sha": "a1f9c13095d8ff0b43f7f3e0232b98a072ef2eb2",
+  "desktop_build": "bf3572e",
+  "endpoint": "http://127.0.0.1:18001",
+  "model": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "submission_ref": "studio-probe:63a3e514-45b1-4bad-8b4b-4fb8e71aab0e",
+  "evidence_class": "external_provider_native_product",
+  "script_result": "NONPASS",
+  "script_exit": 1,
+  "reason": "WebKit screenshot timed out after successful retained qualification",
+  "provider_result": "completed",
+  "provider_failure_codes": [],
+  "continuity_followup": "PASS; separate read-only run links original Case/Conversation pre-state",
+  "limitations": [
+    "Small synthetic text request, no Case content. Does not establish populated infrastructure context fits 4096 tokens.",
+    "No YVEX administration; no human acceptance or model-quality promotion.",
+    "18.699 seconds is one informational observation, not performance qualification."
+  ],
+  "artifacts": {
+    "qualification-observations.jsonl": "f9cdeca13b75aceb8a469a9370be8ed670603bf40b0c611bf83c27f9ced694df",
+    "native-history.png": "01f28cb8228e726e00f932d3adfc1b8778d0207987690a50a2e610a85327f1ca",
+    "native-history.py": "abf7d94881cf4ec2cd966c035e9fa41733d9ed67f519a38a5150bd3cc3d60003",
+    "qualification-command.log": "3d14945c8679e82e9ce58694d18127e6587ef972b8b0d8c7162f90bd73533ae9",
+    "continuity-read.jsonl": "a2994433bc8ba20f9fcf468a6bdcb9cd3432a97f9cd9c45b071232fb33cacec4",
+    "continuity-read.py": "0479861d3767ae6b279b6a8f8790d832005930db329fa57e2884aaf97bf5772f",
+    "host-upgrade.jsonl": "5db60098ba2211225b2d271f007d1599ee9494449a91d2c28c763938e6b11a12",
+    "qualification.py": "9b54ce3f124bdeaabc753c1c19cc9149358c2166c771b9dcca1e99149636978c",
+    "native-history.jsonl": "1124f41dcdf43fca6f8e477ae71ba6ca1fbe171cd80bafd0f4f9c24e14acd1e4",
+    "native-history-command.log": "9a831127c782c0c527df6d602f32e2179a152bb29cc952ef3cdfdda8562fc284",
+    "empty-admission-inventory.jsonl": "351e85dbb41d7b4d5ca484885a162b24ef34b823745c6d2cf9f5c5eba6b00945"
+  },
+  "native_history_followup": {
+    "result": "PASS",
+    "exit": 0,
+    "command": [
+      "xvfb-run",
+      "-a",
+      "python3",
+      "/home/mothx/.cache/tmp/native-provider-history-read.py"
+    ],
+    "run_id": "native-provider-history-read-1790315148738058074",
+    "desktop_build": "fd0c0b0",
+    "meaning": "Read-only retained result visible after Host upgrade; Case and Conversation unchanged; no redispatch"
+  }
+}
