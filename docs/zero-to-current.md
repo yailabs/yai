@@ -65,6 +65,11 @@ for both bound and unbound targets. It shows the current Case binding separately
 from Tenant trust and dated health. If Tenant inventory cannot be read, only an
 already disclosed current Case target may remain visible, labeled as Case projection.
 Compute separates **Bindings**, **Conversation** assignment and **Execution**.
+Bindings links to **Browse Providers** for inventory selection. Actions on a
+selected deployment keep that exact identity; manual reference entry is under
+**Advanced**. Bound rows show model and dated health, with adapter, endpoint and
+qualification details in the target Inspector. Existing `provider.governance`
+operations and CLI semantics are unchanged; this is a Studio interaction change.
 Arrow keys/Home/End navigate the section tabs. Leaving and returning preserves
 the Case/Participant-local section; switching sections preserves an exact prepared
 plan without submitting or preparing another. The conversation model button

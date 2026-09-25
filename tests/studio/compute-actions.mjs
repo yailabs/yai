@@ -120,7 +120,16 @@ try {
  assert.equal(await sections.getByRole('tab',{name:'Bindings',exact:true}).getAttribute('aria-selected'),'true','Successful registration reveals the exact unbound candidate');
  let response=exchanges.findLast(item=>item.request.operation_ref==='provider.register').result;assert.equal(response.result_state,'success',JSON.stringify(response));const target=response.data;assert.equal(target.model_id,'controlled-text-model');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,0,'Registration must not silently bind');
- const candidate=page.locator('.candidate-target');await candidate.getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByLabel('Exact target reference').fill('provider-target:missing');await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.locator('.action-result').waitFor();
+ const candidate=page.locator('.candidate-target');
+ await candidate.getByRole('button',{name:'Bind provider to Case',exact:true}).click();
+ form=page.getByRole('dialog',{name:'Bind provider to Case'});
+ assert.equal(await form.getByLabel('Exact target reference').count(),0,'Selected deployment does not require editing an opaque reference');
+ await form.getByText('Selected deployment: controlled-provider',{exact:true}).waitFor();
+ await form.getByRole('button',{name:'Cancel',exact:true}).click();
+ const advanced=page.locator('.compute-exact-target');
+ assert.equal(await advanced.getAttribute('open'),null,'Manual reference controls are secondary');
+ await advanced.locator('summary').click();
+ await advanced.getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByLabel('Exact target reference').fill('provider-target:missing');await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.locator('.action-result').waitFor();
  assert.notEqual(exchanges.findLast(item=>item.request.operation_ref==='provider.case.bind').result.result_state,'success');await form.getByRole('button',{name:'Cancel',exact:true}).click();
  // Real bounded HTTP observations in the test harness, never browser inference or claimed production qualification.
  const started=Date.now();const catalog=await fetch(endpoint+'/v1/models').then(r=>r.json());const completion=await fetch(endpoint+'/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model:target.model_id,messages:[{role:'user',content:'Bounded qualification'}]})}).then(r=>r.json());
@@ -133,6 +142,10 @@ try {
  const before=await accepted('case.summary',{case_ref:caseRef});
  await candidate.getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.waitFor({state:'hidden'});
  const bound=await accepted('case.summary',{case_ref:caseRef});assert.equal(bound.case.generation,before.case.generation+1);assert.equal(bound.compute.targets[0].id,target.target_id);assert.equal(bound.compute.targets[0].posture.trust.posture,'approved');
+ await page.getByRole('button',{name:'Browse Providers',exact:true}).click();
+ await page.locator('[data-surface-type="platform.providers"]').waitFor();
+ await page.locator('.live-rail button[aria-label="Compute"]').click();
+ assert.equal(await sections.getByRole('tab',{name:'Bindings',exact:true}).getAttribute('aria-selected'),'true');
  await page.locator('.compute-target').getByText('controlled-text-model',{exact:true}).waitFor();
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
    await page.setViewportSize({width,height});

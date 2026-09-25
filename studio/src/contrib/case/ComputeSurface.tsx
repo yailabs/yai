@@ -62,13 +62,14 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
   const [action, setAction] = useState<Action>();
   const [candidate, setCandidate] = useState<ProviderTarget>();
   const [target, setTarget] = useState("");
+  const [selectedTarget, setSelectedTarget] = useState(false);
   const [qualification, setQualification] = useState<ProviderQualification>();
   const [evidence, setEvidence] = useState<ProviderProbeEvidence>();
   const [fileError, setFileError] = useState<string>();
   const [trustReceipt, setTrustReceipt] = useState<{ target: string; posture: string }>();
   const operation = (name: Action) => ({ register: "provider.register", qualify: "provider.qualify", trust: "provider.trust.set", bind: "provider.case.bind" })[name];
   const refresh = () => platform.commands.executeCommand("studio.case.refresh").then(() => { setRevision(value => value + 1); });
-  const begin = (name: Action, ref?: string) => { if (ref) setTarget(ref); setEvidence(undefined); setFileError(undefined); setAction(name); };
+  const begin = (name: Action, ref?: string) => { setTarget(ref ?? ""); setSelectedTarget(Boolean(ref)); setEvidence(undefined); setFileError(undefined); setAction(name); };
   const controls = (ref?: string) => <div className="object-action-row">{(["qualify", "trust", "bind"] as const).map(name => <Button key={name} disabled={!application?.supports(operation(name))} onClick={() => begin(name, ref)}>{titles[name]}</Button>)}</div>;
   const models = [...new Set(targets.map(item => item.model_id))];
   return <article className={scope === "case" ? "compute-case-workspace compute-surface" : "compute-surface platform-surface"} data-surface-type={scope === "case" ? "case.compute" : scope === "tenant" ? "platform.providers" : "platform.yvex"}>
@@ -87,14 +88,16 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
     <section className="compute-section"><h2>Targets / deployments <span>{targets.length}</span></h2>
       {!targets.length && <EmptyState title={scope === "case" ? "No bound target" : "No matching deployment"} body="Registration, qualification, trust and Case binding are separate governed steps." />}
       {targets.map(item => { const posture = typeof item.posture === "object" ? item.posture : undefined; return <article className="compute-target" key={item.id}><header><Icon name="compute" /><button className="object-link" onClick={() => actions.inspect(item.id)}>{item.provider_key}</button><Badge tone={posture?.trust?.posture === "approved" ? "success" : posture?.trust?.posture === "denied" ? "error" : "warning"}>{posture?.trust?.posture ?? "Unreviewed"}</Badge></header>
-        <dl className="object-facts"><div><dt>Model</dt><dd>{item.model_id}</dd></div><div><dt>Provider adapter</dt><dd>{item.adapter.replaceAll("_", " ")}</dd></div><div><dt>Endpoint</dt><dd>{item.endpoint}</dd></div><div><dt>Locality</dt><dd>{item.locality.replaceAll("_", " ")}</dd></div><div><dt>Observed health</dt><dd>{posture?.health.posture ?? "Unavailable"}{posture?.health.observed_at_unix_ms ? ` · ${new Date(posture.health.observed_at_unix_ms).toLocaleString()}` : " · no current observation exposed"}</dd></div><div><dt>Qualification</dt><dd>{posture?.qualification ? posture.qualification.capabilities.map(value => value.capability).join(", ") || "No capability proven" : "Not exposed"}</dd></div></dl>{controls(item.id)}
+        <dl className="object-facts"><div><dt>Model</dt><dd>{item.model_id}</dd></div><div><dt>Observed health</dt><dd>{posture?.health.posture ?? "Unavailable"}{posture?.health.observed_at_unix_ms ? ` · ${new Date(posture.health.observed_at_unix_ms).toLocaleString()}` : " · no current observation exposed"}</dd></div></dl>{controls(item.id)}
         <details><summary>Exact target / evidence</summary><code>{item.id}</code>{posture?.qualification && <p>{posture.qualification.id} · run {posture.qualification.run_id}</p>}</details>
       </article>; })}
     </section>
     {candidate && candidate.tenant_id === workspace.case.tenant_ref && !targets.some(item => item.id === candidate.target_id) && <section className="compute-section candidate-target"><h2>Registered in this session</h2><p><strong>{candidate.provider_key}</strong> · {candidate.model_id} · {candidate.endpoint}</p><code>{candidate.target_id}</code><p>Retained by YAI; not bound to this Case. Open Providers to discover the Tenant inventory independently of Case bindings.</p>{controls(candidate.target_id)}</section>}
     {qualification && <p className="operation-receipt" role="status">Qualification recorded: {qualification.capabilities.map(item => item.capability).join(", ") || "no proven capability"} · {qualification.qualification_id}</p>}
     {trustReceipt && <p className="operation-receipt" role="status">Trust {trustReceipt.posture} recorded for {trustReceipt.target}. Binding and effect-time admission are separate.</p>}
-    <section className="compute-section"><h2>Existing target</h2><p>Use an exact target reference returned by YAI. Providers lists the Tenant inventory. Binding here applies to the current Case only.</p>{controls()}</section>
+    <section className="compute-section"><h2>Available deployments</h2><p>Choose a deployment from the Tenant inventory, check its qualification and trust, then bind it to this Case.</p><Button onClick={() => actions.openPerspective("Providers")}>Browse Providers</Button>
+      <details className="compute-exact-target"><summary>Advanced: exact target reference</summary><p>Use a reference already returned by YAI. The current Case binding and authority checks still apply.</p>{controls()}</details>
+    </section>
     </section>
     <section {...panel("Conversation")}><ConversationModelSetup workspace={workspace} platform={platform} /></section>
     <section {...panel("Execution")}><CognitiveExecution workspace={workspace} platform={platform} />
@@ -110,7 +113,7 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
         if (action === "trust") { const posture = String(form.get("posture")) as "approved" | "denied"; const result = await application.trustProvider({ target_ref: target.trim(), posture }); if (result.result_state === "success") setTrustReceipt({ target: target.trim(), posture }); return result; }
         return application.bindProvider({ case_ref: workspace.case.case_ref, participant_ref: workspace.case.participant_ref, ordered_target_refs: [target.trim()], failover_policy: "none", max_attempts_per_turn: 1 });
       }} committed={refresh} resync={refresh}>
-      {action === "register" ? <ProviderRegistrationFields application={application} tenant={tenant!} yvex={yvexSetup} /> : scope === "case" ? <label>Exact target reference<input autoFocus required value={target} onChange={event => setTarget(event.target.value)} /></label> : <p>Selected deployment: {targets.find(item => item.id === target)?.provider_key ?? target}</p>}
+      {action === "register" ? <ProviderRegistrationFields application={application} tenant={tenant!} yvex={yvexSetup} /> : !selectedTarget ? <label>Exact target reference<input autoFocus required value={target} onChange={event => setTarget(event.target.value)} /></label> : <p>Selected deployment: {targets.find(item => item.id === target)?.provider_key ?? (candidate?.target_id === target ? candidate.provider_key : target)}</p>}
       {action === "qualify" && <><label>Measured evidence file<input type="file" accept="application/json,.json" required onChange={async event => { setEvidence(undefined); setFileError(undefined); const file = event.target.files?.[0]; if (!file) return; if (file.size > 65536) { setFileError("Evidence must be at most 64 KiB."); return; } try { const value = readProbeEvidence(JSON.parse(await file.text())); if (!value) throw new Error(); setEvidence(value); } catch { setFileError("This is not a valid ProviderProbeEvidence record."); } }} /></label><label>Qualification suite reference<input required name="suite" placeholder="Exact suite reference associated with the probe" /></label>{fileError && <p role="alert">{fileError}</p>}{evidence && <p>Run {evidence.run_id} · {evidence.failure_codes.length} reported failures{evidence.target_id !== target.trim() && " · target mismatch: not submitted"}</p>}</>}
       {action === "trust" && <label>Trust decision<select name="posture"><option value="approved">Approve</option><option value="denied">Deny</option></select></label>}
       {action === "bind" && <p>Participant: {workspace.case.participant_ref}. One target, no failover, one attempt. Existing ordered bindings will be replaced.</p>}
