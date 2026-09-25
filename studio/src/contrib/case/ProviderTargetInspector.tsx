@@ -39,15 +39,15 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
     {!target ? <p role="status" className="surface-note">{current?.error ??
       (!application?.supports("provider.inventory") ? "The connected Host does not expose target inventory." : "Loading exact target…")}</p> : <>
       <h2>{target.provider_key}</h2><Badge>{posture?.trust?.posture ?? "Unreviewed"}</Badge>
-      <dl className="object-facts"><div><dt>Model</dt><dd>{target.model_id}</dd></div>
+      <dl className="object-facts provider-inspector-facts"><div className="provider-fact-wide"><dt>Model</dt><dd>{target.model_id}</dd></div>
+        <div className="provider-fact-wide"><dt>Endpoint</dt><dd>{target.endpoint}</dd></div>
         <div><dt>Adapter</dt><dd>{target.adapter.replaceAll("_", " ")}</dd></div>
-        <div><dt>Endpoint</dt><dd>{target.endpoint}</dd></div>
         <div><dt>Locality</dt><dd>{target.locality.replaceAll("_", " ")}</dd></div>
         <div><dt>Current Case</dt><dd>{workspace.compute.targets.some(item => item.id === selection) ? "Bound" : "Not bound"}</dd></div>
         <div><dt>Observed health</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div>
-        <div><dt>Last observation</dt><dd>{posture?.health.observed_at_unix_ms ? new Date(posture.health.observed_at_unix_ms).toLocaleString() : "Not observed"}</dd></div>
+        <div className="provider-fact-wide"><dt>Last observation</dt><dd>{posture?.health.observed_at_unix_ms ? new Date(posture.health.observed_at_unix_ms).toLocaleString() : "Not observed"}</dd></div>
+        <div className="provider-fact-wide"><dt>Failure</dt><dd>{posture?.health.failure_class?.replaceAll("_", " ") ?? "No failure class recorded"}</dd></div>
         <div><dt>Circuit</dt><dd>{posture?.health.circuit ?? "Not exposed"}</dd></div>
-        <div><dt>Failure</dt><dd>{posture?.health.failure_class ?? "No failure class recorded"}</dd></div>
         <div><dt>Consecutive failures</dt><dd>{posture?.health.consecutive_failures ?? "Not exposed"}</dd></div></dl>
       <p className="surface-note">Tenant-owned deployment. Trust and binding do not grant permission for an operation.</p>
       <details><summary>Technical details</summary><p>{target.id}</p><p>{tenant}</p>

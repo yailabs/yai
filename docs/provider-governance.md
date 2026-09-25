@@ -105,7 +105,12 @@ and does not qualify the new credential revision. Trust and Case binding remain
 separate actions. Retention is bounded to 64 runs per target and 4096 per profile;
 reaching either limit refuses a new submission without network activity. The
 current contract provides no destructive cleanup of these retained identities.
-Studio consumption of this new start/observe pair is not yet qualified.
+Studio consumes this start/observe pair in the deployment Evidence section.
+The local recovery reference is scoped to Host profile, Tenant and exact target;
+results are re-observed through current authority after leaving the Surface.
+Text, JSON/function roundtrip and embedding checks are explicit choices.
+Failed local reference retention prevents dispatch; lost acknowledgement never
+causes automatic redispatch. Manual evidence import remains an advanced path.
 
 The shared probe reuses the current Rust CLI's exact response validation and
 correlated function roundtrip. Catalog membership alone cannot establish exact

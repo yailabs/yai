@@ -51,3 +51,19 @@ export type ProviderCatalogObservation =
 export function providerCatalogKey(tenant: string, target: string): string {
   return JSON.stringify([tenant, target]);
 }
+
+/** Exact retained synthetic qualification; never Case content or administrative trust. */
+export interface ProviderProbeInput {
+  target_ref: string; submission_ref: string; embedding: boolean;
+  realization_shapes: Array<"text_to_text" | "text_functions_to_text_or_call" | "text_to_json_object">;
+  qualify: boolean; valid_for_ms?: number;
+}
+export interface ProviderProbeExecution {
+  schema: "yai.provider_probe_execution.v1"; target_ref: string; submission_ref: string;
+  created: boolean; posture: "running" | "completed" | "failed" | "interrupted";
+  run: {
+    request: { target_id: string; submission_ref: string; embedding: boolean; realization_shapes: string[]; qualify: boolean; valid_for_ms?: number | null };
+    evidence?: ProviderProbeEvidence | null; qualification?: ProviderQualification | null;
+    failure_code?: string | null;
+  };
+}

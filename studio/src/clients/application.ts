@@ -1,3 +1,4 @@
+import type { ProviderProbeInput } from "./compute";
 import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
 import { providerCatalogKey, type ProviderCatalogObservation, type ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
@@ -182,6 +183,8 @@ export class ApplicationAccess implements Disposable {
     }
   }
   registerProvider(input: ProviderRegistration) { return this.invoke("provider.register", () => this.client.registerProvider(input)); }
+  probeProvider(input: ProviderProbeInput) { return this.invoke("provider.probe", () => this.client.probeProvider(input)); }
+  observeProviderProbe(input: Pick<ProviderProbeInput, "target_ref" | "submission_ref">) { return this.invoke("provider.probe.get", () => this.client.observeProviderProbe(input)); }
   qualifyProvider(input: ProviderQualificationInput) { return this.invoke("provider.qualify", () => this.client.qualifyProvider(input)); }
   trustProvider(input: { target_ref: string; posture: "approved" | "denied" }) { return this.invoke("provider.trust.set", () => this.client.trustProvider(input)); }
   bindProvider(input: ProviderBindingInput) { return this.invoke("provider.case.bind", () => this.client.bindProvider(input)); }

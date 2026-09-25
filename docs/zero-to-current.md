@@ -47,8 +47,14 @@ repeat the same input to observe the retained result without another probe;
 `provider.probe` / `provider.probe.get` expose the equivalent typed boundary.
 It does not send Case material, approve trust or bind a target. An interrupted
 run stays interrupted, and credential rotation prevents stale qualification.
-The authored Studio start/observe interaction remains pending qualification;
-manual evidence import is still the currently qualified Studio action.
+In Providers (or a compatible YVEX deployment), open Evidence → Check & qualify.
+Choose text, JSON/tool roundtrip or embeddings. Leave and return while it runs:
+Studio must recover the same check without sending another. Observe result and
+Retry exact request preserve that identity. A wrong response model must show
+Exact model not proven, never a green success. Trust and Case binding still
+require their separate actions. Narrow Work Surfaces use the Deployment picker
+in place of a second list; the Inspector keeps model and endpoint on full rows.
+Manual evidence import remains available for independently measured records.
 Open Manage → Customize Activity Rail: core YAI and first-party platform entries
 are fixed; eligible additional contributions support pin/unpin, ordering and
 Restore defaults. Preferences survive reopening without changing Case history.
