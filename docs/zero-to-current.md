@@ -2103,3 +2103,12 @@ execution, and then qualifies Studio submission, stale/hidden refusal, lost
 acknowledgement, exact retry, one provider dispatch and the retained answer.
 The confirmation remains mounted while a canonical refresh reveals the intent.
 Part subset selection and multimedia prerequisite authoring remain unqualified.
+
+### Adopted Workflow topology
+
+In Work, propose a checkpoint after an uncompleted existing node and explicitly
+adopt it. The graph must show the adopted edge; Provide
+input and the Overview story must show the new checkpoint’s exact prompt.
+A stale competing patch must leave the Case unchanged. Base definitions remain
+immutable; effective topology comes from the engine resolution, shared with CLI
+Workflow status. `tests/studio/work-actions.mjs` exercises this path through Host.

@@ -2158,6 +2158,11 @@ pub struct WorkflowResolution {
     pub case_generation: u64,
     pub workflow_definition_id: String,
     pub workflow_binding_id: String,
+    /// Exact expanded nodes and edges used by this resolution, including adopted amendments.
+    #[serde(default)]
+    pub effective_nodes: Vec<EffectiveWorkflowNode>,
+    #[serde(default)]
+    pub effective_edges: Vec<EffectiveWorkflowEdge>,
     pub effective_revision: u32,
     pub effective_topology_digest: String,
     pub amendment_ids: Vec<String>,
@@ -2469,6 +2474,8 @@ pub fn resolve_workflow_with_definitions(
         case_generation: state.generation,
         workflow_definition_id: definition.workflow_definition_id.clone(),
         workflow_binding_id: binding.binding_id.clone(),
+        effective_nodes: topology.nodes.clone(),
+        effective_edges: topology.edges.clone(),
         effective_revision: topology.revision,
         effective_topology_digest: topology.topology_digest,
         amendment_ids: topology.amendment_ids,

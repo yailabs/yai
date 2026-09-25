@@ -222,7 +222,11 @@ complete, stable frontend-independent Application API:
   formatting and failpoint reporting remain below `cmd/yai`; Application does
   not construct argv, invoke handlers or capture stdout. Policy, Review and
   Workflow operations compose their existing typed owners rather than creating
-  parallel application semantics.
+  parallel application semantics. Workflow resolution discloses the exact
+  effective nodes and edges used by the engine, including adopted amendments
+  and expanded subflows. CLI status and Application `case.summary` consume
+  these facts; Studio does not reconstruct patches. The summary rejects a
+  generation mismatch between the Case snapshot and Workflow resolution.
 - The [`yai-engine` crate exports](../engine/yai-engine/src/lib.rs) include
   domain contracts and persistence modules. Its authorized historical,
   experience and Recall readers return qualified typed values through

@@ -3262,8 +3262,11 @@ fn workflow_projection(
     let resolution = store.workflow_status_authorized(auth, &state.case_id)?;
     let definition =
         store.get_workflow_definition_authorized(auth, &binding.workflow_definition_id)?;
-    let edges = definition
-        .edges
+    if resolution.case_generation != state.generation {
+        return Err("workflow_observation_stale".to_string());
+    }
+    let edges = resolution
+        .effective_edges
         .iter()
         .enumerate()
         .map(|(index, edge)| {
@@ -3276,7 +3279,7 @@ fn workflow_projection(
         })
         .collect::<Vec<_>>();
     Ok(
-        json!({ "status": "available", "definition": definition, "resolution": resolution, "nodes": resolution.nodes, "edges": edges }),
+        json!({ "status": "available", "definition": definition, "resolution": resolution, "effective_nodes": resolution.effective_nodes, "nodes": resolution.nodes, "edges": edges }),
     )
 }
 

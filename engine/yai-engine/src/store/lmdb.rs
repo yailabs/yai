@@ -29787,6 +29787,8 @@ mod tests {
             .workflow_status_authorized(&owner, "case:wave17-patch")
             .unwrap();
         assert_eq!(final_resolution.effective_revision, 1);
+        assert!(final_resolution.effective_nodes.iter().any(|node| node.node_id == "future-wait-a"));
+        assert!(!final_resolution.effective_nodes.iter().any(|node| node.node_id == "future-wait-b"));
         assert!(final_resolution
             .nodes
             .iter()
