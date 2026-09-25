@@ -3,7 +3,7 @@ import { ProviderRegistrationFields } from "./ProviderRegistrationFields";
 import { ProviderWorkspace } from "./ProviderWorkspace";
 import { ConversationModelSetup } from "./ConversationModelSetup";
 import { CognitiveExecution } from "./CognitiveExecution";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
 import type { ProviderProbeEvidence, ProviderQualification, ProviderTarget } from "../../clients/compute";
 import { readProbeEvidence } from "../../clients/compute";
@@ -16,6 +16,17 @@ type Action = "register" | "qualify" | "trust" | "bind";
 const titles: Record<Action, string> = { register: "Register provider target", qualify: "Import qualification evidence", trust: "Set target trust", bind: "Bind provider to Case" };
 
 export function ComputeSurface({ workspace, platform, actions, scope = "case" }: Pick<SurfaceRendererProps, "workspace" | "platform" | "actions"> & { scope?: "case" | "tenant" | "yvex" }) {
+  const sections = ["Bindings", "Conversation", "Execution"] as const;
+  type Section = typeof sections[number];
+  const identity = useId();
+  const sectionKey = `studio.compute.section:${JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref])}`;
+  const subscribe = useCallback((listener: () => void) => platform.context.subscribe(listener).dispose, [platform]);
+  const section = useSyncExternalStore(subscribe, () => {
+    const value = platform.context.get(sectionKey) as Section;
+    return sections.includes(value) ? value : "Bindings";
+  });
+  const select = (value: Section) => platform.context.update(sectionKey, value);
+  const panel = (value: Section) => ({ role: "tabpanel" as const, id: `${identity}-${value}-panel`, "aria-labelledby": `${identity}-${value}-tab`, hidden: section !== value, tabIndex: 0 });
   const application = platform.application;
   const availability = useApplicationAvailability(application);
   const [revision, setRevision] = useState(0);
@@ -60,10 +71,19 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
   const begin = (name: Action, ref?: string) => { if (ref) setTarget(ref); setEvidence(undefined); setFileError(undefined); setAction(name); };
   const controls = (ref?: string) => <div className="object-action-row">{(["qualify", "trust", "bind"] as const).map(name => <Button key={name} disabled={!application?.supports(operation(name))} onClick={() => begin(name, ref)}>{titles[name]}</Button>)}</div>;
   const models = [...new Set(targets.map(item => item.model_id))];
-  return <article className={scope === "case" ? "live-page compute-surface" : "compute-surface platform-surface"} data-surface-type={scope === "case" ? "case.compute" : scope === "tenant" ? "platform.providers" : "platform.yvex"}>
+  return <article className={scope === "case" ? "compute-case-workspace compute-surface" : "compute-surface platform-surface"} data-surface-type={scope === "case" ? "case.compute" : scope === "tenant" ? "platform.providers" : "platform.yvex"}>
     {scope !== "case" && <ProviderWorkspace key={tenant} application={application} scope={scope} workspace={workspace} targets={targets} omitted={currentInventory?.omitted} error={inventoryError ?? (!application?.supports("provider.inventory") ? "The connected Host does not expose Tenant inventory." : undefined)} ready={Boolean(currentInventory)} refreshedAt={refreshedAt} refreshing={refreshing} refresh={() => setRevision(value => value + 1)} connect={() => { setYvexSetup(scope === "yvex"); begin("register"); }} canConnect={Boolean(tenant && application?.supports("provider.register"))} controls={controls} qualification={ref => tenant ? <ProviderQualificationCheck platform={platform} tenant={tenant} target={ref} onCompleted={refresh} /> : null} actions={actions} />}
     {scope === "case" && <>
     <header className="operational-heading"><div><h1>Compute</h1><p>Computational capability bound to this Case.</p></div><Button disabled={!workspace.case.tenant_ref || !application?.supports("provider.register")} onClick={() => { setYvexSetup(false); begin("register"); }}>Register provider target</Button></header>
+    <nav className="compute-sections" role="tablist" aria-label="Compute sections" onKeyDown={event => {
+      const index = sections.indexOf(section);
+      const next = event.key === "ArrowRight" ? (index + 1) % sections.length : event.key === "ArrowLeft" ? (index + sections.length - 1) % sections.length : event.key === "Home" ? 0 : event.key === "End" ? sections.length - 1 : undefined;
+      if (next === undefined) return;
+      event.preventDefault(); select(sections[next]);
+      event.currentTarget.querySelector<HTMLButtonElement>(`[data-compute-section="${sections[next]}"]`)?.focus();
+    }}>{sections.map(value => <button key={value} role="tab" id={`${identity}-${value}-tab`} data-compute-section={value} aria-controls={`${identity}-${value}-panel`} aria-selected={section === value} tabIndex={section === value ? 0 : -1} onClick={() => select(value)}>{value}</button>)}</nav>
+    <div className="compute-case-content">
+    <section {...panel("Bindings")}>
     <section className="compute-section"><h2>Targets / deployments <span>{targets.length}</span></h2>
       {!targets.length && <EmptyState title={scope === "case" ? "No bound target" : "No matching deployment"} body="Registration, qualification, trust and Case binding are separate governed steps." />}
       {targets.map(item => { const posture = typeof item.posture === "object" ? item.posture : undefined; return <article className="compute-target" key={item.id}><header><Icon name="compute" /><button className="object-link" onClick={() => actions.inspect(item.id)}>{item.provider_key}</button><Badge tone={posture?.trust?.posture === "approved" ? "success" : posture?.trust?.posture === "denied" ? "error" : "warning"}>{posture?.trust?.posture ?? "Unreviewed"}</Badge></header>
@@ -75,9 +95,11 @@ export function ComputeSurface({ workspace, platform, actions, scope = "case" }:
     {qualification && <p className="operation-receipt" role="status">Qualification recorded: {qualification.capabilities.map(item => item.capability).join(", ") || "no proven capability"} · {qualification.qualification_id}</p>}
     {trustReceipt && <p className="operation-receipt" role="status">Trust {trustReceipt.posture} recorded for {trustReceipt.target}. Binding and effect-time admission are separate.</p>}
     <section className="compute-section"><h2>Existing target</h2><p>Use an exact target reference returned by YAI. Providers lists the Tenant inventory. Binding here applies to the current Case only.</p>{controls()}</section>
-    {scope === "case" && <ConversationModelSetup workspace={workspace} platform={platform} />}
-    <CognitiveExecution workspace={workspace} platform={platform} />
+    </section>
+    <section {...panel("Conversation")}><ConversationModelSetup workspace={workspace} platform={platform} /></section>
+    <section {...panel("Execution")}><CognitiveExecution workspace={workspace} platform={platform} />
     {scope === "case" && <section className="compute-section"><h2>Models & cognition</h2><p>{models.length ? `Models in this Case's bound targets: ${models.join(", ")}.` : "No bound model identity is exposed."} A model name is distinct from its provider/runtime and exact deployment.</p><p>Provider binding does not establish a cognitive-role binding. Work offers bounded execution and exact submission observation when advertised by the connected Host. Conversation sends committed text through the current primary cognitive assignment. Interrupted delivery is observed without automatic redispatch.</p></section>}
+    </section></div>
     </>}
     {action && application && <ApplicationActionDialog key={action} title={titles[action]} description={action === "register" ? "Register an immutable target in the current Tenant. Enter a credential reference only, never a token. YAI validates the endpoint and ownership." : action === "qualify" ? "Import a measured ProviderProbeEvidence record from a real YAI probe. This records evidence; it does not run a network test. The current Application operation does not execute the probe." : action === "trust" ? "Set owner-authenticated trust for this exact target. Trust does not imply capability qualification or permission to execute." : "Bind one exact governed target to the current Participant. YAI checks Tenant ownership, Participant and exact target identity. Qualification and trust are checked again when execution is admitted. This replaces the Case provider envelope; it does not send a prompt."}
       submitLabel={action === "register" ? "Register target" : action === "qualify" ? "Record evidence" : action === "trust" ? "Record trust" : "Bind target"} close={() => setAction(undefined)}

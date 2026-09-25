@@ -86,6 +86,17 @@ try {
  await page.getByRole('button',{name:/Studio Policy Actions/}).click();await page.locator('.workbench-kernel').waitFor();await page.keyboard.press('Control+j');await page.locator('.live-rail button[aria-label="Compute"]').click();
 
 
+ const sections=page.getByRole('tablist',{name:'Compute sections'});
+ await sections.getByRole('tab',{name:'Bindings',exact:true}).focus();
+ await page.keyboard.press('ArrowRight');
+ assert.equal(await sections.getByRole('tab',{name:'Conversation',exact:true}).getAttribute('aria-selected'),'true');
+ assert.equal(await page.getByRole('button',{name:'Attest conversation suitability',exact:true}).isDisabled(),true);
+ await page.keyboard.press('End');
+ assert.equal(await sections.getByRole('tab',{name:'Execution',exact:true}).getAttribute('aria-selected'),'true');
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+ await page.locator('.live-rail button[aria-label="Compute"]').click();
+ assert.equal(await sections.getByRole('tab',{name:'Execution',exact:true}).getAttribute('aria-selected'),'true','Compute section survives Surface navigation');
+ await sections.getByRole('tab',{name:'Bindings',exact:true}).click();
  await page.getByRole('button',{name:'Register provider target',exact:true}).click();
  let form=page.getByRole('dialog',{name:'Register provider target'});
  await form.getByLabel('Provider / runtime label').fill('controlled-provider');await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();await form.getByLabel('Exposed model').selectOption('controlled-text-model');
@@ -122,7 +133,15 @@ try {
  await candidate.getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.waitFor({state:'hidden'});
  const bound=await accepted('case.summary',{case_ref:caseRef});assert.equal(bound.case.generation,before.case.generation+1);assert.equal(bound.compute.targets[0].id,target.target_id);assert.equal(bound.compute.targets[0].posture.trust.posture,'approved');
  await page.locator('.compute-target').getByText('controlled-text-model',{exact:true}).waitFor();
- for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]){await page.setViewportSize({width,height});await page.screenshot({path:`${evidence}/compute-${width}x${height}.png`});}
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+   await page.setViewportSize({width,height});
+   for(const name of ['Bindings','Conversation','Execution']) {
+     await sections.getByRole('tab',{name,exact:true}).click();
+     await page.screenshot({path:`${evidence}/compute-${name.toLowerCase()}-${width}x${height}.png`});
+     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   }
+ }
+ await sections.getByRole('tab',{name:'Bindings',exact:true}).click();
  await page.locator('.compute-target').getByRole('button',{name:'Set target trust',exact:true}).click();form=page.getByRole('dialog',{name:'Set target trust'});await form.getByLabel('Trust decision').selectOption('denied');await form.getByRole('button',{name:'Record trust',exact:true}).click();await form.waitFor({state:'hidden'});
 
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets[0].posture.trust.posture,'denied');assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,bound.case.generation,'Tenant trust changes are not Case transitions');

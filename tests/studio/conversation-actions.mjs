@@ -100,6 +100,7 @@ try {
 
  await accepted('participant.view.admit',{case_ref:caseRef,participant_ref:'participant:operator',consumer:'model',view_kind:'model_context'});
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ await page.getByRole('tab',{name:'Conversation',exact:true}).click();
  await page.getByRole('button',{name:'Attest conversation suitability',exact:true}).click();
  form=page.getByRole('dialog',{name:'Attest conversation suitability'});
  await form.getByLabel('Assessment / evidence reference').fill('evidence:controlled-text-roundtrip');
@@ -290,6 +291,7 @@ try {
  // Revoked current trust refuses a new model assignment (no bypass in React).
  // Explicit retained-input plan and execution: no frontend hashes or hidden SEND.
  await page.locator('.live-rail button[aria-label="Compute"]').click();
+ await page.getByRole('tab',{name:'Execution',exact:true}).click();
  const cognition=page.getByRole('region',{name:'Cognitive execution',exact:true});
  const planBefore=await accepted('case.summary',{case_ref:caseRef});
  const sourceTurn=planBefore.conversation.turns[0].id;
@@ -303,6 +305,12 @@ try {
  await cognition.getByLabel('Cognitive capability',{exact:true}).selectOption('primary_conversation');
  await cognition.getByRole('button',{name:'Prepare execution plan',exact:true}).click();
  await cognition.getByRole('region',{name:'Prepared execution plan'}).waitFor();
+ const retainedPlan=await cognition.getByRole('region',{name:'Prepared execution plan'}).textContent();
+ await page.getByRole('tab',{name:'Bindings',exact:true}).click();
+ assert.equal(await cognition.isVisible(),false);
+ await page.getByRole('tab',{name:'Execution',exact:true}).click();
+ assert.equal(await cognition.getByRole('region',{name:'Prepared execution plan'}).textContent(),retainedPlan,'Section movement preserves prepared execution without another request');
+
  const oldPlanExchange=exchanges.findLast(x=>x.request.operation_ref==='cognitive.realization.prepare');
  assert.equal(oldPlanExchange.result.data.selected_target_id,target.target_id);
  assert.deepEqual(oldPlanExchange.request.input.source_part_refs,[],'The owner resolves all exact original Turn parts');

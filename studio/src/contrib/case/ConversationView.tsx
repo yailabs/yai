@@ -142,8 +142,13 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     finally { inFlight.current = false; if (alive.current) setBusy(false); }
   };
 
+  const configureModel = () => {
+    platform.context.update(`studio.compute.section:${JSON.stringify([workspace.case.case_ref, workspace.case.participant_ref])}`, hasTarget ? "Conversation" : "Bindings");
+    actions.openPerspective("Compute");
+  };
+
   return <div className="conversation-view conversation-operational">
-    <div className="conversation-model-bar"><button type="button" className="conversation-model-choice" onClick={() => actions.openPerspective("Compute")} title="Configure the conversation model"><Icon name="compute" size={14} /><span>{assignment ? "Conversation model" : "Choose a model"}</span><Icon name="chevron" size={12} /></button></div>
+    <div className="conversation-model-bar"><button type="button" className="conversation-model-choice" onClick={configureModel} title="Configure the conversation model"><Icon name="compute" size={14} /><span>{assignment ? "Conversation model" : "Choose a model"}</span><Icon name="chevron" size={12} /></button></div>
     <div ref={log} onScroll={() => { const node = log.current; if (node) followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64; }} className="conversation-messages" role="log" aria-label="Case conversation" aria-live="polite">
       {!workspace.conversation.turns.length && <div className="conversation-welcome"><span className="conversation-monogram" aria-hidden="true">YAI</span><h2>Let’s work on this Case.</h2><p>Ask a question. Explore an idea.</p></div>}
       {workspace.conversation.turns.map(turn => { const execution = executions[turn.id]; return <div className="conversation-exchange" key={turn.id}>
@@ -157,8 +162,8 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
       </div>; })}
     </div>
     <form className="conversation-composer" onSubmit={event => { event.preventDefault(); if (!pending) void submit(); }}>
-      {hasTarget && !assignment && <p>Assign a conversation model in <button type="button" className="object-link" onClick={() => actions.openPerspective("Compute")}>Compute</button>.</p>}
-      {!hasTarget && <p>Connect a model in <button type="button" className="object-link" onClick={() => actions.openPerspective("Compute")}>Compute</button> to send messages.</p>}
+      {hasTarget && !assignment && <p>Assign a conversation model in <button type="button" className="object-link" onClick={configureModel}>Compute</button>.</p>}
+      {!hasTarget && <p>Connect a model in <button type="button" className="object-link" onClick={configureModel}>Compute</button> to send messages.</p>}
       {!supported && <p>{application?.reason("conversation.send") ?? "Sending requires the native YAI Host."}</p>}
       <div className="conversation-input-shell"><textarea ref={composer} aria-label="Message to the Case" placeholder="Ask about this Case…" value={draft} rows={1} maxLength={65536} onChange={event => { const text = event.target.value; setDraft(text); try { persist(text, pending); } catch { setError("Local draft storage is unavailable."); } }} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!pending) void submit(); } }} />
       </div>

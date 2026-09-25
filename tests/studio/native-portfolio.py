@@ -177,6 +177,8 @@ try:
   plan_input=dict(case_ref=a.cases[0],participant_ref=case['case']['participant_ref'],source_turn_ref=turns[0]['id'],source_part_refs=[],capability='primary_conversation')
   expected_plan=call('cognitive.realization.prepare',plan_input)
   first.js('document.querySelector(`.live-rail button[aria-label="Compute"]`).click()')
+  first.wait('return document.querySelector(`[data-compute-section="Execution"]`)')
+  first.js('document.querySelector(`[data-compute-section="Execution"]`).click()')
   first.wait('return document.querySelector(`select[aria-label="Committed Turn"]`)')
   first.js('const select=document.querySelector(`select[aria-label="Committed Turn"]`);select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}))',turns[0]['id'])
   first.js('[...document.querySelectorAll(".cognitive-execution button")].find(n=>n.textContent==="Prepare execution plan").click()')
