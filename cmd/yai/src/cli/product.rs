@@ -68,6 +68,18 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
                 }),
             )
         }
+        "yai.case.resource.observe" => application_operation("execution.get", serde_json::json!({
+            "case_ref": invocation.positional("case")
+                .ok_or_else(|| CliError::usage("Case is required"))?,
+            "participant_ref": invocation.flag("--participant")
+                .ok_or_else(|| CliError::usage("--participant is required"))?,
+            "execution": {
+                "domain": "resource_request",
+                "submission_ref": invocation.flag("--request-id")
+                    .ok_or_else(|| CliError::usage("--request-id is required"))?,
+            },
+            "include_output": invocation.flag("--output").is_some(),
+        })),
         "yai.case.cognitive.frontier" => decision_frontier(invocation),
         "yai.case.cognitive.fast_search" => fast_search(invocation),
         "yai.case.cognitive.decision_request" => decision_request(invocation),

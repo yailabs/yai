@@ -2,7 +2,7 @@
 // Only a freshly created temporary YAI_HOME is mutated; never operator state.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, access } from 'node:fs/promises';
 import net from 'node:net';
 import {createHash} from 'node:crypto';
@@ -194,6 +194,21 @@ try {
  assert.equal(await processView.locator('.process-stderr').textContent(),'exact-error\n');
  const outputRead=exchanges.findLast(x=>x.request.operation_ref==='execution.get' && x.request.input.include_output);
  assert.equal(outputRead.result.data.process.observation_ref,completed.result.data.execution.posture.result_ref);
+ const observeArgs=['case','resource','observe',caseRef,'--participant',waiting.request.input.participant_ref,'--request-id',waiting.request.input.submission_ref];
+ const cliMetadata=cli(...observeArgs).data.value;
+ assert.equal(cliMetadata.process.output,undefined,'CLI metadata read does not disclose output implicitly');
+ assert.deepEqual(cliMetadata.process.status,outputRead.result.data.process.status);
+ const cliOutput=cli(...observeArgs,'--output').data.value;
+ assert.deepEqual(cliOutput,outputRead.result.data,'CLI and Host return the same retained observation under current authority');
+ const refusedCli=(args)=>{
+  const result=spawnSync(binary,[...args,'--output','--json'],{env:{...process.env,YAI_HOME:home},encoding:'utf8',timeout:30000});
+  assert.notEqual(result.status,0);assert.equal(result.error,undefined);
+  assert.equal(result.stdout,'');const envelope=JSON.parse(result.stderr);assert.notEqual(envelope.status,'ok');assert.ok(!envelope.data);
+  assert.ok(!result.stderr.includes('exact-run')&&!result.stderr.includes('exact-error'));
+  exchanges.push({order:exchanges.length+1,cli:args,exit:result.status,stdout:result.stdout,stderr:result.stderr});
+ };
+ const hiddenArgs=[...observeArgs];hiddenArgs[hiddenArgs.indexOf('--participant')+1]='participant:hidden';refusedCli(hiddenArgs);
+
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,terminalGeneration);
  for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
   await page.setViewportSize({width,height});await processView.scrollIntoViewIfNeeded();
@@ -232,10 +247,11 @@ try {
  await processView.getByRole('button',{name:'Read retained process output',exact:true}).click();
  await processView.locator('.process-stdout').waitFor();
  await accepted('policy.revoke',{artifact_ref:artifact,reason:'Current output disclosure refusal'});
+ refusedCli(observeArgs);
  await receipt.getByRole('button',{name:'Refresh observation',exact:true}).click();
  await receipt.getByRole('alert').waitFor();
  assert.equal(await receipt.locator('.process-stdout,.process-stderr').count(),0);
  assert.equal(await receipt.getByRole('region',{name:'Recorded process result'}).count(),0);
  assert.deepEqual(errors,[]);assert.equal(cli('case','verify',caseRef).status,'ok');
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','Process exit status and explicit retained stdout/stderr match owner; revoked policy clears disclosed output','CLI exact definition retry preserves identities and generation; canonical replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,proof:['Six authored Resource families through real Host','Owner configuration digest','Exact retry after acknowledgement loss','Conflict and hidden Case refused','Six canonical attachments only before acquisition; process attachment and pending Review never dispatch','Review approval alone does not dispatch; Host restart preserves exact continuation; stale confirmation disabled; lost-ACK recovery observes one effect', 'Explicit admission scope -> Source declaration -> governed acquisition -> exact editor bytes','Process exit status and explicit retained stdout/stderr match owner; revoked policy clears disclosed output','CLI exact definition retry preserves identities and generation; canonical replay','CLI retained observation matches Host/Studio exactly; explicit output, hidden Participant and revoked authority qualified']}));
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

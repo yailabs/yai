@@ -1938,6 +1938,21 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.resource.observe",
+        ["case", "resource", "observe"],
+        "Read one retained Resource request under current authority without executing it",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--participant", Some("PARTICIPANT"), true),
+            flag("--request-id", Some("REQUEST"), true),
+            bool_flag("--output")
+        ]
+    ),
+    op!(
         "yai.case.memory.show",
         ["case", "memory", "show"],
         "Show canonical generation, derived memory, indexes, and last retrieval",
@@ -3747,7 +3762,7 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
     } else if operation_id.starts_with("yai.case.handoff.") {
         "handoff.lifecycle"
     } else if operation_id.starts_with("yai.case.resource.") {
-        if operation_id == "yai.case.resource.request" {
+        if matches!(operation_id, "yai.case.resource.request" | "yai.case.resource.observe") {
             "effect.controlled_execution"
         } else {
             "resource.lifecycle"

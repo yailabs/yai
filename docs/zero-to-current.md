@@ -1816,7 +1816,10 @@ timeout, output-limit and elapsed-time facts separately from that receipt. Expli
 `include_output: true` additionally returns bounded retained stdout/stderr with
 owner digests and UTF-8 posture. Current reuse/disclosure checks apply after restart;
 revoked authority discloses neither status nor output. This never dispatches a
-process. Work → Executions now shows the recorded process exit separately from
+process. The CLI sibling is `yai case resource observe CASE --participant PARTICIPANT
+--request-id REQUEST`; add `--output` to request retained process stdout/stderr.
+It uses the same typed `execution.get` dispatcher and current disclosure checks.
+Work → Executions now shows the recorded process exit separately from
 its effect receipt. **Read retained process output** requests stdout/stderr;
 refresh, Case/Participant changes and refused re-observation remove prior output.
 The Resource setup product suite exercises exit 0 and exit 7, exact bytes/digests,
