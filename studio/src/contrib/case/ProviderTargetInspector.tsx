@@ -4,7 +4,7 @@ import type { LiveWorkspace } from "../../clients/live";
 import { Badge, PanelHeader } from "../../components/primitives";
 import { useApplicationAvailability } from "./applicationActions";
 
-/** Tenant-authorized details for targets outside the current Case binding. */
+/** Current Tenant inventory when authorized; Case-disclosed details remain separately scoped. */
 export function ProviderTargetInspector({ workspace, selection, platform }: AuxiliaryViewProps) {
   const application = platform.application;
   const availability = useApplicationAvailability(application);
@@ -32,12 +32,14 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
   }, [application, availability.catalog, tenant, selection, workspace]);
   const current = read?.tenant === tenant && read?.selection === selection && read?.catalog === availability.catalog
     && availability.state === "available" ? read : undefined;
-  const target = current?.target;
+  const caseTarget = workspace.compute.targets.find(item => item.id === selection);
+  const target = current?.target ?? ((!application || availability.state === "available") ? caseTarget : undefined);
   const posture = typeof target?.posture === "object" ? target.posture : undefined;
-  return <div className="context-scroll inspector-view">
+  return <div className="context-scroll inspector-view" data-inspected-ref={selection}>
     <PanelHeader title="Provider deployment" />
     {!target ? <p role="status" className="surface-note">{current?.error ??
       (!application?.supports("provider.inventory") ? "The connected Host does not expose target inventory." : "Loading exact target…")}</p> : <>
+      {current?.error && <p className="surface-note" role="status">Tenant inventory unavailable. Showing only the current Case projection. {current.error}</p>}
       <h2>{target.provider_key}</h2><Badge>{posture?.trust?.posture ?? "Unreviewed"}</Badge>
       <dl className="object-facts provider-inspector-facts"><div className="provider-fact-wide"><dt>Model</dt><dd>{target.model_id}</dd></div>
         <div className="provider-fact-wide"><dt>Endpoint</dt><dd>{target.endpoint}</dd></div>
@@ -49,7 +51,7 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
         <div className="provider-fact-wide"><dt>Failure</dt><dd>{posture?.health.failure_class?.replaceAll("_", " ") ?? "No failure class recorded"}</dd></div>
         <div><dt>Circuit</dt><dd>{posture?.health.circuit ?? "Not exposed"}</dd></div>
         <div><dt>Consecutive failures</dt><dd>{posture?.health.consecutive_failures ?? "Not exposed"}</dd></div></dl>
-      <p className="surface-note">Tenant-owned deployment. Trust and binding do not grant permission for an operation.</p>
+      <p className="surface-note">{current?.target ? "Current Tenant inventory." : "Current Case projection."} Trust and binding do not grant permission for an operation.</p>
       <details><summary>Technical details</summary><p>{target.id}</p><p>{tenant}</p>
         {posture?.qualification && <p>{posture.qualification.id}</p>}</details>
     </>}

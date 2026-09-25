@@ -17,6 +17,7 @@ const home = await mkdtemp(path.join(os.tmpdir(), 'yai-studio-compute-'));
 const evidence = process.env.STUDIO_EVIDENCE_DIR ?? '/tmp/yai-studio-compute';
 await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
+let refuseInventory=false;
 let telemetry, serial=0, browser, provider, dropAcknowledgement, holdModelResponse=false, heldModelResponse;
 const exchanges = [];
 const probeHttp=[];let holdProbe=false,releaseProbe,wrongProbeModel=false,mismatchProbeObservation=false;
@@ -32,7 +33,7 @@ function rpc(request) {
    while((end=buffer.indexOf('\n'))>=0) {
     const message=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);
     if(!handshaken) { if(message.kind!=='handshake') {socket.destroy();reject(new Error(JSON.stringify(message)));return;} handshaken=true;socket.write(JSON.stringify({kind:'application_request',request})+'\n'); }
-    else if(message.kind==='application_response') { exchanges.push({order:exchanges.length+1,request,result:message.result}); socket.end(); if(dropAcknowledgement===request.operation_ref){dropAcknowledgement=undefined;reject(new Error('Injected acknowledgement loss after real Host commit'));}else if(holdModelResponse && request.operation_ref==='provider.models'){holdModelResponse=false;heldModelResponse=()=>resolve(message.result);}else if(mismatchProbeObservation && request.operation_ref==='provider.probe.get'){mismatchProbeObservation=false;const wrong=structuredClone(message.result);wrong.data.target_ref='provider-target:unrelated';resolve(wrong);}else resolve(message.result); }
+    else if(message.kind==='application_response') { exchanges.push({order:exchanges.length+1,request,result:message.result}); socket.end(); if(refuseInventory && request.operation_ref==='provider.inventory'){resolve({...message.result,result_state:'refused',data:undefined,error:{code:'controlled_inventory_refusal',safe_message:'Controlled inventory refusal'}});}else if(dropAcknowledgement===request.operation_ref){dropAcknowledgement=undefined;reject(new Error('Injected acknowledgement loss after real Host commit'));}else if(holdModelResponse && request.operation_ref==='provider.models'){holdModelResponse=false;heldModelResponse=()=>resolve(message.result);}else if(mismatchProbeObservation && request.operation_ref==='provider.probe.get'){mismatchProbeObservation=false;const wrong=structuredClone(message.result);wrong.data.target_ref='provider-target:unrelated';resolve(wrong);}else resolve(message.result); }
     else if(message.kind==='error') {socket.destroy();reject(new Error(JSON.stringify(message)));}
    }
   });
@@ -131,6 +132,22 @@ try {
  await page.getByRole('heading',{name:'Providers',exact:true}).waitFor();
  await page.locator('.compute-target').getByText('controlled-text-model',{exact:true}).waitFor();
  assert.equal(await page.locator('.live-surface').getAttribute('data-archetype'),'product');
+ await page.locator('.compute-target').getByRole('button',{name:'controlled-provider',exact:true}).click();
+ const boundInspector=page.locator('.inspector-view');
+ await boundInspector.getByRole('heading',{name:'controlled-provider',exact:true}).waitFor();
+ await boundInspector.getByText('Bound',{exact:true}).waitFor();
+ assert.equal(await boundInspector.getByText(endpoint,{exact:true}).count(),1,'Bound deployment retains the same detailed Inspector');
+ await boundInspector.getByText('denied',{exact:true}).waitFor();
+ refuseInventory=true;
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await boundInspector.getByRole('status').filter({hasText:'Tenant inventory unavailable'}).waitFor();
+ assert.ok((await boundInspector.textContent()).includes('Current Case projection.'));
+ assert.equal(await boundInspector.getByText(endpoint,{exact:true}).count(),1,'Only the disclosed Case target remains under inventory refusal');
+ refuseInventory=false;
+ await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
+ await boundInspector.getByText('Current Tenant inventory.',{exact:false}).waitFor();
+
+
  await page.getByRole('button',{name:'Register provider target',exact:true}).click();
  form=page.getByRole('dialog',{name:'Register provider target'});
  await form.getByLabel('Provider / runtime label').fill('unbound-inventory-target');

@@ -60,7 +60,10 @@ Studio must recover the same check without sending another. Observe result and
 Retry exact request preserve that identity. A wrong response model must show
 Exact model not proven, never a green success. Trust and Case binding still
 require their separate actions. Narrow Work Surfaces use the Deployment picker
-in place of a second list; the Inspector keeps model and endpoint on full rows.
+in place of a second list; the Inspector keeps model and endpoint on full rows
+for both bound and unbound targets. It shows the current Case binding separately
+from Tenant trust and dated health. If Tenant inventory cannot be read, only an
+already disclosed current Case target may remain visible, labeled as Case projection.
 Manual evidence import remains available for independently measured records.
 The [retained native qualification](../labs/external-runtime/runs/20260925-native-provider-qualification/manifest.json)
 records a successful small real DeepSeek text check. Its first screenshot timed

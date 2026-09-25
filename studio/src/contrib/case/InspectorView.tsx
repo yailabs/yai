@@ -10,7 +10,7 @@ import { factIcon, factKind, factReferences, findFact } from "./facts";
 
 export function InspectorView(props: AuxiliaryViewProps) {
   const { workspace, selection, actions, platform } = props;
-  if (selection.startsWith("provider-target:") && !workspace.compute.targets.some(target => target.id === selection)) return <ProviderTargetInspector {...props} />;
+  if (selection.startsWith("provider-target:")) return <ProviderTargetInspector {...props} />;
   if (selection.startsWith("settings:")) return <div className="context-scroll inspector-view"><PanelHeader title="Application preferences" /><p className="surface-note">These preferences belong to Studio. Case objects remain available in the Explorer.</p></div>;
   const fact = findFact(workspace, selection);
   const kind = factKind(workspace, selection);
