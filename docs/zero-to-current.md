@@ -77,6 +77,11 @@ selected deployment keep that exact identity; manual reference entry is under
 **Advanced**. Bound rows show model and dated health, with adapter, endpoint and
 qualification details in the target Inspector. Existing `provider.governance`
 operations and CLI semantics are unchanged; this is a Studio interaction change.
+When reviewing a deployment, compare **YAI health posture** with **Last report**.
+The first is evaluated by YAI's health owner at the read time; an old healthy
+report may now be unknown. The timestamp belongs to that read, not a Case
+mutation or a fresh provider probe. A blue **Model exposed** catalog result is
+informational and does not prove residency or inference health.
 Arrow keys/Home/End navigate the section tabs. Leaving and returning preserves
 the Case/Participant-local section; switching sections preserves an exact prepared
 plan without submitting or preparing another. The conversation model button
@@ -97,6 +102,9 @@ successful document-grounded answer. Preserve the Case and inspect its retained
 context from Conversation; do not repeatedly SEND the same question. Bounded
 fitting of eligible optional evidence to exact public capacity is now qualified
 locally, with mandatory state, atomic groups and explicit omissions protected.
+An operator loading a later 32K engine changes current target capacity, not this
+retained 4K result; a new end-to-end Case execution needs its own identity and
+evidence.
 Open Manage → Customize Activity Rail: core YAI and first-party platform entries
 are fixed; eligible additional contributions support pin/unpin, ordering and
 Restore defaults. Preferences survive reopening without changing Case history.

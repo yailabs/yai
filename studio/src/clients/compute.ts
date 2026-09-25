@@ -19,7 +19,8 @@ export interface ProviderBindingInput { case_ref: string; participant_ref: strin
 export interface ProviderPosture {
   qualification?: { id: string; suite_id: string; run_id: string; qualified_at_unix_ms: number; valid_until_unix_ms?: number; capabilities: Array<{ capability: string; provenance: string; evidence_refs: string[] }> };
   trust?: { event_ref: string; posture: string; recorded_at_unix_ms: number };
-  health: { posture: string; circuit: string; consecutive_failures: number; observed_at_unix_ms?: number; failure_class?: string };
+  health: { posture: string; effective_posture?: string; evaluated_at_unix_ms?: number | null;
+    circuit: string; consecutive_failures: number; observed_at_unix_ms?: number; failure_class?: string };
 }
 
 /** Read an operator-supplied, already measured record; never manufacture successful probes. */

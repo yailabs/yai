@@ -1448,16 +1448,21 @@ Telemetry is a Product Surface consuming existing Host telemetry and Case
 projections. Host PID and client process facts are observations; Resource inventory
 and model endpoints are configuration. They are not database health, endpoint
 reachability or a complete OS process list. Those require a qualified backend
-observation contract. Existing provider health observations are shown with their
-recorded time, circuit posture and failure count; they do not imply a new probe. No Studio-side process scan or network probe is introduced.
+observation contract. Provider health is projected as both its last recorded
+report and the effective posture evaluated by YAI's health owner at the
+Application read. A historical healthy report never implies current
+reachability. Observation time, evaluation time, circuit posture and failure
+count remain distinct. This read does not imply a new probe. No Studio-side
+process scan or network probe is introduced.
 The existing Application capability entries remain exact: this is another authored
 consumer of Conversation/execution operations, not a new semantic capability.
 
 
 Providers/YVEX product workspace uses a compact selectable deployment inventory
 and local Runtime/Evidence/Platform navigation rather than the document-page
-composition. Runtime presents the authorized recorded health, time, circuit and
-failure class. Evidence scopes the existing governance actions to the selected
+composition. Runtime presents the owner-evaluated health posture separately from
+the historical report, with their times, circuit and failure class. Evidence
+scopes the existing governance actions to the selected
 immutable target. Inspector owns exact technical metadata. Both inventory and
 provider Inspector perform bounded ten-second reads while visible; they do not
 probe the producer or initiate inference. Platform identifies the unconsumed

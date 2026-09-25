@@ -96,6 +96,9 @@ fn tenant_provider_inventory_is_independent_of_case_binding_and_refuses_hidden_t
     assert_eq!(inventory["targets"][0]["id"], target["target_id"]);
     assert_eq!(inventory["targets"][0]["model_id"], "inventory-model");
     assert_eq!(inventory["targets"][0]["endpoint"], "http://127.0.0.1:1");
+    assert_eq!(inventory["targets"][0]["posture"]["health"]["posture"], "unknown");
+    assert_eq!(inventory["targets"][0]["posture"]["health"]["effective_posture"], "unknown");
+    assert!(inventory["targets"][0]["posture"]["health"]["evaluated_at_unix_ms"].as_u64().is_some());
     assert_eq!(inventory["total_visible_targets"], 1);
     assert_eq!(inventory["omitted"], 0);
     assert_eq!(inventory["case_usage"], "not_projected");

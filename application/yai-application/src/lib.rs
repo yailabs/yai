@@ -38,8 +38,9 @@ use yai_core_engine::handoff::{HandoffData, HandoffOutcome};
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
 use yai_core_engine::memory_hierarchy::recall::RecallRequest;
 use yai_core_engine::provider_governance::{
-    ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderProbeEvidence,
-    ProviderRealizationShape, ProviderTargetInput, ProviderTrustPosture,
+    ProviderAdapterKind, ProviderFailoverPolicy, ProviderHealthPosture, ProviderHealthState,
+    ProviderLocality, ProviderProbeEvidence, ProviderRealizationShape, ProviderTargetInput,
+    ProviderTrustPosture,
 };
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::semantic_state::paging::PageRequest;
@@ -3362,6 +3363,7 @@ fn provider_target_projection(
     store: &LmdbRecordStore, auth: &AuthenticatedPrincipal,
     target: yai_core_engine::provider_governance::ProviderTarget,
 ) -> Value {
+    let evaluated_at = now_unix_ms().ok();
     let posture = store
         .provider_posture_authorized(auth, &target.target_id)
         .ok()
@@ -3385,13 +3387,7 @@ fn provider_target_projection(
                     "posture": format!("{:?}", value.posture).to_lowercase(),
                     "recorded_at_unix_ms": value.recorded_at_unix_ms
                 })),
-                "health": {
-                    "posture": format!("{:?}", health.posture).to_lowercase(),
-                    "circuit": format!("{:?}", health.circuit).to_lowercase(),
-                    "consecutive_failures": health.consecutive_failures,
-                    "observed_at_unix_ms": health.observed_at_unix_ms,
-                    "failure_class": health.failure_class
-                }
+                "health": provider_health_projection(&health, evaluated_at)
             })
         });
     json!({
@@ -3405,6 +3401,21 @@ fn provider_target_projection(
         "posture": posture,
         "management": "not_exposed",
         "semantic_evidence": store.list_semantic_suitability_evidence_authorized(auth, &target.target_id, Some(CognitiveCapability::PrimaryConversation)).unwrap_or_default()
+    })
+}
+
+fn provider_health_projection(health: &ProviderHealthState, evaluated_at: Option<u64>) -> Value {
+    let effective = evaluated_at
+        .map(|now| health.effective_posture(now))
+        .unwrap_or(ProviderHealthPosture::Unknown);
+    json!({
+        "posture": format!("{:?}", health.posture).to_lowercase(),
+        "effective_posture": format!("{:?}", effective).to_lowercase(),
+        "evaluated_at_unix_ms": evaluated_at,
+        "circuit": format!("{:?}", health.circuit).to_lowercase(),
+        "consecutive_failures": health.consecutive_failures,
+        "observed_at_unix_ms": health.observed_at_unix_ms,
+        "failure_class": health.failure_class
     })
 }
 
@@ -3578,6 +3589,28 @@ fn failure(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn provider_health_projection_expires_an_old_positive_without_erasing_its_record() {
+        use yai_core_engine::provider_governance::{ProviderCircuitPosture, PROVIDER_HEALTH_FRESHNESS_MS};
+        let health = ProviderHealthState {
+            schema: "yai.provider_health.v1".into(), integrity_digest: String::new(),
+            target_id: "provider-target:test".into(), target_digest: String::new(),
+            posture: ProviderHealthPosture::Healthy, circuit: ProviderCircuitPosture::Closed,
+            consecutive_failures: 0, observed_at_unix_ms: 1_000_000,
+            circuit_opened_at_unix_ms: None, source: "test".into(), failure_class: None,
+            effective_time_floor_unix_ms: 1_000_000, probe_epoch: 0, probe_owner: None,
+        };
+        let fresh = provider_health_projection(&health, Some(1_000_000 + PROVIDER_HEALTH_FRESHNESS_MS));
+        assert_eq!(fresh["posture"], "healthy");
+        assert_eq!(fresh["effective_posture"], "healthy");
+        let expired = provider_health_projection(&health, Some(1_000_001 + PROVIDER_HEALTH_FRESHNESS_MS));
+        assert_eq!(expired["posture"], "healthy", "retain the historical report");
+        assert_eq!(expired["effective_posture"], "unknown", "the engine owns freshness");
+        assert_eq!(expired["observed_at_unix_ms"], 1_000_000);
+        assert_eq!(provider_health_projection(&health, None)["effective_posture"], "unknown",
+            "an unavailable clock cannot promote a positive posture");
+    }
 
     #[test]
     fn pending_execution_acknowledgement_is_not_completion_or_safe_redispatch() {

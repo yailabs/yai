@@ -103,7 +103,9 @@ class CorpusTest(unittest.TestCase):
             def __init__(self, alter=None): self.sends=0; self.alter=alter
             def call(self, operation, inputs, correlation):
                 if operation == 'case.summary':
-                    data=dict(case=dict(case_ref='case:A',generation=1),conversation=dict(turns=[dict(id='turn:A',parts=[dict(text='Question A')])]))
+                    data=dict(case=dict(case_ref='case:A',generation=1),
+                        conversation=dict(turns=[dict(id='turn:A',parts=[dict(text='Question A')])]),
+                        memory=dict(timeline=[dict(id='transition:A')]),authority=dict(policies=[],reviews=[]))
                 elif operation == 'conversation.send':
                     self.sends+=1;data=dict(created=self.sends==1,execution=copy.deepcopy(execution))
                 elif inputs['participant_ref'] != 'participant:A': return dict(result_state='unauthorized')

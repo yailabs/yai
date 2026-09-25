@@ -46,7 +46,9 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
         <div><dt>Adapter</dt><dd>{target.adapter.replaceAll("_", " ")}</dd></div>
         <div><dt>Locality</dt><dd>{target.locality.replaceAll("_", " ")}</dd></div>
         <div><dt>Current Case</dt><dd>{workspace.compute.targets.some(item => item.id === selection) ? "Bound" : "Not bound"}</dd></div>
-        <div><dt>Observed health</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div>
+        <div><dt>YAI health posture</dt><dd>{posture?.health.effective_posture ?? "Not projected"}</dd></div>
+        <div><dt>Last reported health</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div>
+        <div className="provider-fact-wide"><dt>Evaluated by YAI</dt><dd>{posture?.health.evaluated_at_unix_ms ? new Date(posture.health.evaluated_at_unix_ms).toLocaleString() : "Not projected"}</dd></div>
         <div className="provider-fact-wide"><dt>Last observation</dt><dd>{posture?.health.observed_at_unix_ms ? new Date(posture.health.observed_at_unix_ms).toLocaleString() : "Not observed"}</dd></div>
         <div className="provider-fact-wide"><dt>Failure</dt><dd>{posture?.health.failure_class?.replaceAll("_", " ") ?? "No failure class recorded"}</dd></div>
         <div><dt>Circuit</dt><dd>{posture?.health.circuit ?? "Not exposed"}</dd></div>

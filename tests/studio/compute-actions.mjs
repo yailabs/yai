@@ -191,6 +191,7 @@ try {
  await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===2);
  const inventory=await accepted('provider.inventory',{tenant_id:'tenant:studio-ui'});
  assert.equal(inventory.targets.length,2);
+ assert.equal(inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').posture.health.effective_posture,'unknown','YAI projects effective health separately from the historical report');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,1,'Tenant registration does not expand Case binding');
  assert.equal(inventory.case_usage,'not_projected');
  await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
@@ -199,6 +200,7 @@ try {
  await page.getByRole('region',{name:'Observed deployment health'}).waitFor();
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
  await page.getByText('Model exposed',{exact:true}).waitFor();
+ assert.match(await page.getByText('Model exposed',{exact:true}).getAttribute('class'),/tone-info/,'Catalog presence is informational, not green health');
  assert.equal((await page.locator('.provider-status').textContent()).includes('Catalog reachable'),false,'Unbound deployment observation must not change Case provider status');
  const catalogRead=exchanges.filter(item=>item.request.operation_ref==='provider.models').at(-1);
  assert.equal(catalogRead.request.input.target_ref,inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').id);
@@ -234,6 +236,7 @@ try {
  await page.evaluate(()=>{window.__catalogClock=Date.now;Date.now=()=>window.__catalogClock()+61_000;document.dispatchEvent(new Event('visibilitychange'));});
  await page.locator('.provider-status').filter({hasText:'Catalog check expired'}).waitFor();
  await page.getByText('Observation expired',{exact:true}).waitFor();
+ assert.match(await page.getByText('Observation expired',{exact:true}).getAttribute('class'),/tone-warning/,'Expired catalog data cannot keep an informational current badge');
  assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'degraded');
  assert.equal(exchanges.filter(item=>item.request.operation_ref==='provider.models').length,readsBeforeExpiry,'Expiry cannot dispatch a model request');
  await page.evaluate(()=>{Date.now=window.__catalogClock;delete window.__catalogClock;document.dispatchEvent(new Event('visibilitychange'));});
@@ -299,7 +302,9 @@ try {
  const exactRetry=await accepted('provider.probe',probeInput);
  assert.equal(exactRetry.created,false);assert.deepEqual(exactRetry.run,retained.run);
  assert.equal(probeHttp.length,requestsBeforeRetry);
- assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),caseBeforeProbe,'Synthetic checks cannot mutate the Case');
+ const caseAfterProbe=await accepted('case.summary',{case_ref:caseRef});
+ for(const snapshot of [caseBeforeProbe,caseAfterProbe])for(const target of snapshot.compute.targets)if(target.posture?.health)delete target.posture.health.evaluated_at_unix_ms;
+ assert.deepEqual(caseAfterProbe,caseBeforeProbe,'Synthetic checks cannot mutate the Case; read-time health evaluation is not Case state');
  assert.equal((await accepted('provider.inventory',{tenant_id:'tenant:studio-ui'})).targets.find(item=>item.id===unbound.id).posture.trust,null);
  // CLI observes the same retained identity, rather than probing again.
  const qualifiedCLI=await promisify(execFile)(binary,['provider','qualify',unbound.id,'--submission-ref',probeInput.submission_ref,'--realization-shape','text_to_text','--json'],{env:{...process.env,YAI_HOME:home},timeout:30000});

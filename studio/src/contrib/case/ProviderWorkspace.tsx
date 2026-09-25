@@ -25,7 +25,9 @@ export function ProviderWorkspace({ scope, workspace, application, targets, omit
   const posture = typeof item?.posture === "object" ? item.posture : undefined;
   const health = posture?.health;
   const bound = item && workspace.compute.targets.some(target => target.id === item.id);
-  const tone = health?.posture === "healthy" ? "success" : health?.posture === "unavailable" ? "error" : "warning";
+  const effectiveHealth = health?.effective_posture;
+  const expiredPositive = effectiveHealth === "unknown" && health?.posture !== "unknown" && Boolean(health?.observed_at_unix_ms);
+  const tone = effectiveHealth === "unavailable" ? "error" : effectiveHealth === "degraded" ? "warning" : "neutral";
   const matching = targets.filter(target => `${target.provider_key} ${target.model_id}`.toLowerCase().includes(query.toLowerCase()));
   return <div className="provider-workspace">
     <header className="provider-workspace-toolbar"><div><Icon name={scope === "yvex" ? "processor" : "providers"} /><h1>{scope === "yvex" ? "YVEX" : "Providers"}</h1><span>{targets.length} deployment{targets.length === 1 ? "" : "s"}{omitted > 0 ? ` · ${omitted} omitted by read bound` : ""}</span></div><div><Button onClick={refresh} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh inventory"}</Button><Button disabled={!canConnect} onClick={connect}>{scope === "yvex" ? "Connect compatible deployment" : "Register provider target"}</Button></div></header>
@@ -45,11 +47,11 @@ export function ProviderWorkspace({ scope, workspace, application, targets, omit
           <div className="deployment-content">
           {section === "Runtime" && <>
             {workspace.case.tenant_ref && <DeploymentModelObservation key={item.id} application={application} tenant={workspace.case.tenant_ref} target={item.id} model={item.model_id} />}
-            <section className="deployment-health" aria-label="Observed deployment health"><header><h3>Observed health</h3><Badge tone={tone}>{health?.posture ?? "Not observed"}</Badge></header>
-              <p>{health?.failure_class ? reasons[health.failure_class] ?? `YAI recorded: ${health.failure_class.replaceAll("_", " ")}.` : health?.posture === "healthy" ? "The last qualified observation reported a healthy target." : "No failure explanation is exposed in the current observation."}</p>
-              <dl><div><dt>Last observation</dt><dd>{time(health?.observed_at_unix_ms)}</dd></div><div><dt>Circuit</dt><dd>{health?.circuit ?? "Unknown"}</dd></div><div><dt>Consecutive failures</dt><dd>{health?.consecutive_failures ?? "Unknown"}</dd></div></dl>
+            <section className="deployment-health" aria-label="Observed deployment health"><header><h3>YAI health posture</h3><Badge tone={tone}>{effectiveHealth === undefined ? "Not projected" : expiredPositive ? "Observation expired" : effectiveHealth}</Badge></header>
+              <p>{effectiveHealth === undefined ? "This Host does not project YAI's effective health posture. The last report below is historical." : expiredPositive ? `Last report: ${health?.posture}. YAI no longer treats it as current health.` : effectiveHealth === "unknown" ? "YAI has no current health observation for this target." : health?.failure_class ? reasons[health.failure_class] ?? `YAI recorded: ${health.failure_class.replaceAll("_", " ")}.` : effectiveHealth === "healthy" ? "YAI considers its recent observation healthy at the time shown below." : "No failure explanation is exposed in the current observation."}</p>
+              <dl><div><dt>Last report</dt><dd>{health?.observed_at_unix_ms ? `${health.posture} · ${time(health.observed_at_unix_ms)}` : "Not observed"}</dd></div><div><dt>Evaluated by YAI</dt><dd>{time(health?.evaluated_at_unix_ms ?? undefined)}</dd></div><div><dt>Circuit</dt><dd>{health?.circuit ?? "Unknown"}</dd></div><div><dt>Consecutive failures</dt><dd>{health?.consecutive_failures ?? "Unknown"}</dd></div></dl>
               {health?.failure_class && <code>{health.failure_class}</code>}
-              <small>Recorded observation, not a live connectivity probe.</small><Button onClick={() => setSection("Evidence")}>Check deployment</Button>
+              <small>Effective posture comes from YAI's health owner. The report is not a live connectivity probe.</small><Button onClick={() => setSection("Evidence")}>Check deployment</Button>
             </section>
             <section className="deployment-model"><header><h3>Model & connection</h3><Button onClick={() => actions.inspect(item.id)}>Technical details</Button></header><strong>{item.model_id}</strong><dl><div><dt>Endpoint</dt><dd>{item.endpoint}</dd></div><div><dt>Machine identity</dt><dd>Not disclosed by this connection</dd></div><div><dt>Model residency</dt><dd>Not exposed by YAI</dd></div></dl></section>
             <section className="deployment-case"><header><h3>Current Case</h3><Badge tone={bound ? "info" : "neutral"}>{bound ? "Bound" : "Not bound"}</Badge></header><p>{workspace.case.display_name}</p><Button onClick={() => actions.openPerspective("Compute")}>Open Case Compute</Button></section>

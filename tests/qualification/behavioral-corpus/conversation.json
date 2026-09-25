@@ -384,10 +384,31 @@
           "value": "data"
         },
         {
-          "path": "/results/after/data",
+          "path": "/results/after/data/case",
           "op": "equal",
           "value": {
-            "$ref": "/results/settled/data"
+            "$ref": "/results/settled/data/case"
+          }
+        },
+        {
+          "path": "/results/after/data/memory/timeline",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/settled/data/memory/timeline"
+          }
+        },
+        {
+          "path": "/results/after/data/conversation/turns",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/settled/data/conversation/turns"
+          }
+        },
+        {
+          "path": "/results/after/data/authority",
+          "op": "equal",
+          "value": {
+            "$ref": "/results/settled/data/authority"
           }
         },
         {
