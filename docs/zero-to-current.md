@@ -1814,6 +1814,21 @@ An effect receipt records dispatch outcome, not a guarantee of process exit succ
 Pending, uncertain and terminal executions offer no continuation. Runner environment
 authoring and write bounds remain outside this bounded form.
 
+The bottom **Output** panel reads retained Conversation responses through authorized
+`execution.get`. Select a projected Turn to inspect exact text and expand its
+request/result/invocation/target identities. It lists at most 32 projected Turns;
+this is not a complete output catalog, live token stream, process stdout or YVEX
+server log. Refresh and reopening observe only, including after Host restart.
+A refused or mismatched response clears prior output; late reads cannot cross
+Turn, Case or Participant identities. Model text remains inert candidate material.
+`tests/studio/retained-output.mjs` qualifies identity/refusal/late-response behavior;
+`tests/studio/conversation-actions.mjs` checks the real Host result identity and
+restart without another provider dispatch, using a controlled local provider.
+Native read-only run `native-portfolio-1790296482825787481` also compared the exact
+retained DeepSeek response in `case:qualification-deepseek-native-4k` with Output
+and verified Case switching alongside `case:tech-infra-inference-service`. This
+reuses recorded real-model evidence; it is not a new inference or model-quality pass.
+
 The Workbench status bar distinguishes the YAI Host connection from the current
 Participant's conversation model assignment. Click the Host entry for Host
 settings, the model entry for Compute, or Telemetry for current qualified

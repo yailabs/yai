@@ -493,6 +493,29 @@ try {
  assert.equal(generationRequests,beforeComposeDispatch+1);
  assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),afterCompose,'Exact retry preserves canonical history');
  await page.screenshot({path:`${evidence}/retained-message-composed.png`});
+ // Output is an authorized retained read, not another generation request.
+ const beforeOutput=generationRequests;
+ const bottom=page.getByRole('region',{name:'Bottom tools',exact:true});
+ if(!await bottom.isVisible())await page.keyboard.press('Control+j');
+ await bottom.getByRole('button',{name:'Output',exact:true}).click();
+ const output=bottom.getByRole('region',{name:'Retained model output'});
+ await output.getByLabel('Output Turn').selectOption(retainedTurn.id);
+ await output.locator('.retained-output-text').getByText('Retained message executed once',{exact:true}).waitFor();
+ const outputRead=exchanges.findLast(x=>x.request.operation_ref==='execution.get' && x.result.data?.turn_ref===retainedTurn.id && x.result.data?.primary_result);
+ assert.equal(await output.locator('.retained-output-text').getAttribute('data-result-ref'),outputRead.result.data.primary_result.result_id);
+ telemetry=cli('host','restart').data.value;
+ await output.getByRole('button',{name:'Refresh output',exact:true}).click();
+ await output.locator('.retained-output-text').getByText('Retained message executed once',{exact:true}).waitFor();
+ assert.equal(generationRequests,beforeOutput,'Output and Host reconnect must not redispatch inference');
+ for(const [width,height] of [[1600,960],[1440,900],[1280,800],[1000,650]]) {
+  await page.setViewportSize({width,height});
+  const geometry=await output.evaluate(node=>({width:node.clientWidth,scroll:node.scrollWidth}));assert.ok(geometry.scroll<=geometry.width+1);
+  await page.screenshot({path:`${evidence}/retained-output-${width}x${height}.png`});
+ }
+ await bottom.getByRole('button',{name:'Terminal',exact:true}).click();
+ assert.equal(await page.locator('.retained-output-text').count(),0,'Inactive Output unmounts retained disclosures');
+ await page.setViewportSize({width:1440,height:900});
+
  providerContent='Controlled provider response';
  await accepted('provider.trust.set',{target_ref:target.target_id,posture:'denied'});
  const rejected=await call('cognitive.binding.set',{case_ref:caseRef,participant_ref:'participant:operator',role:'primary',capability:'primary_conversation',candidates:[{target_ref:target.target_id,semantic_evidence_ref:attested.data.evidence_id}],replace:true});
@@ -513,7 +536,7 @@ try {
 
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID','Retained Turn plan preparation without inference','Explicit exact-plan realization and lost ACK recovery','Stale plan and incompatible input refusal','Current trust excludes model route','Reopen observes without redispatch','Explicit candidate normalization, prose refusal, lost-ACK exact proposal recovery, governed file write, stale/hidden refusal, exact retry preserves inode and Case','CLI committed Turn explicitly composed in Studio; stale and hidden refusal, lost ACK, one result and no duplicate Turn/dispatch','Process suspension exact retry does not repeat the signal; required Review prevents file write']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,provider_dispatches:generationRequests-baselineRequests,proof:['typed model discovery','authored operator attestation and primary binding','two exact committed user Turns and recorded model results','lost acknowledgement recovery and duplicate dispatch refusal','stale generation preserves draft without Turn','canonical projection restores responses','HTTP 413 is explained without fake response or redispatch','hidden execution refusal','revoked trust refusal','four viewport matrix','CLI replay','Overview narrative uses governed SEND and survives acknowledgement loss','Narrative reopen and exact retry do not redispatch','Narrative trust refusal','Telemetry shows actual Host PID','Retained Turn plan preparation without inference','Explicit exact-plan realization and lost ACK recovery','Stale plan and incompatible input refusal','Current trust excludes model route','Reopen observes without redispatch','Explicit candidate normalization, prose refusal, lost-ACK exact proposal recovery, governed file write, stale/hidden refusal, exact retry preserves inode and Case','CLI committed Turn explicitly composed in Studio; stale and hidden refusal, lost ACK, one result and no duplicate Turn/dispatch','Process suspension exact retry does not repeat the signal; required Review prevents file write','Output exact retained result and Host restart do not redispatch; four viewport bounds; hidden panel unmounts']}));
 } finally {
  if(effectChild && effectChild.exitCode===null){effectChild.kill('SIGCONT');effectChild.kill('SIGTERM');}
  releaseSummary?.();releaseResponse?.();await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

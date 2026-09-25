@@ -1,0 +1,66 @@
+import {createRequire} from 'node:module';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const require=createRequire(path.resolve(import.meta.dirname,'../../studio/package.json'));
+const {chromium}=require('playwright-core');
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
+const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+try {
+ await page.goto(`${process.env.STUDIO_TEST_URL??'http://127.0.0.1:1422'}/?gallery=1`);
+ await page.evaluate(async()=>{
+  document.getElementById('root').style.display='none';
+  const [{default:React},{default:{createRoot}},{OutputPanel}]=await Promise.all([
+   import('/node_modules/.vite/deps/react.js'),import('/node_modules/.vite/deps/react-dom_client.js'),import('/src/contrib/case/OperationalPanels.tsx')]);
+  const node=document.createElement('div');document.body.appendChild(node);const root=createRoot(node);
+  const available={state:'available',catalog:{}};
+  window.reads=[];window.pending=[];
+  const application={supports:()=>true,snapshot:()=>available,subscribe:()=>({dispose(){}}),observeConversation:input=>new Promise(resolve=>{window.reads.push(input);window.pending.push({input,resolve});})};
+  window.renderOutput=(caseRef='case:A',participant='participant:A',visible=true)=>root.render(React.createElement(OutputPanel,{visible,platform:{application},workspace:{case:{case_ref:caseRef,participant_ref:participant,generation:1},conversation:{turns:['A','B'].map(id=>({id,execution_request_ref:'request:'+id,parts:[{text:'Question '+id}]}))}}}));
+  window.finishOutput=(index,text,refuse=false,wrong=false)=>{
+   const {input,resolve}=window.pending[index];const id=input.execution.request_ref.slice(-1);
+   resolve(refuse?{result_state:'unauthorized',error:{safe_message:'Current disclosure refused'}}:{result_state:'success',data:{case_ref:input.case_ref,participant_ref:input.participant_ref,turn_ref:wrong?'other-turn':id,request_ref:input.execution.request_ref,posture:'completed',observed_generation:1,primary_result:{result_id:'result:'+id,invocation_id:'invocation:'+id,output:text,selection:{selected_target_id:'target:controlled'}}}});
+  };
+  window.renderOutput();
+ });
+ await page.waitForFunction(()=>window.reads.length===1);
+ await page.getByLabel('Output Turn').selectOption('A');
+ await page.waitForFunction(()=>window.reads.length===2);
+ await page.evaluate(()=>window.finishOutput(1,'EXACT_A <img src="https://invalid.test/" />'));
+ await page.locator('.retained-output-text').waitFor();
+ assert.match(await page.locator('.retained-output-text').innerText(),/^EXACT_A/);
+ assert.equal(await page.locator('.retained-output img').count(),0,'Output remains inert text');
+ await page.evaluate(()=>window.finishOutput(0,'LATE_B'));
+ assert.match(await page.locator('.retained-output-text').innerText(),/^EXACT_A/,'Late B cannot replace selected A');
+ await page.getByRole('button',{name:'Refresh output'}).click();
+ assert.equal(await page.locator('.retained-output-text').count(),0,'Refreshing withholds the old disclosure');
+ await page.waitForFunction(()=>window.reads.length===3);
+ await page.evaluate(()=>window.finishOutput(2,'',true));
+ await page.getByRole('alert').getByText('Current disclosure refused').waitFor();
+ assert.equal(await page.locator('.retained-output-text').count(),0);
+ await page.evaluate(()=>window.renderOutput('case:B','participant:B'));
+ await page.waitForFunction(()=>window.reads.length===4);
+ await page.evaluate(()=>window.renderOutput('case:A','participant:A'));
+ await page.waitForFunction(()=>window.reads.length===5);
+ await page.evaluate(()=>window.finishOutput(3,'OTHER_CASE'));
+ assert.equal(await page.locator('.retained-output-text').count(),0,'Late other-Case content is withheld');
+ await page.evaluate(()=>window.finishOutput(4,'WRONG_IDENTITY',false,true));
+ await page.getByRole('alert').getByText('No authorized output for this exact Turn.').waitFor();
+ assert.equal(await page.locator('.retained-output-text').count(),0);
+ await page.evaluate(()=>window.renderOutput('case:A','participant:B'));
+ await page.waitForFunction(()=>window.reads.length===6);
+ await page.evaluate(()=>window.renderOutput('case:A','participant:A'));
+ await page.waitForFunction(()=>window.reads.length===7);
+ await page.evaluate(()=>window.finishOutput(5,'OTHER_PARTICIPANT'));
+ assert.equal(await page.locator('.retained-output-text').count(),0,'A late same-Case Participant result is withheld');
+ await page.evaluate(()=>window.finishOutput(6,'EXACT_CURRENT_PARTICIPANT'));
+ await page.getByText('EXACT_CURRENT_PARTICIPANT',{exact:true}).waitFor();
+ await page.evaluate(()=>window.renderOutput('case:A','participant:A',false));
+ assert.equal(await page.locator('.retained-output').count(),0);
+ await page.evaluate(()=>window.renderOutput());
+ await page.waitForFunction(()=>window.reads.length===8);
+ await page.evaluate(()=>window.finishOutput(7,'REOPENED_EXACT_B'));
+ await page.getByText('REOPENED_EXACT_B',{exact:true}).waitFor();
+ assert.equal(await page.locator('.retained-output-text').getAttribute('data-result-ref'),'result:B');
+ assert.deepEqual(errors,[]);
+ console.log(JSON.stringify({result:'PASS',proof:['Exact selected Turn bytes','Late Turn/Case responses fenced','Refresh refusal removes old output','Wrong returned identity withheld','Inert text','Hidden panel unmounts; reopen re-observes']}));
+}finally{await browser.close();}

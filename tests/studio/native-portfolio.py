@@ -154,6 +154,15 @@ try:
    assert details['source']==result['output'], 'Original candidate changed during rendering'
    assert details['attempts']==observed['attempt_outcomes'], 'Displayed receipt differs from authoritative observation'
    emit(dict(proof='Native answer and readable receipt preserve authoritative result; no provider submission',result_ref=result['result_id'],attempts=len(details['attempts'])))
+   first.js('if(document.querySelector(".live-bottom").hidden)document.querySelector(`[aria-label="Toggle bottom panel"]`).click(); [...document.querySelectorAll(".panel-tabs button")].find(n=>n.textContent==="Output").click()')
+   first.wait('return Boolean(document.querySelector(".retained-output select"))')
+   first.js('const s=document.querySelector(".retained-output select"); const setter=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value").set; setter.call(s,arguments[0]);s.dispatchEvent(new Event("change",{bubbles:true}))',turn['id'])
+   first.wait('const n=document.querySelector(".retained-output-text");return n?.dataset.resultRef===arguments[0] && n.textContent===arguments[1]',result['result_id'],result['output'])
+   first.shot('native-retained-output.png')
+   emit(dict(proof='Native Output preserves exact retained real-model result bytes without submission',turn_ref=turn['id'],result_ref=result['result_id']))
+   first.js('[...document.querySelectorAll(".panel-tabs button")].find(n=>n.textContent==="Terminal").click()')
+   assert first.js('return document.querySelector(".retained-output-text")===null')
+
    prepared=next((entry for entry in observed.get('prepared_context',{}).get('invocations',[]) if entry.get('frame')),None)
    if prepared:
     first.js('const article=[...document.querySelectorAll(".turn-ai")].find(n=>n.querySelector(".conversation-answer")?.dataset.resultRef===arguments[0]); article.querySelector(".execution-context button").click()',result['result_id'])
