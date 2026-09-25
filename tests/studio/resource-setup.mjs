@@ -200,6 +200,11 @@ try {
  assert.deepEqual(cliMetadata.process.status,outputRead.result.data.process.status);
  const cliOutput=cli(...observeArgs,'--output').data.value;
  assert.deepEqual(cliOutput,outputRead.result.data,'CLI and Host return the same retained observation under current authority');
+ const catalog=await accepted('execution.list',{case_ref:caseRef,participant_ref:waiting.request.input.participant_ref,limit:32});
+ assert.ok(catalog.entries.some(entry=>entry.execution.domain==='resource_request'&&entry.execution.submission_ref===waiting.request.input.submission_ref));
+ assert.deepEqual(cli('case','executions',caseRef,'--participant',waiting.request.input.participant_ref,'--limit','32').data.value,catalog);
+ for(const entry of catalog.entries)assert.deepEqual(Object.keys(entry).sort(),['execution','recorded_at_unix_ms']);
+
  const refusedCli=(args)=>{
   const result=spawnSync(binary,[...args,'--output','--json'],{env:{...process.env,YAI_HOME:home},encoding:'utf8',timeout:30000});
   assert.notEqual(result.status,0);assert.equal(result.error,undefined);

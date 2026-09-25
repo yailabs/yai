@@ -1938,6 +1938,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.executions",
+        ["case", "executions"],
+        "Discover recent visible execution references without output or redispatch",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[flag("--participant", Some("PARTICIPANT"), true), flag("--limit", Some("COUNT"), false)]
+    ),
+    op!(
         "yai.case.resource.observe",
         ["case", "resource", "observe"],
         "Read one retained Resource request under current authority without executing it",
@@ -3713,7 +3724,7 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
         "case.lifecycle"
     } else if matches!(operation_id, "yai.case.list" | "yai.case.open") {
         "case.catalog"
-    } else if operation_id == "yai.case.show" {
+    } else if matches!(operation_id, "yai.case.show" | "yai.case.executions") {
         "case.workspace"
     } else if operation_id == "yai.case.workbench"
         || operation_id.starts_with("yai.case.conversation.draft.")

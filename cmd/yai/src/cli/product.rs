@@ -68,6 +68,12 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
                 }),
             )
         }
+        "yai.case.executions" => application_operation("execution.list", serde_json::json!({
+            "case_ref": invocation.positional("case").ok_or_else(|| CliError::usage("Case is required"))?,
+            "participant_ref": invocation.flag("--participant").ok_or_else(|| CliError::usage("--participant is required"))?,
+            "limit": invocation.flag("--limit").map(str::parse::<usize>).transpose()
+                .map_err(|_| CliError::usage("--limit must be an integer from 1 to 32"))?.unwrap_or(16),
+        })),
         "yai.case.resource.observe" => application_operation("execution.get", serde_json::json!({
             "case_ref": invocation.positional("case")
                 .ok_or_else(|| CliError::usage("Case is required"))?,

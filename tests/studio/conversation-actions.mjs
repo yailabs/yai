@@ -335,6 +335,11 @@ try {
  while(true) {const value=await accepted('execution.get',{case_ref:caseRef,participant_ref:'participant:operator',execution:realizationRef});if(value.provider_result){realizedObservation=value;break;}assert.ok(Date.now()<resultDeadline);await new Promise(resolve=>setTimeout(resolve,50));}
  assert.equal(realizedObservation.provider_result.selection.selected_target_id,target.target_id);
  assert.equal(realizedObservation.invocation_refs.length,1);
+ const discoveredExecutions=await accepted('execution.list',{case_ref:caseRef,participant_ref:'participant:operator',limit:32});
+ assert.ok(discoveredExecutions.entries.some(entry=>JSON.stringify(entry.execution)===JSON.stringify(realizationRef)));
+ assert.ok(discoveredExecutions.entries.some(entry=>entry.execution.domain==='cognitive_composition'));
+ assert.equal(generationRequests,planDispatches+1,'Execution discovery never dispatches inference');
+
  await cognition.getByRole('button',{name:'Refresh observation',exact:true}).click();
  await cognition.locator('.cognitive-result').getByText('Controlled provider response',{exact:true}).waitFor();
  const beforeExactRepeat=await accepted('case.summary',{case_ref:caseRef});

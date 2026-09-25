@@ -1915,3 +1915,20 @@ path for settled `needs_processing` attempts; ordinary acquire still skips them.
 Acquiring, denied and revoked postures are not silently converted into retries.
 Studio already exposes exact-attempt resume through the typed Application client;
 this fixes CLI presentation parity without a new semantic operation.
+
+### Bounded execution reference discovery
+
+Application `execution.list` projects recent retained references from the existing
+Case Transition history and RuntimeInstance work store. It introduces no job
+owner or canonical index. Every candidate passes the same current-authority
+observation path as `execution.get`; hidden/revoked references are withheld,
+output is discarded, and Case generation changes fail the projection closed.
+The limit is 1–32 visible references and at most 128 distinct candidates per read.
+This is bounded discovery, not historical pagination or evidence of a live OS process.
+
+Archaeology: `yai-dev` commit `fa3afc956813733dc89ce46c1d12872d898fbc5d`,
+`src/case/chronology/case_chronology_boundary.c` and adjacent effect/receipt and
+Case evidence contracts distinguish chronology from receipts but explicitly
+implement no chronology engine. Current Rust Transition history and domain
+observation owners therefore supply the executable mechanism; no historical
+chronology plane, runtime ownership or C implementation is imported.

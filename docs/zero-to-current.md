@@ -1819,6 +1819,13 @@ revoked authority discloses neither status nor output. This never dispatches a
 process. The CLI sibling is `yai case resource observe CASE --participant PARTICIPANT
 --request-id REQUEST`; add `--output` to request retained process stdout/stderr.
 It uses the same typed `execution.get` dispatcher and current disclosure checks.
+`yai case executions CASE --participant PARTICIPANT --limit 16` discovers
+currently visible retained references through typed `execution.list`. The default
+is 16, maximum 32; at most 128 recent distinct candidates are requalified. This
+bounded discovery covers Resource requests, controlled effects, Source attempts,
+Conversation composition/realization and runtime work. It returns only references
+and recorded times, never output, and is not a complete execution ledger.
+Studio's automatic catalog consumption remains to be qualified.
 Work → Executions now shows the recorded process exit separately from
 its effect receipt. **Read retained process output** requests stdout/stderr;
 refresh, Case/Participant changes and refused re-observation remove prior output.

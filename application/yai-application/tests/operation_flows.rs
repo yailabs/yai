@@ -197,6 +197,9 @@ fn conversation_submission_is_durable_idempotent_and_observable_without_provider
     let summary = f.success("case.summary", json!({"case_ref":"case:audit"}));
     assert_eq!(summary["conversation"]["turns"][0]["execution_request_ref"], acknowledged["execution"]["request_ref"]);
     assert_eq!(summary["conversation"]["turns"][0]["id"], acknowledged["execution"]["turn_ref"]);
+    let catalog = f.success("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator"}));
+    assert!(catalog["entries"].as_array().unwrap().iter().any(|entry| entry["execution"] == json!({"domain":"cognitive_composition","request_ref":acknowledged["execution"]["request_ref"]})));
+
     let retry = f.success("conversation.send", input.clone());
     assert_eq!(retry["created"], false);
     assert_eq!(retry["execution"]["turn_ref"], acknowledged["execution"]["turn_ref"]);
@@ -491,6 +494,9 @@ fn canonical_effect_retry(prepared_only: bool, revoked: bool, process: bool, exp
     let observe = json!({"case_ref":"case:audit","participant_ref":"participant:operator",
         "execution":{"domain":"controlled_effect","operation_ref":operation.operation_id}});
     assert_eq!(f.success("execution.get", observe.clone()), submitted);
+    let catalog = f.success("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator"}));
+    assert!(catalog["entries"].as_array().unwrap().iter().any(|entry| entry["execution"] == observe["execution"]));
+
     assert_eq!(f.generation(), generation);
     let history = store.list_case_transitions("case:audit").unwrap();
     assert_eq!(history.iter().filter(|t| matches!(t.payload,
@@ -720,6 +726,19 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
     f.app = LocalApplication::from_yai_home(&f.home);
     let observation = f.success("execution.get", json!({"case_ref":"case:audit","participant_ref":"participant:operator",
         "execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
+    let catalog = f.success("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator","limit":1}));
+    assert_eq!(catalog["entries"].as_array().unwrap().len(), 1);
+    assert_eq!(catalog["entries"][0]["execution"], json!({"domain":"resource_request","submission_ref":"request:lost-effect-response"}));
+    assert_eq!(catalog["entries"][0].as_object().unwrap().len(), 2, "Discovery discloses only reference and recorded time");
+    assert_eq!(f.generation(), generation);
+    for participant in ["participant:hidden", "participant:unlinked"] {
+        let hidden = f.call("execution.list", json!({"case_ref":"case:audit","participant_ref":participant}));
+        assert_eq!(hidden.result_state, ResultState::Unauthorized);
+        assert!(hidden.data.is_none());
+    }
+    for limit in [0, 33] {
+        assert_ne!(f.call("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator","limit":limit})).result_state, ResultState::Success);
+    }
     assert!(observation.get("continuation").is_none(), "Finalized effects must never offer redispatch");
     assert_eq!(observation["posture"]["state"], "effect_recorded");
     assert_eq!(observation["posture"]["outcome"], outcome);
@@ -756,6 +775,8 @@ fn resource_receipt_reconnect(max_output_bytes: usize, outcome: &str, dispatched
         "include_output":true,"execution":{"domain":"resource_request","submission_ref":"request:lost-effect-response"}}));
     assert_eq!(output.result_state, ResultState::Stale);
     assert!(output.data.is_none(), "Revoked authority must not disclose retained stdout/stderr");
+    let hidden_catalog = f.success("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator"}));
+    assert!(hidden_catalog["entries"].as_array().unwrap().is_empty(), "Revoked execution refs are not discoverable");
 }
 
 #[test]
@@ -1043,6 +1064,9 @@ fn lost_runtime_acknowledgement_is_observable_after_stop_and_reopen_without_redi
     assert_eq!(visible["execution_ref"], repeated["execution"]["execution_ref"]);
     assert_eq!(visible["state"], "queued");
     assert_eq!(visible["attempt_count"], 0);
+    let catalog = f.success("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator"}));
+    assert!(catalog["entries"].as_array().unwrap().iter().any(|entry| entry["execution"] == input["execution"]));
+
     let mut conflict = submission.clone();
     conflict.task = "different work".into();
     assert_eq!(f.call("case.run", json!(conflict)).error.unwrap().code, "runtime_work_idempotency_conflict");
@@ -1241,6 +1265,9 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
     let admitted_generation = f.generation();
     assert_eq!(admitted_generation, submitted_generation + 1);
     assert_eq!(f.success("execution.get", input.clone())["posture"], "running");
+    let catalog = f.success("execution.list", json!({"case_ref":"case:audit","participant_ref":"participant:operator"}));
+    assert!(catalog["entries"].as_array().unwrap().iter().any(|entry| entry["execution"] == input["execution"]));
+
     assert!(yai_application::resource_execution::source::acquire_carrier(
         &f.home, &store, &auth, "case:audit", &source_id, 1).is_err(),
         "an existing carrier cannot be replaced by another client");

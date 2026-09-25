@@ -324,6 +324,35 @@ pub struct ExecutionGetInput {
     pub include_output: bool,
 }
 
+/// Bounded discovery of durable references. Observation remains independently
+/// authorized; this projection never retains output or grants dispatch authority.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionListInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    #[serde(default = "execution_list_limit")]
+    pub limit: usize,
+}
+fn execution_list_limit() -> usize { 16 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExecutionListEntry {
+    pub execution: ExecutionReference,
+    pub recorded_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExecutionListProjection {
+    pub schema: String,
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub generation: u64,
+    pub entries: Vec<ExecutionListEntry>,
+    pub limit: usize,
+    pub scope: String,
+}
+
 /// Domain-specific projections retain their own schema and lifecycle instead
 /// of normalizing materially different outcomes into a generic job state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -980,6 +1009,70 @@ impl LocalApplication {
         Ok((store, auth))
     }
 
+    fn execution_observation(&self, store: &LmdbRecordStore, auth: &AuthenticatedPrincipal,
+        input: ExecutionGetInput) -> Result<Value, String> {
+        if input.include_context && !matches!(&input.execution,
+            ExecutionReference::Conversation {..} | ExecutionReference::CognitiveComposition {..}) {
+            return Err("execution_context_domain_not_supported".into());
+        }
+        if input.include_output && !matches!(&input.execution, ExecutionReference::ResourceRequest {..}) {
+            return Err("execution_output_domain_not_supported".into());
+        }
+        match input.execution {
+            ExecutionReference::ControlledEffect { operation_ref } => {
+                encode_result("execution_get", ExecutionObservation::ControlledEffect(
+                    resource_execution::observe_controlled_effect(store, auth,
+                        &input.case_ref, &input.participant_ref, &operation_ref)?))
+            }
+            ExecutionReference::ResourceRequest { submission_ref } => {
+                let state = store.get_case_state_authorized(auth, &input.case_ref)?;
+                let principal = auth.projected_principal_id();
+                let history = store.list_case_transitions(&state.case_id)?;
+                let operation = history.iter().find_map(|t| match &t.payload {
+                    TransitionPayload::OperationRecorded { operation }
+                        if operation.participant_id == input.participant_ref
+                            && matches!(&operation.origin,
+                                yai_core_engine::effect::OperationOrigin::ParticipantRequest { request_id, principal_id, .. }
+                                if request_id == &submission_ref && principal_id == &principal) => Some(operation),
+                    _ => None,
+                }).ok_or("resource_execution_not_visible")?;
+                encode_result("execution_get", ExecutionObservation::ResourceRequest(
+                    resource_execution::observe_with_output(store, auth, &input.case_ref,
+                        &input.participant_ref, &operation.operation_id, input.include_output)?))
+            }
+            ExecutionReference::CognitiveRealization { plan_ref } => {
+                encode_result("execution_get", ExecutionObservation::CognitiveRealization(
+                    cognitive_execution::observe_realization(&self.home_path, auth, store,
+                        &input.case_ref, &input.participant_ref, &plan_ref)?))
+            }
+            ExecutionReference::CognitiveComposition { request_ref } => {
+                let mut observed = cognitive_execution::observe_cognitive_request(&self.home_path, auth, store,
+                    &input.case_ref, &input.participant_ref, &request_ref)?;
+                if input.include_context { cognitive_execution::include_prepared_context(&self.home_path, auth, store, &mut observed)?; }
+                encode_result("execution_get", ExecutionObservation::Conversation(observed))
+            }
+            ExecutionReference::Conversation { submission_ref } => {
+                let mut observed = cognitive_execution::observe_submission(&self.home_path, auth, store,
+                    &input.case_ref, &input.participant_ref, &submission_ref)?;
+                if input.include_context { cognitive_execution::include_prepared_context(&self.home_path, auth, store, &mut observed)?; }
+                encode_result("execution_get", ExecutionObservation::Conversation(observed))
+            }
+            ExecutionReference::RuntimeWork { submission_ref } => {
+                let item = store.observe_runtime_submission_authorized(
+                    &auth, &input.case_ref, &input.participant_ref, &submission_ref,
+                )?;
+                encode_result("execution_get", ExecutionObservation::RuntimeWork(
+                    runtime_execution_observation(&self.home_path, item)?))
+            }
+            ExecutionReference::SourceAcquisition { source_ref, attempt } => {
+                encode_result("execution_get", ExecutionObservation::SourceAcquisition(
+                    resource_execution::source::observe_execution(
+                        &self.home_path, store, auth, &input.case_ref,
+                        &input.participant_ref, &source_ref, attempt)?))
+            }
+        }
+    }
+
     fn call_inner(&self, request: &OperationRequest) -> Result<Value, String> {
         if !capabilities::APPLICATION_OPERATIONS
             .iter()
@@ -1180,68 +1273,90 @@ impl LocalApplication {
                 encode_result("effect_submit", resource_execution::observe_controlled_effect(
                     &store, &auth, &input.case_ref, &input.participant_ref, &input.operation_ref)?)
             }
+            "execution.list" => {
+                let input: ExecutionListInput = decode_input(request)?;
+                if !(1..=32).contains(&input.limit) {
+                    return Err("execution_list_limit_invalid".into());
+                }
+                let state = cognitive_execution::authorized_conversation_case(
+                    &auth, &store, &input.case_ref, &input.participant_ref)?;
+                let principal = auth.projected_principal_id();
+                let mut candidates = Vec::new();
+                for transition in store.list_case_transitions(&input.case_ref)? {
+                    let reference = match transition.payload {
+                        TransitionPayload::OperationRecorded { operation }
+                            if operation.participant_id == input.participant_ref => {
+                            match operation.origin {
+                                yai_core_engine::effect::OperationOrigin::ParticipantRequest { request_id, principal_id, .. }
+                                    if operation.resource_request.is_some() && principal_id == principal =>
+                                    Some(ExecutionReference::ResourceRequest { submission_ref: request_id }),
+                                _ if operation.resource_request.is_none() =>
+                                    Some(ExecutionReference::ControlledEffect { operation_ref: operation.operation_id }),
+                                _ => None,
+                            }
+                        }
+                        TransitionPayload::CaseSourceProgressed { progress } =>
+                            Some(ExecutionReference::SourceAcquisition { source_ref: progress.source_id, attempt: progress.attempt }),
+                        TransitionPayload::ConversationExecutionIntentRecorded { request }
+                            if request.participant_id == input.participant_ref =>
+                            Some(ExecutionReference::CognitiveComposition { request_ref: request.request_id }),
+                        TransitionPayload::ProviderSelectionRecorded { selection }
+                            if selection.participant_id == input.participant_ref =>
+                            selection.logical_turn_id.strip_prefix("cognitive-realization:")
+                                .map(|plan| ExecutionReference::CognitiveRealization { plan_ref: plan.into() }),
+                        _ => None,
+                    };
+                    if let Some(execution) = reference {
+                        candidates.push(ExecutionListEntry { execution, recorded_at_unix_ms: transition.committed_at_unix_ms });
+                    }
+                }
+                for item in store.list_runtime_work_authorized(&auth)? {
+                    if item.case_id == input.case_ref && item.participant_id == input.participant_ref {
+                        candidates.push(ExecutionListEntry {
+                            execution: ExecutionReference::RuntimeWork { submission_ref: item.request_id },
+                            recorded_at_unix_ms: item.enqueued_at_unix_ms,
+                        });
+                    }
+                }
+                candidates.sort_by_key(|entry| std::cmp::Reverse(entry.recorded_at_unix_ms));
+                let mut seen = std::collections::BTreeSet::new();
+                let mut entries = Vec::new();
+                // Bound expensive current-authority observations. This is recent
+                // discovery, not a complete ledger or a new execution index.
+                for entry in candidates.into_iter().filter(|entry| seen.insert(
+                    serde_json::to_string(&entry.execution).expect("execution reference serializes")
+                )).take(128) {
+                    let observe = OperationRequest {
+                        protocol: APPLICATION_PROTOCOL.into(), operation_ref: "execution.get".into(),
+                        correlation_ref: request.correlation_ref.clone(),
+                        input: json!({"case_ref": input.case_ref, "participant_ref": input.participant_ref,
+                            "execution": entry.execution}),
+                    };
+                    match self.execution_observation(&store, &auth, ExecutionGetInput {
+                        case_ref: input.case_ref.clone(), participant_ref: input.participant_ref.clone(),
+                        execution: entry.execution.clone(), include_context: false, include_output: false,
+                    }) {
+                        Ok(_) => entries.push(entry),
+                        Err(error) => match map_error(&observe, &error).result_state {
+                            ResultState::Unauthorized | ResultState::Stale => continue,
+                            _ => return Err(error),
+                        },
+                    }
+                    if entries.len() == input.limit { break; }
+                }
+                let current = cognitive_execution::authorized_conversation_case(
+                    &auth, &store, &input.case_ref, &input.participant_ref)?;
+                if current.generation != state.generation { return Err("execution_list_stale".into()); }
+                encode_result("execution_list", ExecutionListProjection {
+                    schema: "yai.execution_list_projection.v1".into(),
+                    case_ref: input.case_ref, participant_ref: input.participant_ref,
+                    generation: state.generation, entries, limit: input.limit,
+                    scope: "recent_visible_references_bounded_128_candidates_not_complete_history".into(),
+                })
+            }
             "execution.get" => {
                 let input: ExecutionGetInput = decode_input(request)?;
-                if input.include_context && !matches!(&input.execution,
-                    ExecutionReference::Conversation {..} | ExecutionReference::CognitiveComposition {..}) {
-                    return Err("execution_context_domain_not_supported".into());
-                }
-                if input.include_output && !matches!(&input.execution, ExecutionReference::ResourceRequest {..}) {
-                    return Err("execution_output_domain_not_supported".into());
-                }
-                match input.execution {
-                    ExecutionReference::ControlledEffect { operation_ref } => {
-                        encode_result("execution_get", ExecutionObservation::ControlledEffect(
-                            resource_execution::observe_controlled_effect(&store, &auth,
-                                &input.case_ref, &input.participant_ref, &operation_ref)?))
-                    }
-                    ExecutionReference::ResourceRequest { submission_ref } => {
-                        let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
-                        let principal = auth.projected_principal_id();
-                        let history = store.list_case_transitions(&state.case_id)?;
-                        let operation = history.iter().find_map(|t| match &t.payload {
-                            TransitionPayload::OperationRecorded { operation }
-                                if operation.participant_id == input.participant_ref
-                                    && matches!(&operation.origin,
-                                        yai_core_engine::effect::OperationOrigin::ParticipantRequest { request_id, principal_id, .. }
-                                        if request_id == &submission_ref && principal_id == &principal) => Some(operation),
-                            _ => None,
-                        }).ok_or("resource_execution_not_visible")?;
-                        encode_result("execution_get", ExecutionObservation::ResourceRequest(
-                            resource_execution::observe_with_output(&store, &auth, &input.case_ref,
-                                &input.participant_ref, &operation.operation_id, input.include_output)?))
-                    }
-                    ExecutionReference::CognitiveRealization { plan_ref } => {
-                        encode_result("execution_get", ExecutionObservation::CognitiveRealization(
-                            cognitive_execution::observe_realization(&self.home_path, &auth, &store,
-                                &input.case_ref, &input.participant_ref, &plan_ref)?))
-                    }
-                    ExecutionReference::CognitiveComposition { request_ref } => {
-                        let mut observed = cognitive_execution::observe_cognitive_request(&self.home_path, &auth, &store,
-                            &input.case_ref, &input.participant_ref, &request_ref)?;
-                        if input.include_context { cognitive_execution::include_prepared_context(&self.home_path, &auth, &store, &mut observed)?; }
-                        encode_result("execution_get", ExecutionObservation::Conversation(observed))
-                    }
-                    ExecutionReference::Conversation { submission_ref } => {
-                        let mut observed = cognitive_execution::observe_submission(&self.home_path, &auth, &store,
-                            &input.case_ref, &input.participant_ref, &submission_ref)?;
-                        if input.include_context { cognitive_execution::include_prepared_context(&self.home_path, &auth, &store, &mut observed)?; }
-                        encode_result("execution_get", ExecutionObservation::Conversation(observed))
-                    }
-                    ExecutionReference::RuntimeWork { submission_ref } => {
-                        let item = store.observe_runtime_submission_authorized(
-                            &auth, &input.case_ref, &input.participant_ref, &submission_ref,
-                        )?;
-                        encode_result("execution_get", ExecutionObservation::RuntimeWork(
-                            runtime_execution_observation(&self.home_path, item)?))
-                    }
-                    ExecutionReference::SourceAcquisition { source_ref, attempt } => {
-                        encode_result("execution_get", ExecutionObservation::SourceAcquisition(
-                            resource_execution::source::observe_execution(
-                                &self.home_path, &store, &auth, &input.case_ref,
-                                &input.participant_ref, &source_ref, attempt)?))
-                    }
-                }
+                self.execution_observation(&store, &auth, input)
             }
             "cognitive.realization.prepare" => {
                 let input: cognitive_execution::CognitiveRealizationPrepareInput = decode_input(request)?;
@@ -3519,6 +3634,7 @@ mod tests {
         typed::<KnowledgeNavigationResult>();
         typed::<CaseTerminalInput>();
         typed::<ExecutionGetInput>();
+        typed::<ExecutionListInput>();
         typed::<ResourceRequestInput>();
         typed::<ResourceSubmissionResult>();
         typed::<resource_execution::ResourceExecutionObservation>();
