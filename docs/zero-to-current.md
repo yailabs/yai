@@ -81,6 +81,15 @@ out after completion; a separate native read on an isolated X display recovered
 the exact check after Host upgrade without redispatch. Case and Conversation were
 unchanged. This is synthetic provider qualification, not proof that the populated
 infrastructure Case fits the 4K context or a human acceptance result.
+The separate documentary companion `case:qualification-deepseek-material-4k`
+now retains a [native capacity counterexample](../labs/external-runtime/runs/20260925-documentary-4k-capacity/manifest.json):
+one real 402-byte Cargo manifest produces 19 W entries, including eight atomic
+recalled groups, and a 20,319-token exact request. The 4096-token target refuses
+before inference; zero generation-request bytes were written. This is not a
+successful document-grounded answer. Preserve the Case and inspect its retained
+context from Conversation; do not repeatedly SEND the same question. Fitting
+eligible optional evidence to measured capacity remains backend work, with
+mandatory state, atomic groups and explicit omissions protected.
 Open Manage → Customize Activity Rail: core YAI and first-party platform entries
 are fixed; eligible additional contributions support pin/unpin, ordering and
 Restore defaults. Preferences survive reopening without changing Case history.

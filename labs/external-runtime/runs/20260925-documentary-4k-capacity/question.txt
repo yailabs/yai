@@ -1,0 +1,1 @@
+Nel manifest application/yai-application/Cargo.toml acquisito in questo Case, qual è il nome del package, quale versione di Rust edition dichiara e quale dipendenza locale usa per il motore YAI? Rispondi brevemente in italiano citando il documento. Se il materiale non ti è stato reso visibile, dichiaralo senza inventare.

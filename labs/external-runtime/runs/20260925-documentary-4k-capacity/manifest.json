@@ -1,0 +1,82 @@
+{
+  "run_id": "native-conversation-1790317580760888076",
+  "yai_sha": "8486339687bfab797db1d72bb24823b14b343bd0",
+  "evidence_class": "external_provider_native_product",
+  "case_ref": "case:qualification-deepseek-material-4k",
+  "endpoint": "http://127.0.0.1:18001",
+  "model": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+  "result": "NONPASS",
+  "finding": "MEASURED_LIMITATION",
+  "failure": "request_capacity_refused",
+  "input_observation": {
+    "capacity": {
+      "capacity_plan_identity": "b00189b1fabd12dff1e84c52bbc5c02a75ca51debb6a3d5ba631557fb3324423",
+      "effective_output_tokens": 0,
+      "engine_generation": 1,
+      "execution_or_resources_qualified": false,
+      "full_requested_output_fits": false,
+      "http_body_limit_bytes": 1048576,
+      "input_capacity_tokens": 4096,
+      "input_tokens": 20319,
+      "model_id": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+      "observation_kind": "exact_request_preflight",
+      "prompt_identity": "271ce8069e8de5e3df53b98ba131bc925c351b7b6a5bcbfe58fc0b629806fa56",
+      "provider_request_identity": "1a40f088493df2c41e410e043f59f5ec671efaec8b89c04a87deafb75039f3a5",
+      "public_contract": "yvex.openai.compat.v3",
+      "requested_output_tokens": 0,
+      "resource_reservation": false,
+      "runtime_binding_identity": "8cdb4929c523bd42e3fb82fa18ceed0a0a6732d6efd1d852c88398c8d2d6cd5e",
+      "runtime_model_identity": "cf8ebc69dae8e38f96a47418e8efcebdc47bc4ed05bac76d6974ccc1379e0e7e",
+      "sequence_capacity_tokens": 4096,
+      "token_capacity_compatible": false,
+      "tokenizer_identity": "68f23b5e24f8ee3aa208a424041c306581435a0f9eaaf7da7e81d5527af0e50e"
+    },
+    "case_generation": 24,
+    "case_id": "case:qualification-deepseek-material-4k",
+    "invocation_id": "invocation:cognitive:d938c75fcf118140",
+    "model_id": "deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda",
+    "observation_id": "provider-input:0a8b174de530a3cc",
+    "observed_at_unix_ms": 1790317583652,
+    "participant_id": "participant:operator",
+    "refusal": "token_capacity_exceeded",
+    "rendered_input_id": "rendered-input:123406ae2f35e43c",
+    "schema": "yai.provider_input_observation.v1",
+    "serialized_request_bytes": 60360,
+    "serialized_request_digest": "sha256:af515dcae338f1eeff15c5cad25cce0115a6cef7568ce91ea42fda8a5435f0c7",
+    "target_id": "provider-target:965ce8d788b4d6321ed0fea629f99546"
+  },
+  "material": {
+    "path": "application/yai-application/Cargo.toml",
+    "bytes": 402,
+    "digest": "sha256:52abd6d3bdd7aeb1dd96662e4fe2862c6936969f8886eb029eaed8bedd6543c2"
+  },
+  "working_state": {
+    "entries": 19,
+    "pinned": 11,
+    "reintroduced_atomic_groups": 8
+  },
+  "request_bytes_written": 0,
+  "inference_redispatched": false,
+  "limitations": [
+    "No model response; language quality not assessed",
+    "Small documentary companion is not the operational infrastructure Case",
+    "Optional atomic evidence refitting to exact token capacity is not implemented",
+    "No YVEX administration or context change",
+    "Human acceptance pending"
+  ],
+  "files": {
+    "Cargo.toml.observed": "52abd6d3bdd7aeb1dd96662e4fe2862c6936969f8886eb029eaed8bedd6543c2",
+    "context-command.jsonl": "1324483066fc334351e078b4b059a9e3b6aaf0f318f4ddda962be60d2b70b31b",
+    "context-observation.json": "29758508a6aa85fd5e47f356b3a6f29c9e1c1ee9fb8625e66ccdf2c5df731d8c",
+    "driver.log": "87d070519e61243f05d28b5e3b9ffe1bfa2646480de63df770070b1cfe4439a4",
+    "inspect-context.py": "5c9c6c74ddaa984d1a7ba53e99cca3774b1c82ca3f1eabbe1a3966fb77f34361",
+    "native-command.jsonl": "199a42b060942fb769ef24fce1641e62e9eaeb2213844b0f926a6f1a1dbc6ea8",
+    "native-nonpass.png": "5e78e869c5764b55a2b195aed9fdb214cec0df8319dbb3b3bf3c93afc6724910",
+    "native-observations.jsonl": "8b6a7bf3a8c759d52caa786c0203bdf4b0052c42940b8e8b6aede29b22a33d90",
+    "perimeter.json": "2bc2e3143131a2bd6921a61d31abd4807475c888261e5de06903e1019bf9d112",
+    "question.txt": "d22d31e62e745d12a04289907cdde7f23fc96bc943cc490e3698f96dcf06e679",
+    "setup-command.jsonl": "b45dd944102bc22a69096149e2150918e83fc268d74582247dd2727539621a00",
+    "setup-observations.jsonl": "89a4192601a5f3714e523461832c6d6055c5f2a4dfbeb131cbb625d67d137fa5",
+    "setup.py": "6b1579660af2905cbd133897bc6de089c85cbed9f7feb4a1f0fbda05eb291662"
+  }
+}
