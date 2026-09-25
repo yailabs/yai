@@ -773,6 +773,17 @@ pub struct ProviderProbeGetInput {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderProbeListInput { pub target_ref: String }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProviderProbeList {
+    pub schema: String,
+    pub target_ref: String,
+    pub runs: Vec<ProviderProbeExecution>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProviderProbeExecution {
     pub schema: String,
     pub target_ref: String,
@@ -2172,6 +2183,14 @@ impl LocalApplication {
                         embedding: input.embedding, realization_shapes: input.realization_shapes,
                         qualify: input.qualify, valid_for_ms: input.valid_for_ms,
                     })?)
+            }
+            "provider.probe.list" => {
+                let input: ProviderProbeListInput = decode_input(request)?;
+                let retained = store.provider_probe_runs_authorized(&auth, &input.target_ref)?;
+                let runs = retained.iter().map(|run| provider_execution::probes::observe(&self.home_path,
+                    &store, &auth, &input.target_ref, &run.request.submission_ref, false)).collect::<Result<Vec<_>,_>>()?;
+                encode_result("provider_probes", ProviderProbeList { schema:"yai.provider_probe_list.v1".into(),
+                    target_ref:input.target_ref, runs })
             }
             "provider.probe.get" => {
                 let input: ProviderProbeGetInput = decode_input(request)?;
@@ -3785,6 +3804,7 @@ mod tests {
         typed::<ProviderQualifyInput>();
         typed::<ProviderProbeInput>();
         typed::<ProviderProbeGetInput>();
+        typed::<ProviderProbeListInput>();
         typed::<ProviderTrustInput>();
         typed::<ProviderSuitabilityRecordInput>();
         typed::<ProviderCaseBindInput>();

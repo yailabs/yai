@@ -972,6 +972,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         PROVIDER_PROBE
     ),
     op!(
+        "yai.provider.probes",
+        ["provider", "probes"],
+        "Observe retained synthetic checks for an exact provider target without dispatch",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("target", Some("--target"))],
+        &[]
+    ),
+    op!(
         "yai.provider.qualify",
         ["provider", "qualify"],
         "Qualify substrate capabilities from synthetic evidence",

@@ -24,6 +24,9 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             "application.capabilities",
             serde_json::json!({}),
         ),
+        "yai.provider.probes" => application_operation("provider.probe.list", serde_json::json!({
+            "target_ref": invocation.positional("target").ok_or_else(|| CliError::usage("target is required"))?,
+        })),
         "yai.provider.models" => application_operation("provider.models", serde_json::json!({
             "tenant_id": invocation.flag("--tenant").ok_or_else(|| CliError::usage("--tenant is required"))?,
             "target_ref": invocation.positional("target").ok_or_else(|| CliError::usage("target is required"))?,

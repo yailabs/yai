@@ -83,6 +83,8 @@ TARGET_ID=$(awk '/target_id:/ {print $2}' <<<"$add_output")
 
 qualification_before=$("$YAI_BIN" provider qualify --target "$TARGET_ID" --submission-ref probe:h18-exact)
 qualification_retry=$("$YAI_BIN" provider qualify --target "$TARGET_ID" --submission-ref probe:h18-exact)
+probe_inventory=$("$YAI_BIN" provider probes "$TARGET_ID" --json)
+python3 -c 'import json,sys; x=json.load(sys.stdin)["data"]["value"]; assert x["schema"]=="yai.provider_probe_list.v1"; assert len(x["runs"])==1; assert x["runs"][0]["submission_ref"]=="probe:h18-exact"; assert x["runs"][0]["posture"]=="completed"' <<<"$probe_inventory"
 [[ "$(sed -n 's/^qualification_id: //p' <<<"$qualification_before")" == "$(sed -n 's/^qualification_id: //p' <<<"$qualification_retry")" ]]
 if "$YAI_BIN" provider probe --target "$TARGET_ID" --submission-ref probe:h18-exact >"$RUN_ROOT/conflict.out" 2>&1; then
   printf 'probe_identity_conflict_was_accepted\n' >&2

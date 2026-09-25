@@ -93,7 +93,10 @@ reclaimable. Provider/model text cannot write health.
 
 Synthetic probes have an exact retained submission in this same Tenant owner.
 `provider.probe` admits bounded synthetic work; `provider.probe.get` observes it
-under current Owner authority. The CLI qualification and onboarding adapters
+under current Owner authority. `provider.probe.list` / `yai provider probes TARGET`
+recover all retained identities for one exact target (at most 64), including
+interrupted runs when a client has lost its local reference. Listing checks the
+current Tenant Owner and performs no network dispatch. The CLI qualification and onboarding adapters
 reuse this carrier. Admission and the existing probe lease commit before HTTP;
 an identical submission observes its existing run, while different input under
 the same identity refuses. Reopening an interrupted submission never dispatches

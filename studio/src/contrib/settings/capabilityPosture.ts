@@ -62,6 +62,7 @@ export const studioOperationPostures: Readonly<Record<string, StudioOperationPos
   "provider.case.bind": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
   "provider.probe": { state: "integrated", detail: "Authored synthetic text, JSON/tool and embedding checks; retained identity before dispatch and explicit exact retry", proof: "tests/studio/compute-actions.mjs" },
   "provider.probe.get": { state: "integrated", detail: "Target-scoped retained observation after lost ACK and Surface movement; mismatched results withheld", proof: "tests/studio/compute-actions.mjs" },
+  "provider.probe.list": { state: "debt", detail: "Bounded target recovery inventory is Application-ready; authored history selection awaits qualification." },
   "provider.qualify": { state: "integrated", detail: "Authored Studio interaction", proof: "tests/studio/compute-actions.mjs" },
   "provider.inventory": { state: "integrated", detail: "Tenant Providers inventory and unbound-target Inspector; Case bindings remain separate", proof: "tests/studio/compute-actions.mjs" },
   "provider.models": { state: "integrated", detail: "Explicit bounded model discovery during target setup", proof: "tests/studio/conversation-actions.mjs" },

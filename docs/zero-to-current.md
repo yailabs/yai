@@ -45,6 +45,8 @@ The shared provider qualification carrier now retains an exact synthetic probe
 submission before HTTP. CLI `provider qualify TARGET --submission-ref REF` can
 repeat the same input to observe the retained result without another probe;
 `provider.probe` / `provider.probe.get` expose the equivalent typed boundary.
+If the local receipt is unavailable, `yai provider probes TARGET` observes the
+bounded retained inventory without starting another check.
 It does not send Case material, approve trust or bind a target. An interrupted
 run stays interrupted, and credential rotation prevents stale qualification.
 In Providers (or a compatible YVEX deployment), open Evidence → Check & qualify.

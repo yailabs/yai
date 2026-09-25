@@ -18461,6 +18461,30 @@ impl LmdbRecordStore {
         Ok((run, true))
     }
 
+    /// Bounded recovery inventory owned by the existing Tenant provider lifecycle.
+    pub fn provider_probe_runs_authorized(
+        &self, authenticated: &AuthenticatedPrincipal, target_id: &str,
+    ) -> Result<Vec<ProviderProbeRun>, String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let target = self.provider_target_txn(&txn, target_id)?.ok_or("provider_target_not_found")?;
+        self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?.require_owner()?;
+        let mut cursor = txn.open_ro_cursor(self.provider_governance).map_err(|e| e.to_string())?;
+        let mut runs = Vec::new();
+        let mut scanned = 0;
+        for (key, value) in cursor.iter().filter(|(key, _)| key.starts_with(b"probe-run:")) {
+            scanned += 1;
+            if scanned > 4096 { return Err("provider_probe_run_retention_limit".into()); }
+            let run: ProviderProbeRun = serde_json::from_slice(value).map_err(|e| format!("provider_probe_run_decode:{e}"))?;
+            if run.request.target_id != target_id { continue; }
+            run.validate(&target)?;
+            if run.request.key().as_bytes() != key { return Err("provider_probe_run_identity_mismatch".into()); }
+            runs.push(run);
+            if runs.len() > 64 { return Err("provider_probe_run_retention_limit".into()); }
+        }
+        runs.sort_by(|a,b| (b.owner.started_at_unix_ms, &b.request.submission_ref).cmp(&(a.owner.started_at_unix_ms, &a.request.submission_ref)));
+        Ok(runs)
+    }
+
     pub fn provider_probe_run_authorized(
         &self, authenticated: &AuthenticatedPrincipal, target_id: &str, submission_ref: &str,
     ) -> Result<ProviderProbeRun, String> {
@@ -18473,6 +18497,7 @@ impl LmdbRecordStore {
         let run: ProviderProbeRun = get_json_txn(&txn, self.provider_governance, &key.key(), "provider_probe_run")?
             .ok_or("provider_probe_run_not_found")?;
         run.validate(&target)?;
+        if run.request.submission_ref != submission_ref { return Err("provider_probe_run_identity_mismatch".into()); }
         Ok(run)
     }
 

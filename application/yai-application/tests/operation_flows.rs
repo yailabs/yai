@@ -1398,6 +1398,10 @@ fn interrupted_provider_probe_is_observed_without_redispatch_after_reopen() {
         "adapter":"open_ai_compatible", "endpoint":format!("http://{}", listener.local_addr().unwrap()),
         "model_id":"probe-model", "credential_ref":"none", "locality":"loopback"}));
     let target_id = target["target_id"].as_str().unwrap();
+    assert_eq!(f.success("provider.probe.list", json!({"target_ref":target_id}))["runs"],json!([]));
+    let other = f.success("provider.register", json!({"tenant_id":"tenant:audit", "provider_key":"other-probe",
+        "adapter":"open_ai_compatible", "endpoint":format!("http://{}", listener.local_addr().unwrap()),
+        "model_id":"another-model", "credential_ref":"none", "locality":"loopback"}));
     let auth = AuthenticatedPrincipal::authenticate_local().unwrap();
     let store = LmdbRecordStore::open(f.home.join("store/lmdb")).unwrap();
     // Admission committed, carrier never started: the crash boundary before first HTTP.
@@ -1417,6 +1421,18 @@ fn interrupted_provider_probe_is_observed_without_redispatch_after_reopen() {
         let result = result.data.unwrap(); assert_eq!(result["posture"], "interrupted");
         assert_eq!(result["created"], false); assert_eq!(result["run"], serde_json::to_value(&run).unwrap());
     }
+    let recovered = reconnected.call(OperationRequest { protocol:APPLICATION_PROTOCOL.into(), operation_ref:"provider.probe.list".into(),
+        correlation_ref:"test:recover-probe-identity".into(), input:json!({"target_ref":target_id}) });
+    assert_eq!(recovered.result_state,ResultState::Success);
+    let recovered = recovered.data.unwrap();
+    assert_eq!(recovered["target_ref"],target_id);
+    assert_eq!(recovered["runs"].as_array().unwrap().len(),1);
+    assert_eq!(recovered["runs"][0]["submission_ref"],"probe:interrupted");
+    assert_eq!(recovered["runs"][0]["posture"],"interrupted");
+    assert_eq!(recovered["runs"][0]["run"],serde_json::to_value(&run).unwrap());
+    assert_eq!(f.success("provider.probe.list",json!({"target_ref":other["target_id"]}))["runs"],json!([]));
+    let hidden = f.call("provider.probe.list",json!({"target_ref":"provider-target:hidden"}));
+    assert_ne!(hidden.result_state,ResultState::Success);assert!(hidden.data.is_none());
     assert!(listener.accept().is_err(), "observation must never dispatch an interrupted run");
     assert_eq!(f.generation(), before);
 }
@@ -1503,6 +1519,9 @@ fn qualify_probe_with_credential_rotation(rotate: bool) {
     } else { assert!(result["run"]["qualification"].is_object()); }
     let retained = f.success("provider.probe", input); assert_eq!(retained["created"], false);
     assert_eq!(retained["run"], result["run"]);
+    let listed = f.success("provider.probe.list",json!({"target_ref":target["target_id"]}));
+    assert_eq!(listed["runs"].as_array().unwrap().len(),1);
+    assert_eq!(listed["runs"][0]["run"],result["run"]);
     peer.join().unwrap();
     let inventory = f.success("provider.inventory", json!({"tenant_id":"tenant:audit"}));
     assert!(inventory["targets"][0]["posture"]["trust"].is_null(), "A probe must not approve administrative trust");
