@@ -96,7 +96,7 @@ try {
  await page.locator('.live-rail button[aria-label="Overview"]').click();
  await page.locator('.live-rail button[aria-label="Compute"]').click();
  assert.equal(await sections.getByRole('tab',{name:'Execution',exact:true}).getAttribute('aria-selected'),'true','Compute section survives Surface navigation');
- await sections.getByRole('tab',{name:'Bindings',exact:true}).click();
+ await sections.getByRole('tab',{name:'Conversation',exact:true}).click();
  await page.getByRole('button',{name:'Register provider target',exact:true}).click();
  let form=page.getByRole('dialog',{name:'Register provider target'});
  await form.getByLabel('Provider / runtime label').fill('controlled-provider');await form.getByLabel('Endpoint',{exact:true}).fill(endpoint);await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();await form.getByLabel('Exposed model').selectOption('controlled-text-model');
@@ -117,6 +117,7 @@ try {
  await form.getByRole('button',{name:'Discover exposed models',exact:true}).click();
  await form.getByLabel('Exposed model').selectOption('controlled-text-model');
  await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
+ assert.equal(await sections.getByRole('tab',{name:'Bindings',exact:true}).getAttribute('aria-selected'),'true','Successful registration reveals the exact unbound candidate');
  let response=exchanges.findLast(item=>item.request.operation_ref==='provider.register').result;assert.equal(response.result_state,'success',JSON.stringify(response));const target=response.data;assert.equal(target.model_id,'controlled-text-model');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,0,'Registration must not silently bind');
  const candidate=page.locator('.candidate-target');await candidate.getByRole('button',{name:'Bind provider to Case',exact:true}).click();form=page.getByRole('dialog',{name:'Bind provider to Case'});await form.getByLabel('Exact target reference').fill('provider-target:missing');await form.getByRole('button',{name:'Bind target',exact:true}).click();await form.locator('.action-result').waitFor();
