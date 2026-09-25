@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in real native SEND. Appends one question to an explicitly selected Case.
+"""Opt-in real native SEND or no-SEND preparation for one explicit Case.
 
 Never retries dispatch or resets the Case. Reads retained execution through Host;
 provider setup/loading is an operator responsibility. Not a deterministic gate.
@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import uuid
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--binary', type=Path, required=True)
@@ -24,7 +25,10 @@ p.add_argument('--target', required=True)
 p.add_argument('--question-file', type=Path, required=True)
 p.add_argument('--evidence', type=Path, required=True)
 p.add_argument('--timeout', type=int, default=600)
-p.add_argument('--submit', action='store_true', required=True)
+p.add_argument('--context-depth', choices=('standard', 'focused'), default='standard')
+mode = p.add_mutually_exclusive_group(required=True)
+mode.add_argument('--submit', action='store_true')
+mode.add_argument('--prepare-only', action='store_true')
 a = p.parse_args()
 assert os.environ.get('YAI_HOME'), 'Explicit YAI_HOME required'
 assert 1 <= a.timeout <= 2100
@@ -81,6 +85,9 @@ def wait(code, *args):
 def shot(name):
     (a.evidence/name).write_bytes(base64.b64decode(request('GET', f'/session/{session}/screenshot')))
 
+class PreparedOnly(Exception):
+    pass
+
 try:
     emit(command=[sys.executable,*sys.argv], cwd=str(Path.cwd()), yai_home=os.environ['YAI_HOME'],
         evidence_class='external_provider_native_product', question=question,
@@ -93,6 +100,12 @@ try:
     catalog = call('provider.models', {'tenant_id':before['case']['tenant_ref'], 'target_ref':a.target})
     assert target['model_id'] in catalog['models'], 'Exact selected model is not exposed'
     old_turns = {item['id'] for item in before['conversation']['turns']}
+    submission_uuid = str(uuid.uuid4())
+    thread_uuid = str(uuid.uuid4()) if not before['conversation']['turns'] else None
+    submission_ref = f'studio-send:{submission_uuid}'
+    emit(action='planned_submission', case_ref=a.case, participant_ref=a.participant,
+        submission_ref=submission_ref, thread_uuid=thread_uuid, context_depth=a.context_depth,
+        case_generation=before['case']['generation'])
     env = {**os.environ,'TAURI_WEBVIEW_AUTOMATION':'true','WEBKIT_DISABLE_DMABUF_RENDERER':'1','GDK_BACKEND':'x11'}
     driver = subprocess.Popen(['WebKitWebDriver',f'--port={port}','--host=127.0.0.1'], env=env, stdout=driver_log, stderr=subprocess.STDOUT)
     for _ in range(100):
@@ -115,6 +128,11 @@ try:
     js('document.querySelector(`.live-context .segmented button[title="Conversation"]`).click()')
     wait('return document.querySelector(`textarea[aria-label="Message to the Case"]`)')
     assert js('return document.querySelector(`textarea[aria-label="Message to the Case"]`).value') == '', 'Preserve an existing unsent draft'
+    if a.context_depth == 'focused':
+        js('document.querySelector(`button[aria-label="Conversation tools"]`).click()')
+        wait('return document.querySelector(`button[aria-label="Focused Case context"]`)')
+        js('document.querySelector(`button[aria-label="Focused Case context"]`).click()')
+        assert js('return Boolean(document.querySelector(`.conversation-memory-mode`)?.textContent.includes("Focused context"))')
     element = request('POST',f'/session/{session}/element',{'using':'css selector','value':'textarea[aria-label="Message to the Case"]'})['element-6066-11e4-a52e-4f735466cecf']
     request('POST',f'/session/{session}/element/{element}/click',{})
     request('POST',f'/session/{session}/element/{element}/value',{'text':question})
@@ -125,12 +143,25 @@ try:
         return {send_disabled:send?.disabled, composer_length:composer?.value.length,
             pending_controls:Boolean(document.querySelector('.conversation-send-row')===null),
             case_ref:document.querySelector('.workbench-kernel')?.dataset.caseRef};'''))
+    expected_uuids = [thread_uuid, submission_uuid] if thread_uuid else [submission_uuid]
+    js('''const values=arguments[0];
+        let index=0;
+        Object.defineProperty(window.crypto,'randomUUID',{
+            configurable:true,
+            value:()=>{if(index>=values.length)throw Error('Unexpected additional UUID before SEND');return values[index++];}
+        });
+        window.__yaiNativeUuidProbe=()=>index;''', expected_uuids)
+    assert js('return window.crypto.randomUUID instanceof Function && window.__yaiNativeUuidProbe()===0')
     js('''window.__yaiNativeSubmitProbe={clicks:0,submits:0};
         const button=document.querySelector('button[aria-label="Send"]');
         const form=button.closest('form');
         button.addEventListener('click',()=>window.__yaiNativeSubmitProbe.clicks++);
         form.addEventListener('submit',()=>window.__yaiNativeSubmitProbe.submits++);''')
-    emit(action='native_composer_send_once', pre_state_version=before['case']['generation'], target=target)
+    if a.prepare_only:
+        raise PreparedOnly()
+    assert js('return window.__yaiNativeUuidProbe()===0'), 'A UUID was consumed before the planned SEND'
+    emit(action='native_composer_send_once', pre_state_version=before['case']['generation'],
+        submission_ref=submission_ref, context_depth=a.context_depth, target=target)
     # WebKitWebDriver has returned success for an element click while emitting
     # neither click nor submit in the native WebView. Dispatch exactly one DOM
     # click and require both events before treating the action as submitted.
@@ -141,9 +172,11 @@ try:
             pending_controls:Boolean(document.querySelector('.conversation-composer .object-action-row')),
             error:document.querySelector('.conversation-error')?.textContent?.trim() || null,
             events:window.__yaiNativeSubmitProbe,
+            uuid_calls:window.__yaiNativeUuidProbe(),
             case_ref:document.querySelector('.workbench-kernel')?.dataset.caseRef};''')
         emit(action='native_composer_after_click', ui=click_state)
         assert click_state['events'] == {'clicks':1,'submits':1}, 'Native WebView did not submit the form'
+        assert click_state['uuid_calls'] == len(expected_uuids), 'Native WebView used an unexpected submission identity'
     except Exception as inspect_error:
         emit(action='native_composer_after_click_unavailable', reason=str(inspect_error))
         if isinstance(inspect_error, AssertionError): raise
@@ -168,6 +201,9 @@ try:
             except Exception as inspect_error:
                 emit(action='native_composer_inspection_unavailable', reason=str(inspect_error))
         if added and added[0].get('execution_request_ref'):
+            by_submission = call('execution.get', {'case_ref':a.case,'participant_ref':a.participant,
+                'execution':{'domain':'conversation','submission_ref':submission_ref}})
+            assert by_submission['request_ref'] == added[0]['execution_request_ref'], 'Planned submission did not produce the observed Turn'
             query = {'case_ref':a.case,'participant_ref':a.participant,
                 'execution':{'domain':'cognitive_composition','request_ref':added[0]['execution_request_ref']}}
             execution = call('execution.get', query)
@@ -187,6 +223,9 @@ try:
         request_ref=execution['request_ref'], result_ref=execution['primary_result']['result_id'], output=output)
     shot('completed.png')
     print(json.dumps(dict(result='PASS',run_id=run,evidence=str(a.evidence),request_ref=execution['request_ref'],output=output)))
+except PreparedOnly:
+    emit(result='PREPARED', proof='Native Studio Case, selected context and planned submission identity verified; no SEND performed')
+    print(json.dumps(dict(result='PREPARED',run_id=run,evidence=str(a.evidence),submitted=False)))
 except BaseException as error:
     emit(result='NONPASS', failure=str(error), dispatch_retry=False)
     if session:

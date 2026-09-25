@@ -1710,6 +1710,11 @@ lost-acknowledgement retry cannot silently change it. In the interactive CLI,
 `/context standard` restores the default. Inspect W omissions and public
 preflight after execution rather than inferring what the model saw from the
 profile label.
+For native product qualification, run
+`tests/studio/native-conversation.py --context-depth focused --prepare-only`.
+It verifies the selected Case, exact target and composer without sending. The opt-in `--submit` path records the
+planned submission identity before one UI click and checks that the resulting
+Turn belongs to that identity; it never retries an indeterminate delivery.
 
 The 2026-09-25 external DeepSeek 32K observation remains **negative Case-inference evidence**.
 At YAI `cd39ea0`, native Studio run `native-conversation-1790354457662891233`
