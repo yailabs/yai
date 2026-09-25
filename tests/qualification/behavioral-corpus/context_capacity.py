@@ -62,6 +62,7 @@ def main():
                    runtime_sequence_tokens=65536, preflight="/v1/chat/completions/preflight"))
     dispatches, preflights = [], []
     compatible = True
+    adaptive = False
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -83,13 +84,17 @@ def main():
             emit(provider_path=self.path, request_body=body.decode())
             if self.path == "/v1/chat/completions/preflight":
                 preflights.append(body)
+                input_tokens = len(body) // 4 if adaptive else 100 if compatible else 70000
+                fits = input_tokens + 128 <= row["yvex_capacity"]["runtime_sequence_tokens"]
+                fits = fits and input_tokens <= row["yvex_capacity"]["runtime_input_tokens"]
                 self.respond(dict(row, object="yvex.execution.preflight", model=model,
                     scope="complete_stateless_chat_request", execution_or_resources_qualified=False,
                     tokenizer_identity="tokenizer:controlled", prompt_identity="prompt:controlled",
-                    provider_request_identity="request:controlled", input_tokens=100 if compatible else 70000,
-                    requested_output_tokens=0, effective_output_tokens=128 if compatible else 0,
-                    full_requested_output_fits=False, token_capacity_compatible=compatible,
-                    input_capacity_exceeded=not compatible, output_capacity_exceeded=False))
+                    provider_request_identity="request:controlled", input_tokens=input_tokens,
+                    requested_output_tokens=0, effective_output_tokens=128 if fits else 0,
+                    full_requested_output_fits=False, token_capacity_compatible=fits,
+                    input_capacity_exceeded=input_tokens > row["yvex_capacity"]["runtime_input_tokens"],
+                    output_capacity_exceeded=not fits and input_tokens <= row["yvex_capacity"]["runtime_input_tokens"]))
             elif self.path == "/v1/chat/completions":
                 dispatches.append(body)
                 self.respond(dict(model=model, choices=[dict(message=dict(role="assistant", content="Controlled context result"))]))
@@ -170,15 +175,22 @@ def main():
                 assert time.monotonic() < deadline, telemetry
                 time.sleep(.1)
 
-        def send(identity):
+        def send(identity, text="EXACT_CONTEXT_SENTINEL"):
             generation = call("case.summary", dict(case_ref=case))["case"]["generation"]
             inputs = dict(scope, thread_ref="thread:context", submission_ref=identity, expected_generation=generation,
-                parts=[dict(modality="text", media_type="text/plain", bytes=list(b"EXACT_CONTEXT_SENTINEL"))])
+                parts=[dict(modality="text", media_type="text/plain", bytes=list(text.encode()))])
             call("conversation.send", inputs)
             query = dict(scope, execution=dict(domain="conversation", submission_ref=identity))
             deadline = time.monotonic() + 30
             while True:
-                observed = call("execution.get", query)
+                response = host.call("execution.get", query, f"{run}:{time.time_ns()}")
+                emit(operation="execution.get", input=query, result=response)
+                if response["result_state"] == "stale":
+                    assert time.monotonic() < deadline, response
+                    time.sleep(.1)
+                    continue
+                assert response["result_state"] == "success", response
+                observed = response["data"]
                 if observed["posture"] not in ("admitted", "running", "unresolved"):
                     break
                 assert time.monotonic() < deadline, observed
@@ -187,7 +199,8 @@ def main():
 
         inputs, query, observed = send("submission:fits")
         assert observed["primary_result"]["output"] == "Controlled context result", observed
-        assert len(dispatches) == 2 and len(preflights) == 1
+        assert len(dispatches) == 2 and len(preflights) == 2
+        assert preflights[-2] == preflights[-1], "Preparation and admission must preflight identical bytes"
         assert dispatches[-1] == preflights[-1]
         assert call("conversation.send", inputs)["created"] is False
         inspected = call("execution.get", dict(query, include_context=True))
@@ -210,12 +223,14 @@ def main():
                 "STUDIO_TEST_URL":args.studio_url}, capture_output=True, text=True, timeout=90)
             emit(command=command, cwd=str(ROOT), exit=result.returncode, stdout=result.stdout, stderr=result.stderr)
             assert result.returncode == 0, result.stderr
-        assert len(dispatches) == 2 and len(preflights) == 1, "Observation/retry redispatched"
+        assert len(dispatches) == 2 and len(preflights) == 2, "Observation/retry redispatched"
         call("execution.get", dict(query, include_context=True, participant_ref="participant:hidden"), "unauthorized")
         compatible = False
         refused_inputs, refused_query, refused = send("submission:does-not-fit")
         assert refused["primary_result"] is None and refused["posture"] == "refused", refused
-        assert len(dispatches) == 2 and len(preflights) == 2
+        refusal_preflights = len(preflights)
+        assert len(dispatches) == 2 and 3 <= refusal_preflights <= 7, \
+            f"Refusal must stay pre-dispatch after bounded exact candidates: dispatches={len(dispatches)} preflights={refusal_preflights}"
         refusal = call("execution.get", dict(refused_query, include_context=True))["prepared_context"]["invocations"][0]
         assert refusal["input_observation"]["refusal"] == "token_capacity_exceeded"
         # no_execution_proven is reserved for a producer's definitive rejection
@@ -224,7 +239,7 @@ def main():
                    and item["response_status"] is None and item["failure_class"] == "request_capacity_refused"
                    and item["stage"] == "request_serialized" for item in refused["attempt_outcomes"])
         assert call("conversation.send", refused_inputs)["created"] is False
-        assert len(dispatches) == 2 and len(preflights) == 2
+        assert len(dispatches) == 2 and len(preflights) == refusal_preflights
         instance = host.discovery["instance_id"]
         if args.desktop_host:
             cli("host", "stop")
@@ -237,7 +252,7 @@ def main():
         reopened = call("execution.get", dict(query, include_context=True))
         assert reopened["prepared_context"]["invocations"][0]["input_observation"] == wire
         assert call("conversation.send", inputs)["created"] is False
-        assert len(dispatches) == 2 and len(preflights) == 2, "Restart duplicated inference"
+        assert len(dispatches) == 2 and len(preflights) == refusal_preflights, "Restart duplicated inference"
         # The same authored corpus used for a real operator target must execute
         # through the actual Host; this controlled producer only qualifies wiring.
         compatible = True
@@ -257,10 +272,38 @@ def main():
         corpus_records = [json.loads(line) for line in corpus_output.read_text().splitlines()]
         assert corpus_records[-1]["result"] == "PASS"
         assert corpus_records[-1]["language_quality"] == "NOT_ASSESSED"
-        assert len(dispatches) == 3 and len(preflights) == 3, "Corpus observation/retry duplicated inference"
+        assert len(dispatches) == 3 and len(preflights) == refusal_preflights + 2, "Corpus observation/retry duplicated inference"
         assert question in dispatches[-1].decode(), "Corpus question absent from actual provider request"
+        # Build a real optional history through the typed product boundary,
+        # then lower only the controlled target's advertised capacity. The
+        # preflight counts complete request bytes; this is not a model-quality
+        # or tokenizer-accuracy claim.
+        for index in range(8):
+            _, _, historical = send(f"submission:history:{index}",
+                f"OPTIONAL_HISTORY_{index}:" + "x" * 2000)
+            assert historical["primary_result"]["output"] == "Controlled context result"
+        adaptive = True
+        row["capacity_plan_identity"] = "capacity:controlled-smaller"
+        row["yvex_capacity"]["runtime_input_tokens"] = 4000
+        row["yvex_capacity"]["runtime_sequence_tokens"] = 4000
+        dispatch_before, preflight_before = len(dispatches), len(preflights)
+        _, adapted_query, adapted = send("submission:atomic-fit",
+            "Which of the current Case facts are required, and which history was omitted?")
+        assert adapted["primary_result"]["output"] == "Controlled context result", adapted
+        assert len(dispatches) == dispatch_before + 1, "Adaptation dispatched more than once"
+        candidate_bodies = preflights[preflight_before:]
+        assert len(candidate_bodies) >= 3, "Expected oversized candidate, smaller candidate and final admission"
+        assert len(candidate_bodies[-1]) < len(candidate_bodies[0]), "Optional context was not reduced"
+        assert candidate_bodies[-1] == dispatches[-1], "Final exact preflight did not match inference bytes"
+        adapted_context = call("execution.get", dict(adapted_query, include_context=True))
+        invocation = adapted_context["prepared_context"]["invocations"][0]
+        assert invocation["working_state"]["bounds"]["omitted_by_budget"] > 0
+        assert invocation["input_observation"]["capacity"]["token_capacity_compatible"] is True
+        assert all(item["disposition"] == "pinned" for item in invocation["working_state"]["decisions"]
+            if item["class"] in ("mandatory_current", "observed_consequence"))
         cli("case", "verify", case)
-        emit(result="PASS", inference_dispatches=2, capacity_refusals=1, observation_retry_dispatches=0)
+        emit(result="PASS", inference_dispatches=len(dispatches) - 1, capacity_refusals=1,
+             atomic_fit_preflights=len(candidate_bodies), observation_retry_dispatches=0)
         print(json.dumps(dict(result="PASS", run_id=run, evidence=str(args.output))))
     finally:
         server.shutdown()

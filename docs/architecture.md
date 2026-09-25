@@ -1476,6 +1476,24 @@ refs; indeterminate effects remain unresolved. Runtime selection defaults to
 64 items and 32,768 semantic units for new application/runtime requests, with
 explicit Workflow/task limits still honored. Compilation never dumps the complete ledger, reports
 omitted material, and rejects a budget smaller than mandatory current state.
+For ordinary natural-language governed execution, a target that publishes an
+exact compatible preflight can pressure this derived selection before
+`InvocationStarted`: Application prepares the full candidate, measures its
+complete wire request, and may lower the semantic budget for up to three
+further candidates. The existing W/residency owner drops only whole optional
+groups; mandatory current state and required refs stay pinned. The final exact
+request is preflighted again at dispatch because an earlier observation does
+not reserve a model or its resources. If it still does not fit, no inference
+bytes are sent and the retained refusal/context remain inspectable. Generic
+providers without that public contract retain the existing bounded selection
+and transport refusal semantics. Semantic units remain distinct from tokens.
+If a smaller candidate cannot compile because mandatory W state exceeds that
+budget, preparation keeps the last qualified candidate for the final exact
+capacity refusal; a local budget error does not masquerade as provider delivery.
+The exact preflight sends each candidate request to the already selected,
+authorized provider target; it is an external disclosure, not a local token
+estimate. Selection remains subject to the current Participant, binding and
+provider-governance checks before this preparation starts.
 
 ContextFrame has separate identity because one Projection supports different
 tasks and typed output contracts. It carries provider-independent instructions,

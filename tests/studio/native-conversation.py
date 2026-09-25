@@ -27,7 +27,7 @@ p.add_argument('--timeout', type=int, default=600)
 p.add_argument('--submit', action='store_true', required=True)
 a = p.parse_args()
 assert os.environ.get('YAI_HOME'), 'Explicit YAI_HOME required'
-assert 1 <= a.timeout <= 900
+assert 1 <= a.timeout <= 2100
 question = a.question_file.read_text().strip()
 assert question and len(question.encode()) <= 65536
 a.evidence.mkdir(parents=True, exist_ok=False)
@@ -43,9 +43,16 @@ def emit(**data):
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/validation'))
 from behavioral_corpus import Host
 host = Host(Path(os.environ['YAI_HOME']))
-def call(operation, inputs):
+def call(operation, inputs, record="full"):
     result = host.call(operation, inputs, f'{run}:{order}')
-    emit(operation=operation, inputs=inputs, result=result)
+    if record == "case_identity" and result['result_state'] == 'success':
+        data = result['data']
+        emit(operation=operation, inputs=inputs, result_state=result['result_state'],
+            result_sha256=hashlib.sha256(json.dumps(result,sort_keys=True).encode()).hexdigest(),
+            case_generation=data['case']['generation'],
+            turn_refs=[item['id'] for item in data['conversation']['turns']])
+    else:
+        emit(operation=operation, inputs=inputs, result=result)
     assert result['result_state'] == 'success', result
     return result['data']
 
@@ -96,7 +103,7 @@ try:
             time.sleep(.05)
     result = request('POST','/session', {'capabilities':{'alwaysMatch':{'webkitgtk:browserOptions':{'binary':str(a.binary.resolve()),'args':[]}}}})
     session = result['sessionId']
-    emit(driver_capabilities=result['capabilities'])
+    emit(driver_capabilities=result['capabilities'], driver_session=session, driver_port=port)
     wait('return document.querySelector(".live-case-row") || document.querySelector(".workbench-kernel")')
     if js('return Boolean(document.querySelector(".workbench-kernel"))'):
         js('document.querySelector(".titlebar-case").click()')
@@ -113,16 +120,53 @@ try:
     request('POST',f'/session/{session}/element/{element}/value',{'text':question})
     assert js('return document.querySelector(`textarea[aria-label="Message to the Case"]`).value') == question
     wait('return document.querySelector(`button[aria-label="Send"]`)?.disabled===false')
+    emit(action='native_composer_ready', ui=js('''const send=document.querySelector('button[aria-label="Send"]');
+        const composer=document.querySelector('textarea[aria-label="Message to the Case"]');
+        return {send_disabled:send?.disabled, composer_length:composer?.value.length,
+            pending_controls:Boolean(document.querySelector('.conversation-send-row')===null),
+            case_ref:document.querySelector('.workbench-kernel')?.dataset.caseRef};'''))
+    js('''window.__yaiNativeSubmitProbe={clicks:0,submits:0};
+        const button=document.querySelector('button[aria-label="Send"]');
+        const form=button.closest('form');
+        button.addEventListener('click',()=>window.__yaiNativeSubmitProbe.clicks++);
+        form.addEventListener('submit',()=>window.__yaiNativeSubmitProbe.submits++);''')
     emit(action='native_composer_send_once', pre_state_version=before['case']['generation'], target=target)
-    button = request('POST',f'/session/{session}/element',{'using':'css selector','value':'button[aria-label="Send"]'})['element-6066-11e4-a52e-4f735466cecf']
-    request('POST',f'/session/{session}/element/{button}/click',{})
+    # WebKitWebDriver has returned success for an element click while emitting
+    # neither click nor submit in the native WebView. Dispatch exactly one DOM
+    # click and require both events before treating the action as submitted.
+    js('document.querySelector(`button[aria-label="Send"]`).click()')
+    try:
+        click_state = js('''return {
+            send_label:document.querySelector('.conversation-send')?.getAttribute('aria-label'),
+            pending_controls:Boolean(document.querySelector('.conversation-composer .object-action-row')),
+            error:document.querySelector('.conversation-error')?.textContent?.trim() || null,
+            events:window.__yaiNativeSubmitProbe,
+            case_ref:document.querySelector('.workbench-kernel')?.dataset.caseRef};''')
+        emit(action='native_composer_after_click', ui=click_state)
+        assert click_state['events'] == {'clicks':1,'submits':1}, 'Native WebView did not submit the form'
+    except Exception as inspect_error:
+        emit(action='native_composer_after_click_unavailable', reason=str(inspect_error))
+        if isinstance(inspect_error, AssertionError): raise
     deadline = time.monotonic()+a.timeout
+    submitted_at = time.monotonic()
+    inspected_ui = False
     execution = None
     while time.monotonic() < deadline:
-        summary = call('case.summary',{'case_ref':a.case})
+        summary = call('case.summary',{'case_ref':a.case}, record='case_identity')
         added = [turn for turn in summary['conversation']['turns'] if turn['id'] not in old_turns
             and any(part.get('text') == question for part in turn['parts'])]
         assert len(added) <= 1, 'One click duplicated the committed question'
+        if not added and not inspected_ui and time.monotonic()-submitted_at > 30:
+            inspected_ui = True
+            try:
+                ui_error = js('return document.querySelector(".conversation-error")?.textContent?.trim() || null')
+                emit(action='native_composer_inspection', ui_error=ui_error, canonical_turns_added=0)
+                if ui_error:
+                    raise AssertionError(f"Studio refused SEND before committing a Turn: {ui_error}")
+            except AssertionError:
+                raise
+            except Exception as inspect_error:
+                emit(action='native_composer_inspection_unavailable', reason=str(inspect_error))
         if added and added[0].get('execution_request_ref'):
             query = {'case_ref':a.case,'participant_ref':a.participant,
                 'execution':{'domain':'cognitive_composition','request_ref':added[0]['execution_request_ref']}}

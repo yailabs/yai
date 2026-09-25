@@ -1682,9 +1682,38 @@ checks a separate prerequisite: a zero optional-derived allowance retains exact
 required Recall groups and pinned current entries. An impossible semantic budget
 and an undisclosed Participant refuse without returning W or changing Case state;
 repeated compilation preserves W identity (timing measurements may differ).
-This is not automatic fitting to target tokens: semantic units and exact serialized
-token accounting remain separate. The current capacity refusal must not be
-presented as successful context adaptation.
+For ordinary natural-language execution against an exact public preflight,
+Application may prepare up to three smaller W candidates before invocation.
+Each candidate uses the existing ranked, atomic optional-evidence selection;
+required refs and mandatory current state remain pinned. Inspect the final
+`execution.get(include_context=true)` to see which complete groups were
+omitted and the exact token/byte observation. The final request is preflighted
+again at admission: earlier capacity observations are not reservations. If
+mandatory state or the final request still cannot fit, the refusal remains
+pre-dispatch with zero inference bytes. Generic compatible providers without
+an exact preflight retain their bounded W selection and truthful unknown-token
+posture. Semantic units are never reported as tokenizer counts. Each exact
+preflight does disclose that candidate request to the already selected and
+authorized provider target; it is not a local token count or a no-network dry
+run.
+
+The 2026-09-25 external DeepSeek 32K observation remains **negative Case-inference evidence**.
+At YAI `cd39ea0`, native Studio run `native-conversation-1790354457662891233`
+committed one question in `case:tech-infra-inference-service`. The exact public
+target was `http://127.0.0.1:18001` through the local Spark forward, model
+`deepseek4-v4-flash-dspark-deepseek-v4-flash-mixed-iq2xxs-q2k-mxfp4-v1-cuda`.
+The public preflight admitted 24,764 input tokens plus 8,004 effective output tokens against
+the 32,768-token sequence capacity; six optional W groups were omitted while
+required/current groups stayed pinned. YAI sent 77,614 request bytes, but the
+YVEX host disappeared during prefill and the retained attempt became
+`delivery_indeterminate` at `response_body`, with no completed answer and no
+automatic redispatch. The host exit cause was not established; this is neither
+a successful Case answer nor proof of a YVEX engine defect. A fresh YVEX v22
+host subsequently admitted `v4-flash --ctx 32768`, and YAI's synthetic probe
+`probe:deepseek-32k-after-restart-20260925` restored the target to Healthy/Closed.
+The restarted YVEX binary reported protocol 22 and commit `79d05aa`;
+this is an observed process identity, not a claim of published management parity.
+That probe uses no Case content and does not close the missing real-answer gate.
 
 ### Infrastructure Case: composed authority check
 

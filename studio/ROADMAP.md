@@ -96,7 +96,9 @@ separation, registered rail preferences and Material/Product/Canvas composition.
 Independent docked/floating Conversation and Inspector are qualified in fixture,
 real-Host and native WebKitGTK lanes. Exact serialized-request preflight and explicit
 archived context inspection now have controlled Host/UI/refusal/restart evidence;
-successful real infrastructure-Case inference remains open.
+the same controlled Host lane now proves bounded exact-preflight fitting of
+whole optional W groups without dropping required/current state. Successful
+real infrastructure-Case inference remains open.
 Overview is a full-height Product Surface with Situation, Workflow, Sources and
 Recent changes sections. The Case/Participant-local section and in-flight governed
 explanation survive section movement; keyboard/ARIA navigation and real Host
@@ -161,7 +163,8 @@ not substitute for real-provider evidence.
 **THEN:** extend the corpus and hardware matrix from observed product findings.
 **BLOCKED/OPEN CONTRACTS:** governed file Save; qualified folder intake/routing;
 policy catalog/composition projection; parent/child Case ownership; native YVEX
-remote management; optional evidence refitting to observed target capacity.
+remote management; an explicit bounded context-depth choice for ordinary SEND;
+real-target latency/host-exit qualification.
 **HORIZON:** public E-state consumption, remote/mobile clients, Computer Use,
 shared declarative Case Views and public extensions. No automatic X03/X04 promotion.
 
@@ -209,7 +212,11 @@ public HTTP v3 catalog input/sequence capacity into Studio as dated metadata;
 it is not a residency, reservation or execution claim. Posture:
 **partially consumable** through generic preflight and this catalog projection; native
 load control still blocked on the shared management contract. Running 4K evidence
-is not relabeled as a larger-context result. The registry now has 172 entries,
+is not relabeled as a larger-context result. A later operator-requested v22
+restart and `v4-flash --ctx 32768` load exposed 32,768 runtime input/sequence
+tokens through `/v1/models`; `model show` still displays the compiled 4,096
+profile, so Studio must distinguish profile and observed runtime capacity.
+The registry now has 172 entries,
 158 non-removed, including the remote bootstrap additions; this is inventory,
 not a UI-completion measure.
 
@@ -236,7 +243,7 @@ selection and evidence, not an alternative capability catalog.
 
 | Case / topology | Responsibility and retention | Current evidence / remaining boundary |
 |---|---|---|
-| `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Seven acquired Sources, seven Resources (discovery, filesystem, database, HTTP, process and MCP), two policy bindings, seven human checkpoints and 296 Knowledge units observed through Host at state version 85. One bounded process receipt is retained; repeating its request reuses the exact receipt without another effect. Host restart preserves the Case and exact documentary Recall. Controlled HTTP/MCP peers are stopped; retained observations are not service health. Overview renders exact checkpoint prompts and Source links at four viewport sizes. Remote management and real governed inference remain open. |
+| `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Seven acquired Sources, seven Resources (discovery, filesystem, database, HTTP, process and MCP), two policy bindings, seven human checkpoints and 296 Knowledge units observed through Host at state version 85. One bounded process receipt is retained; repeating its request reuses the exact receipt without another effect. Host restart preserves the Case and exact documentary Recall. Controlled HTTP/MCP peers are stopped; retained observations are not service health. Overview renders exact checkpoint prompts and Source links at four viewport sizes. A later native SEND admitted 24,764 input tokens under the 32K target after six optional W omissions, but retained `delivery_indeterminate` when YVEX disappeared during prefill; no answer or automatic retry. Remote management and successful real governed inference remain open. |
 | `case:yai-enterprise-launch` / retired | Operator-requested cancellation and closure; history retained | Closed at state version 57. Earlier release-assessment evidence does not qualify the replacement infrastructure Case. Do not recreate or resume it automatically. |
 | `case:qualification-deepseek-4k` / single | Persistent small external-inference qualification; do not confuse with operational infra evidence | One governed DeepSeek result completed at 2043 input tokens / 4096 sequence capacity. Exact retry preserves state version 12 and one attempt; hidden Participant read refuses. [Raw observation](../labs/external-runtime/runs/20260924-deepseek-4k/manifest.json) retains exact target/context and limits. Initial SEND used a Host qualification client; Studio context inspection passed separately. Human/model-quality and full infra acceptance remain open. |
 | `case:qualification-deepseek-native-4k` / single | Persistent native SEND and restart oracle; separate from the populated infrastructure Case | [Actual desktop SEND](../labs/external-runtime/runs/20260924-deepseek-native-4k/manifest.json) completed with 2039 input tokens / 4096 capacity, one HTTP 200 attempt and exact rendered output. The existing generic YAI response wait was set to 900 seconds; the result arrived about 321 seconds after input observation. Host restart preserved all Case/Conversation facts. Read-only retained-result corpus verifies exact context/result and hidden refusal; language quality remains separately unassessed. |
@@ -253,7 +260,7 @@ selection and evidence, not an alternative capability catalog.
 | Exon, Arch Linux x86_64 | None | Two disposable Cases, independent Host clients | Local product runner `portfolio-1790259708872413843`: PASS; 139,264 allocated regular-file bytes after Host stop, before cleanup. Whole-profile observation, no inference or performance verdict. |
 | Exon, Arch Linux x86_64 | Not invoked | Infrastructure + technical oracle / two native Studios on one Host | `native-portfolio-1790259703929577045`: exact Case switching and independent drafts, Host survival, canonical Case/Conversation unchanged. Browser read-only dual-client inspection is separate; this run does not prove mutation fanout. |
 | Exon, Arch Linux x86_64 | None | Fresh portfolio / two native Studios + CLI | Native event/restart lane proves visible canonical update fanout and post-restart subscription recovery, separately from real-provider inference. |
-| Exon | Spark / YVEX | Infrastructure single and parallel | Selected external lane; generic public inference/preflight only. Existing 4096-token deployment is not proof that populated Case input fits. |
+| Exon | Spark / YVEX | Infrastructure single and parallel | Public v22 target loaded at 32,768 runtime tokens; `native-conversation-1790354457662891233` observed one Studio/Host/Case submission and exact fitting, then unknown delivery after the producer disappeared during prefill. The restarted target passed only a synthetic YAI probe. No completed infrastructure answer, remote machine-management contract or parallel real-provider inference is qualified. |
 | Exon, native Studio/Host | Operator-designated Spark through existing local forward | Small native 4K Case; another retained Case read independently | `native-conversation-1790283173194890449`: actual composer → Host → governed DeepSeek → canonical result → displayed answer. No additional engine or model deployment. Public endpoint/model identity observed; native remote-machine identity is not qualified. |
 | Spark | Spark | Single Case | NOT_RUN; no duplicate heavyweight deployment launched by this program. |
 | Exon | Exon | Local single Case | NOT_RUN; provider and memory budget must be selected explicitly. |

@@ -184,7 +184,7 @@ use yai_core_engine::context::{build_context_frame, render_openai_compatible, Co
 use yai_core_engine::provider_governance::{ProviderLocality, ProviderSelection, ProviderRequirement, ProviderAttemptOutcome, ProviderDeliveryClass, ProviderTransportStage};
 use yai_core_engine::store::lmdb::ProviderSelectionStoreOutcome;
 use yai_core_engine::transition::{ProviderInvocationGovernance, ProviderInvocationLineage, TransitionPayload};
-use yai_core_engine::residency::ResidencyPlan;
+use yai_core_engine::residency::{ResidencyClass, ResidencyPlan};
 use yai_core_engine::memory::DEFAULT_RETRIEVAL_LIMIT;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
 #[path = "provider_execution/capabilities.rs"]
@@ -375,6 +375,73 @@ pub fn governed_attempt_outcome(
 }
 
 
+fn reduced_semantic_budget(
+    plan: &ResidencyPlan,
+    capacity: &yai_core_engine::context::ProviderCapacityObservation,
+    current_budget: usize,
+) -> Option<usize> {
+    let input = capacity.input_tokens?;
+    let available = capacity.input_capacity_tokens.min(
+        capacity.sequence_capacity_tokens.saturating_sub(capacity.effective_output_tokens?),
+    );
+    let excess = usize::try_from(input.saturating_sub(available)).ok()?;
+    if excess == 0 { return None }
+    let mandatory = plan.decisions.iter().filter(|decision| matches!(decision.class,
+        ResidencyClass::MandatoryCurrent | ResidencyClass::ObservedConsequence))
+        .map(|decision| decision.semantic_units).sum::<usize>();
+    // The exact tokenizer's excess is a lower bound, not a semantic-unit
+    // conversion. Keep one bounded margin and let the next exact preflight
+    // decide; never split or trim an entry's bytes.
+    let next = plan.selected_semantic_units.saturating_sub(excess.saturating_add(1024))
+        .max(mandatory)
+        .min(current_budget.saturating_sub(1));
+    (plan.selected_semantic_units > mandatory && next >= mandatory).then_some(next)
+}
+
+#[cfg(test)]
+mod capacity_fitting_tests {
+    use super::*;
+    use yai_core_engine::residency::{ResidencyDecision, ResidencyDisposition, ResidencyRequest};
+
+    #[test]
+    fn exact_token_excess_reduces_optional_residency_without_crossing_required_state() {
+        let mut capacity = preflight::advertised(&serde_json::json!({
+            "yvex_profile":"yvex.openai.compat.v3", "engine_generation":1,
+            "runtime_binding_identity":"binding:one", "runtime_model_identity":"runtime:one",
+            "capacity_plan_identity":"capacity:one", "yvex_capacity":{
+                "schema":"yvex.execution.capacity.v1",
+                "input_accounting":"exact_tokenizer_including_template_and_tools",
+                "resource_reservation":false, "http_body_bytes":1048576,
+                "runtime_input_tokens":32768, "runtime_sequence_tokens":32768
+            }
+        }), "model:one").unwrap();
+        capacity.input_tokens = Some(35_441);
+        capacity.effective_output_tokens = Some(0);
+        let required = ResidencyDecision {item_id:"current".into(), class:ResidencyClass::MandatoryCurrent,
+            disposition:ResidencyDisposition::Pinned, semantic_units:7_470, score:0, reasons:vec![]};
+        let optional = ResidencyDecision {item_id:"derived".into(), class:ResidencyClass::DerivedMemory,
+            disposition:ResidencyDisposition::Reintroduced, semantic_units:20_416, score:0, reasons:vec![]};
+        let request = ResidencyRequest {case_id:"case:one".into(), case_generation:1,
+            participant_id:"participant:one".into(), purpose:ProjectionPurpose::Conversation,
+            provider_id:"target:one".into(), model_id:"model:one".into(), max_items:2,
+            max_semantic_units:32_768, resource_refs:vec![], previous_item_ids:vec![]};
+        let mut plan = ResidencyPlan {schema:yai_core_engine::residency::RESIDENCY_PLAN_SCHEMA.into(),
+            plan_id:"plan:one".into(), request, source_projection_id:"projection:one".into(),
+            source_item_count:2, source_semantic_units:27_886,
+            selected_item_ids:vec!["current".into(),"derived".into()], selected_semantic_units:27_886,
+            omitted_item_count:0, decisions:vec![required, optional]};
+        assert_eq!(reduced_semantic_budget(&plan, &capacity, 32_768), Some(24_189));
+        capacity.input_tokens = Some(60_000);
+        assert_eq!(reduced_semantic_budget(&plan, &capacity, 32_768), Some(7_470));
+        plan.selected_item_ids = vec!["current".into()];
+        plan.selected_semantic_units = 7_470;
+        plan.decisions[1].disposition = ResidencyDisposition::Omitted;
+        assert_eq!(reduced_semantic_budget(&plan, &capacity, 7_470), None);
+        capacity.input_tokens = None;
+        assert_eq!(reduced_semantic_budget(&plan, &capacity, 7_470), None);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_cognitive(
     home: &std::path::Path,
@@ -391,16 +458,60 @@ pub fn invoke_cognitive(
     let execution = (|| {
     validate_provider_wire_parts(parts)
         .map_err(|error| format!("provider_not_dispatched:local_wire:{error}"))?;
-    let semantic = compile_semantic_invocation(home, authenticated, store, &selection.case_id,
-        &selection.participant_id, config, purpose, task, output_contract, options)
-        .map_err(|error| format!("provider_not_dispatched:local_projection:{error}"))?;
+    let mut selected_options = options.clone();
+    // A semantic-unit budget is not a tokenizer count. For a public exact
+    // preflight contract, prepare bounded candidates before canonical
+    // InvocationStarted. Each candidate reuses W's atomic residency selection:
+    // only optional groups may leave, while required/current state stays pinned.
+    // The execution boundary preflights the final exact bytes again, so a
+    // deployment change between preparation and dispatch still fails closed.
+    let mut preparation_passes = 0;
+    let mut previous_candidate = None;
+    let semantic = loop {
+        let candidate = match compile_semantic_invocation(home, authenticated, store, &selection.case_id,
+            &selection.participant_id, config, purpose.clone(), task, output_contract.clone(), &selected_options) {
+            Ok(candidate) => candidate,
+            Err(error) if error.contains("_budget_below_mandatory_state") => {
+                // The previous, fully qualified candidate remains the only
+                // valid disclosure if the lower budget cannot retain all
+                // required state. Its final exact preflight records a capacity
+                // refusal instead of misclassifying a local budget failure.
+                let Some((candidate, budget)) = previous_candidate.take() else {
+                    return Err(format!("provider_not_dispatched:local_projection:{error}"));
+                };
+                selected_options.max_semantic_units = budget;
+                break candidate;
+            }
+            Err(error) => return Err(format!("provider_not_dispatched:local_projection:{error}")),
+        };
+        if !matches!(output_contract, InvocationOutputContract::NaturalLanguage)
+            || preparation_passes >= 3 {
+            break candidate;
+        }
+        let endpoint = crate::provider_transport::parse_provider_endpoint(&config.base_url)?;
+        let body = encode_provider_request(config, &candidate.rendered,
+            config.continuation_ref.as_ref(), false, Some(parts), None)?;
+        let assessment = preflight::assess(config, &endpoint, &body);
+        let next = assessment.ok().and_then(|assessment| {
+            (assessment.refusal == Some("token_capacity_exceeded"))
+                .then(|| assessment.capacity.as_ref().and_then(|capacity|
+                    reduced_semantic_budget(&candidate.residency, capacity,
+                        selected_options.max_semantic_units)))
+                .flatten()
+        });
+        let Some(next) = next else { break candidate };
+        if selected_options.max_semantic_units == next { break candidate }
+        previous_candidate = Some((candidate, selected_options.max_semantic_units));
+        selected_options.max_semantic_units = next;
+        preparation_passes += 1;
+    };
     let key = yai_core_engine::context::stable_digest(&selection.selection_id);
     let invocation_id = format!("invocation:cognitive:{key}");
     let source = |reference: &str| yai_core_engine::transition::TransitionSource {
         component: "yai.provider_boundary".into(), participant_id: Some(selection.participant_id.clone()),
         principal_id: None, source_ref: Some(reference.into()),
     };
-    execute_prepared(store, config, &semantic, options, Some(parts), |lineage| {
+    execute_prepared(store, config, &semantic, &selected_options, Some(parts), |lineage| {
         let mut pending = yai_core_engine::transition::PendingTransition::new(
             format!("transition:cognitive-invocation:{key}"), &selection.case_id, lineage.case_generation,
             source(&invocation_id), TransitionPayload::ProviderInvocationStarted {
