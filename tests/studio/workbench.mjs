@@ -56,7 +56,13 @@ try {
   if (JSON.stringify(await page.locator(".live-rail > button").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))) !== JSON.stringify(["Overview", "Environment", "Knowledge", "Memory", "Authority", "Work", "Compute", "Providers", "YVEX", "Telemetry"])) throw new Error("registered core/platform navigation missing or reordered");
   if (await page.locator(".live-sidebar [data-view-container='Overview']").count() !== 1) throw new Error("registered Sidebar View missing");
   await page.getByText("Terminal requires desktop host").waitFor();
+  if (await page.locator(".tool-pane .operational-panel").count()) throw new Error("Hidden bottom tools initialized on Case open");
   report("One Workbench renders registered Activity Bar, Sidebar, Panel and browser host posture");
+  await page.locator(".panel-tabs").getByRole("button", { name: "Executions", exact: true }).click();
+  await page.locator(".tool-pane .operational-panel").waitFor();
+  await page.locator(".panel-tabs").getByRole("button", { name: "Terminal", exact: true }).click();
+  if (await page.locator(".tool-pane .operational-panel").count() !== 1) throw new Error("Visited bottom tool lost its mounted state");
+  report("Hidden bottom tools initialize on first visit, not on Case open");
   await screenshot("fixture-overview");
   await page.locator(".live-rail button[aria-label='Telemetry']").click();
   await page.getByRole("tab", { name: "Shells", exact: true }).click();
