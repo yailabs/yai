@@ -27,6 +27,7 @@ export interface HostTelemetry {
   protocol: string;
   version: string;
   build: string;
+  executable_posture?: "linked" | "replaced_on_disk" | "unknown";
   yai_home: string;
   yai_home_identity: string;
   transport: string;

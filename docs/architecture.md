@@ -373,6 +373,13 @@ discovery binds the endpoint to the canonical profile and live process identity.
 `yai host status/start/stop/restart/logs/serve` and Studio reuse the same Host
 lifecycle/client library. Multiple Studio processes attach to the same Host,
 and closing a Studio process removes only its ephemeral attachment and PTYs.
+On Linux, current Host clients fence the discovered PID with its exact process
+identity and observe whether `/proc/<pid>/exe` is still linked or was replaced
+on disk. This optional operational posture also works against an older resident
+Host that does not send the field itself. A replaced executable prompts an
+operator restart after active work; it does not automatically terminate another
+client's Host or assert a protocol/version mismatch. A linked executable alone
+does not certify that its build matches the current source tree.
 
 `RuntimeInstance` remains the existing tenant-fair multi-Case scheduler. The
 execution-lifecycle composition connects both normal `yai host serve` and the

@@ -58,13 +58,14 @@ function NumberSetting({ definition, value, update }: { definition: SettingDefin
 
 function YaiHostSettings({ platform }: Pick<SurfaceRendererProps, "platform">) {
   const host = platform.host.snapshot();
-  const telemetry = host.telemetry;
+  const telemetry = host.state === "live" ? host.telemetry : undefined;
   const facts = [
     ["Status", host.state],
     ["PID", telemetry?.pid ?? "—"],
     ["Uptime", telemetry ? `${Math.floor(telemetry.uptime_ms / 1000)}s` : "—"],
     ["Version", telemetry?.version ?? "—"],
     ["Build", telemetry?.build ?? "—"],
+    ["Executable", telemetry?.executable_posture === "replaced_on_disk" ? "Replaced on disk" : telemetry?.executable_posture === "linked" ? "Linked" : "Not observed"],
     ["YAI Home", telemetry?.yai_home ?? "—"],
     ["Protocol", telemetry?.protocol ?? "—"],
     ["Transport", telemetry?.transport ?? "local IPC"],
@@ -79,8 +80,9 @@ function YaiHostSettings({ platform }: Pick<SurfaceRendererProps, "platform">) {
     try { await platform.host[action](); } catch { await platform.host.status(); }
   };
   return <section className="yai-host-settings" aria-label="YAI Host telemetry">
-    <div className="host-setting-header"><div><h3>Current host</h3><p>One resident application service for this YAI_HOME. Closing Studio does not stop it.</p></div><Badge tone={host.state === "live" ? "success" : host.state === "unavailable" ? "error" : "warning"}>{host.state}</Badge></div>
+    <div className="host-setting-header"><div><h3>Current host</h3><p>One resident application service for this YAI_HOME. Closing Studio does not stop it.</p></div><Badge tone={telemetry?.executable_posture === "replaced_on_disk" ? "warning" : host.state === "live" ? "success" : host.state === "unavailable" ? "error" : "warning"}>{telemetry?.executable_posture === "replaced_on_disk" ? "Restart needed" : host.state}</Badge></div>
     <dl>{facts.map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
+    {telemetry?.executable_posture === "replaced_on_disk" && <p role="status">This Host is still running an executable that was replaced on disk. Restart YAI when active work has finished; Studio will reconnect to the same durable Cases.</p>}
     {host.reason && <p className="host-setting-error">{host.reason}</p>}
     <div className="host-setting-actions">{host.state === "stopped" || host.state === "unavailable" ? <button onClick={() => void act("start")}>Start YAI</button> : <><button onClick={() => void act("restart")}>Restart YAI</button><button className="danger" onClick={() => void act("stop")}>Stop YAI</button></>}</div>
     <small>The Host reports supervision of the existing RuntimeInstance. Scheduler leases and provider processes retain their own ownership.</small>

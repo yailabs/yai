@@ -246,6 +246,11 @@ and activity. Runtime supervision is displayed from the actual Host response;
 an older Host may still report `not_integrated`. Unavailable OS or scheduler
 telemetry is not fabricated. Host telemetry is operational
 process state, not Case state.
+On qualified Linux clients, the exact PID/process identity also gates a local
+executable-link observation. When the running Host binary has been replaced on
+disk, Settings, Telemetry and the status bar show a restart-needed posture;
+the operator chooses when to restart shared active work. Unknown inspection
+stays unknown. A linked binary is not a source-version guarantee.
 
 Provider processes have an independent lifecycle. Starting YAI does not load a
 model, allocate a GPU, launch YVEX or start llama.cpp/vLLM. Cloud and local

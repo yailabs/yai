@@ -10,6 +10,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+#[cfg(target_os = "linux")]
+use std::os::unix::ffi::OsStrExt;
 #[cfg(unix)]
 use std::os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 #[cfg(unix)]
@@ -168,6 +170,10 @@ pub struct HostTelemetry {
     pub protocol: String,
     pub version: String,
     pub build: String,
+    /// Client-side observation of the exact Host process executable link.
+    /// `linked` does not prove that the process matches the latest source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executable_posture: Option<String>,
     pub yai_home: String,
     pub yai_home_identity: String,
     pub transport: String,
@@ -199,6 +205,7 @@ impl HostTelemetry {
             protocol: HOST_PROTOCOL.into(),
             version: env!("CARGO_PKG_VERSION").into(),
             build: build_identity(),
+            executable_posture: None,
             yai_home: canonical.display().to_string(),
             yai_home_identity: home_identity(&canonical),
             transport: "unix_domain_socket".into(),
@@ -340,6 +347,7 @@ impl SharedState {
             protocol: self.discovery.protocol.clone(),
             version: self.discovery.version.clone(),
             build: self.discovery.build.clone(),
+            executable_posture: None,
             yai_home: self.discovery.yai_home.clone(),
             yai_home_identity: self.discovery.yai_home_identity.clone(),
             transport: "unix_domain_socket".into(),
@@ -644,7 +652,10 @@ impl HostClient {
             },
         )?;
         match read_frame::<ServerFrame>(&mut self.reader)? {
-            ServerFrame::HostStatus { telemetry } => Ok(telemetry),
+            ServerFrame::HostStatus { mut telemetry } => {
+                annotate_executable_posture(&mut telemetry, &self.discovery);
+                Ok(telemetry)
+            }
             ServerFrame::Error { code, message } => Err(format!("{code}:{message}")),
             _ => Err("host_status_response_invalid".into()),
         }
@@ -679,7 +690,10 @@ impl HostClient {
         loop {
             match read_frame::<ServerFrame>(&mut self.reader)? {
                 ServerFrame::Event { event: update } => event(HostEvent::Case(update))?,
-                ServerFrame::Heartbeat { telemetry } => event(HostEvent::Heartbeat(telemetry))?,
+                ServerFrame::Heartbeat { mut telemetry } => {
+                    annotate_executable_posture(&mut telemetry, &self.discovery);
+                    event(HostEvent::Heartbeat(telemetry))?
+                }
                 ServerFrame::Shutdown { reason } => {
                     event(HostEvent::Shutdown(reason))?;
                     return Ok(());
@@ -1256,6 +1270,50 @@ fn build_identity() -> String {
         .to_string()
 }
 
+fn annotate_executable_posture(telemetry: &mut HostTelemetry, discovery: &HostDiscovery) {
+    if telemetry.state != "running" {
+        return;
+    }
+    // The local client can inspect an older Host that predates this optional
+    // telemetry field. Fence the PID with the discovery process identity first.
+    telemetry.executable_posture = Some(
+        if telemetry.pid == Some(discovery.pid)
+            && telemetry.process_identity.as_deref()
+                == Some(discovery.process_identity.canonical_identity().as_str())
+        {
+            executable_link_posture(&discovery.process_identity)
+        } else {
+            "unknown"
+        }
+        .into(),
+    );
+}
+
+fn executable_link_posture(identity: &LocalProcessIdentity) -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        if !identity.is_live() {
+            return "unknown";
+        }
+        let target = fs::read_link(format!("/proc/{}/exe", identity.pid));
+        if !identity.is_live() {
+            return "unknown";
+        }
+        match target {
+            Ok(target) if target.as_os_str().as_bytes().ends_with(b" (deleted)") => {
+                "replaced_on_disk"
+            }
+            Ok(_) => "linked",
+            Err(_) => "unknown",
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = identity;
+        "unknown"
+    }
+}
+
 fn result_state_label(state: ResultState) -> &'static str {
     match state {
         ResultState::Success => "success",
@@ -1414,6 +1472,25 @@ mod tests {
         let (home, _, handle) = running("singleton");
         assert_eq!(HostServer::bind(&home).err().unwrap(), "already_running");
         stop_server(&home, handle);
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn exact_process_executable_replacement_is_observed_without_pid_reuse_guessing() {
+        let home = home("executable-replaced");
+        let executable = home.join("sleep-copy");
+        fs::copy("/usr/bin/sleep", &executable).unwrap();
+        let mut child = Command::new(&executable).arg("30").spawn().unwrap();
+        let identity = LocalProcessIdentity::capture(child.id()).unwrap();
+        assert_eq!(executable_link_posture(&identity), "linked");
+        fs::remove_file(&executable).unwrap();
+        assert_eq!(executable_link_posture(&identity), "replaced_on_disk");
+        let mut wrong_identity = identity.clone();
+        wrong_identity.start_ticks += 1;
+        assert_eq!(executable_link_posture(&wrong_identity), "unknown");
+        child.kill().unwrap();
+        child.wait().unwrap();
         let _ = fs::remove_dir_all(home);
     }
 

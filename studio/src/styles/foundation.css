@@ -818,6 +818,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .kernel-status .status-connections button { height: 20px; min-width: 0; padding: 0 3px; border: 0; background: transparent; color: var(--yai-text-secondary); font: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kernel-status .status-connections .host-status, .kernel-status .status-connections .telemetry-status { flex-shrink: 0; }
 .kernel-status .status-connections .host-status[data-state="live"] { color: var(--yai-success); }
+.kernel-status .status-connections .host-status[data-state="replaced_on_disk"] { color: var(--yai-warning); }
 .kernel-status .status-connections .host-status[data-state="unavailable"], .kernel-status .status-connections .host-status[data-state="stopped"] { color: var(--yai-error); }
 .kernel-status .model-status { max-width: 32vw; }
 .kernel-status .model-status[data-state="unassigned"], .kernel-status .model-status[data-state="degraded"] { color: var(--yai-warning); }

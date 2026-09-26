@@ -1793,6 +1793,16 @@ started with the documented 900-second response deadline; Studio reattached,
 and `execution.get` still returns the same indeterminate submission after
 restart. Do not retry it. The replacement Host's Focused behavior requires a
 separate, explicitly authorized real SEND to qualify.
+After updating Studio/YAI binaries, inspect `yai host status --json` or
+**Settings → YAI Host** before a new external model run. On Linux, a Host whose
+executable was replaced on disk reports `executable_posture: replaced_on_disk`;
+Studio shows **Restart needed** in its status bar, Settings and Telemetry. This
+is a process-link observation fenced by the exact Host process identity, not a
+model-health or source-version claim. Let current work finish and use the
+explicit **Restart YAI** control. Verify that Studio reconnects to a new Host
+instance and the Case/previous execution refs remain unchanged. The disposable
+`tests/studio/host-executable-posture.py` exercise copies and unlinks only a
+temporary Host binary; it never mutates an operator-owned Case.
 
 In Studio, open **Providers → selected deployment → Runtime → Check exposed
 model**. The status bar and deployment view must agree on the exact target:
