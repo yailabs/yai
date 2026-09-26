@@ -44,7 +44,7 @@ is the operator-selected internal infrastructure service change on Exon/Spark;
 `case:yai-enterprise-launch` was cancelled and closed by operator request, with
 history retained; `case:studio-live-qualification` is the persistent
 technical oracle; deterministic Cases use bounded reconstructible inputs.
-Neither operator Case is disposable test setup. Behavioral evidence separates
+Tech Infra is not disposable test setup. Behavioral evidence separates
 KNOWS, SEES, RECALLS, REMEMBERS, REASONS, CAN_DO, REFUSES, RECOVERS and ISOLATES;
 The reusable retained-action corpus additionally checks exact Resource receipts,
 repeat observation and unauthorized disclosure through Host; it does not claim
@@ -53,6 +53,14 @@ result/context identity, hidden refusal and retry through the real Host; control
 producer qualification leaves real-model reasoning quality unassessed. PERFORMS
 records measurements separately. Natural-language quality never
 substitutes for deterministic authority, identity and effect assertions.
+
+The operator now requires the everyday local Case catalog to retain only
+`case:tech-infra-inference-service`. The current profile still contains five
+other Cases. `case.close` preserves history and remains listed; no published
+Case deletion/retention operation can remove them safely from the shared
+canonical store. This is a backend lifecycle gap, not a Studio filtering rule.
+Future qualification Cases must use isolated reconstructible profiles; do not
+create more durable test Cases in the operator's everyday profile.
 
 The YVEX contract reconciliation at `models2@dabbc09dacf500684b60a3ae8675956a016436b9`
 finds local protocol v22 and HTTP compatibility v3; public `main@3f4a1c1` is older

@@ -45,17 +45,17 @@ export function ProviderTargetInspector({ workspace, selection, platform }: Auxi
         <div className="provider-fact-wide"><dt>Endpoint</dt><dd>{target.endpoint}</dd></div>
         <div><dt>Adapter</dt><dd>{target.adapter.replaceAll("_", " ")}</dd></div>
         <div><dt>Locality</dt><dd>{target.locality.replaceAll("_", " ")}</dd></div>
-        <div><dt>Current Case</dt><dd>{workspace.compute.targets.some(item => item.id === selection) ? "Bound" : "Not bound"}</dd></div>
-        <div><dt>YAI health posture</dt><dd>{posture?.health.effective_posture ?? "Not projected"}</dd></div>
-        <div><dt>Last reported health</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div>
+        <div className="provider-fact-wide"><dt>Current Case</dt><dd>{workspace.case.display_name} · {workspace.compute.targets.some(item => item.id === selection) ? "Bound" : "Not bound"}</dd></div>
+        <div><dt>Current YAI health</dt><dd>{posture?.health.effective_posture ?? "Not projected"}</dd></div>
+        <div><dt>Historical report</dt><dd>{posture?.health.posture ?? "Not exposed"}</dd></div>
         <div className="provider-fact-wide"><dt>Evaluated by YAI</dt><dd>{posture?.health.evaluated_at_unix_ms ? new Date(posture.health.evaluated_at_unix_ms).toLocaleString() : "Not projected"}</dd></div>
         <div className="provider-fact-wide"><dt>Last observation</dt><dd>{posture?.health.observed_at_unix_ms ? new Date(posture.health.observed_at_unix_ms).toLocaleString() : "Not observed"}</dd></div>
         <div className="provider-fact-wide"><dt>Failure</dt><dd>{posture?.health.failure_class?.replaceAll("_", " ") ?? "No failure class recorded"}</dd></div>
         <div><dt>Circuit</dt><dd>{posture?.health.circuit ?? "Not exposed"}</dd></div>
         <div><dt>Consecutive failures</dt><dd>{posture?.health.consecutive_failures ?? "Not exposed"}</dd></div></dl>
-      <p className="surface-note">{current?.target ? "Current Tenant inventory." : "Current Case projection."} Trust and binding do not grant permission for an operation.</p>
-      <details><summary>Technical details</summary><p>{target.id}</p><p>{tenant}</p>
-        {posture?.qualification && <p>{posture.qualification.id}</p>}</details>
+      <p className="surface-note">{current?.target ? "Shared Tenant deployment; this Case only owns its binding." : "Current Case projection; Tenant inventory unavailable."} Trust and binding do not grant permission for an operation.</p>
+      <details><summary>Technical details</summary><dl className="object-facts provider-inspector-facts"><div className="provider-fact-wide"><dt>Deployment reference</dt><dd>{target.id}</dd></div><div className="provider-fact-wide"><dt>Shared Tenant reference</dt><dd>{tenant ?? "Not projected"}</dd></div><div className="provider-fact-wide"><dt>Current Case reference</dt><dd>{workspace.case.case_ref}</dd></div>
+        {posture?.qualification && <div className="provider-fact-wide"><dt>Qualification reference</dt><dd>{posture.qualification.id}</dd></div>}</dl></details>
     </>}
   </div>;
 }

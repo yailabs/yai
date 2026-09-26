@@ -80,7 +80,7 @@ function YaiHostSettings({ platform }: Pick<SurfaceRendererProps, "platform">) {
     try { await platform.host[action](); } catch { await platform.host.status(); }
   };
   return <section className="yai-host-settings" aria-label="YAI Host telemetry">
-    <div className="host-setting-header"><div><h3>Current host</h3><p>One resident application service for this YAI_HOME. Closing Studio does not stop it.</p></div><Badge tone={telemetry?.executable_posture === "replaced_on_disk" ? "warning" : host.state === "live" ? "success" : host.state === "unavailable" ? "error" : "warning"}>{telemetry?.executable_posture === "replaced_on_disk" ? "Restart needed" : host.state}</Badge></div>
+    <div className="host-setting-header"><div><h3>Current host</h3><p>One resident application service for this YAI_HOME. Closing Studio does not stop it.</p></div><Badge tone={telemetry?.executable_posture === "replaced_on_disk" ? "warning" : host.state === "live" ? "success" : host.state === "unavailable" ? "error" : "warning"}>{telemetry?.executable_posture === "replaced_on_disk" ? "Host binary changed" : host.state}</Badge></div>
     <dl>{facts.map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
     {telemetry?.executable_posture === "replaced_on_disk" && <p role="status">This Host is still running an executable that was replaced on disk. Restart YAI when active work has finished; Studio will reconnect to the same durable Cases.</p>}
     {host.reason && <p className="host-setting-error">{host.reason}</p>}

@@ -5,3 +5,11 @@ export function requestWindowClose() {
   if (window.__TAURI__) void window.__TAURI__.core.invoke("desktop_close");
   else window.close();
 }
+
+// A full desktop restart loads the newly installed frontend and native binary.
+// Use the same draft guard as close; Case refresh is a separate operation.
+export function requestStudioRestart() {
+  if (!window.dispatchEvent(new Event("yai:before-window-close", { cancelable: true }))) return;
+  if (window.__TAURI__) void window.__TAURI__.core.invoke("desktop_restart");
+  else window.location.reload();
+}

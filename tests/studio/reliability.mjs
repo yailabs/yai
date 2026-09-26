@@ -107,6 +107,15 @@ try {
  await native.locator('.dirty-mark').waitFor();
  await native.waitForFunction(()=>window.calls.some(call=>call.command==='desktop_set_dirty' && call.args.dirty));
  native.once('dialog', dialog=>dialog.dismiss());
+ await native.getByRole('button',{name:'File',exact:true}).click();
+ await native.getByRole('menuitem',{name:'Restart Studio',exact:true}).click();
+ assert.equal(await native.evaluate(()=>window.calls.filter(call=>call.command==='desktop_restart').length),0,'Dirty draft blocks Studio restart');
+ native.once('dialog', dialog=>dialog.accept());
+ await native.getByRole('button',{name:'File',exact:true}).click();
+ await native.getByRole('menuitem',{name:'Restart Studio',exact:true}).click();
+ assert.equal(await native.evaluate(()=>window.calls.filter(call=>call.command==='desktop_restart').length),1,'Explicit restart uses the native process boundary');
+ record('Native restart guard', {result:'PASS', invariant:'Restart is distinct from Case refresh and a dirty draft requires confirmation', qualification:'instrumented Tauri bridge'});
+ native.once('dialog', dialog=>dialog.dismiss());
  await native.evaluate(()=>[...window.listeners['yai://window-close-request'].values()].forEach(listener=>listener({payload:null})));
  assert.equal(await native.evaluate(()=>window.calls.filter(call=>call.command==='desktop_close').length),0);
  assert.equal(await native.locator('.cm-content').textContent(),'NATIVE_UNSAVED_SENTINEL');

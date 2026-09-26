@@ -224,6 +224,14 @@ fn desktop_close(window: WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn desktop_restart(app: AppHandle) -> Result<(), String> {
+    // The frontend dispatches the same cancellable draft guard as desktop_close
+    // before invoking this command. A confirmed discard must be allowed here.
+    app.request_restart();
+    Ok(())
+}
+
+#[tauri::command]
 fn desktop_minimize(window: WebviewWindow) -> Result<(), String> {
     window
         .minimize()
@@ -425,6 +433,7 @@ fn main() {
             terminal_kill,
             terminal_dispose_all,
             desktop_close,
+            desktop_restart,
             desktop_set_dirty,
             desktop_minimize,
             desktop_toggle_maximize,

@@ -163,22 +163,24 @@ try {
  await page.setViewportSize({width:1440,height:900});
  await page.locator('.live-rail').getByRole('button',{name:'Providers',exact:true}).click();
  await page.getByRole('heading',{name:'Providers',exact:true}).waitFor();
- await page.locator('.compute-target').getByText('controlled-text-model',{exact:true}).waitFor();
+ await page.getByLabel('Selected deployment').getByRole('option',{name:/controlled-provider/}).waitFor({state:'attached'});
  assert.equal(await page.locator('.live-surface').getAttribute('data-archetype'),'product');
- await page.locator('.compute-target').getByRole('button',{name:'controlled-provider',exact:true}).click();
+ assert.equal(await page.locator('.deployment-list').count(),0,'Providers must not add a second sidebar');
+ await page.getByLabel('Selected deployment').selectOption(target.target_id);
+ await page.getByRole('button',{name:'Inspect deployment',exact:true}).click();
  const boundInspector=page.locator('.inspector-view');
  await boundInspector.getByRole('heading',{name:'controlled-provider',exact:true}).waitFor();
- await boundInspector.getByText('Bound',{exact:true}).waitFor();
+ await boundInspector.getByText(/ · Bound$/).waitFor();
  assert.equal(await boundInspector.getByText(endpoint,{exact:true}).count(),1,'Bound deployment retains the same detailed Inspector');
  await boundInspector.getByText('denied',{exact:true}).waitFor();
  refuseInventory=true;
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
  await boundInspector.getByRole('status').filter({hasText:'Tenant inventory unavailable'}).waitFor();
- assert.ok((await boundInspector.textContent()).includes('Current Case projection.'));
+ assert.ok((await boundInspector.textContent()).includes('Current Case projection; Tenant inventory unavailable.'));
  assert.equal(await boundInspector.getByText(endpoint,{exact:true}).count(),1,'Only the disclosed Case target remains under inventory refusal');
  refuseInventory=false;
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
- await boundInspector.getByText('Current Tenant inventory.',{exact:false}).waitFor();
+ await boundInspector.getByText('Shared Tenant deployment; this Case only owns its binding.',{exact:false}).waitFor();
 
 
  await page.getByRole('button',{name:'Register provider target',exact:true}).click();
@@ -188,15 +190,15 @@ try {
  await form.getByLabel('Enter an exact model ID manually').check();await form.getByLabel('Exact model identity').fill('controlled-text-model');
  await form.getByRole('button',{name:'Register target',exact:true}).click();await form.waitFor({state:'hidden'});
  await page.getByRole('button',{name:'Refresh inventory',exact:true}).click();
- await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===2);
+ await page.getByLabel('Selected deployment').locator('option').nth(1).waitFor({state:'attached'});
  const inventory=await accepted('provider.inventory',{tenant_id:'tenant:studio-ui'});
  assert.equal(inventory.targets.length,2);
  assert.equal(inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').posture.health.effective_posture,'unknown','YAI projects effective health separately from the historical report');
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).compute.targets.length,1,'Tenant registration does not expand Case binding');
  assert.equal(inventory.case_usage,'not_projected');
- await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
+ await page.getByLabel('Selected deployment').selectOption(inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').id);
  await page.locator('.inspector-view').getByRole('heading',{name:'unbound-inventory-target',exact:true}).waitFor();
- await page.locator('.inspector-view').getByText('Not bound',{exact:true}).waitFor();
+ await page.locator('.inspector-view').getByText(/ · Not bound$/).waitFor();
  await page.getByRole('region',{name:'Observed deployment health'}).waitFor();
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
  await page.getByText('Model exposed',{exact:true}).waitFor();
@@ -222,7 +224,7 @@ try {
  while(!heldModelResponse && Date.now()<catalogDeadline) await new Promise(resolve=>setTimeout(resolve,20));
  assert.ok(heldModelResponse,"Catalog response arrived within the bounded test deadline");
  const otherTarget=inventory.targets.find(item=>item.id!==catalogRead.request.input.target_ref);
- await page.locator('.compute-target').getByRole('button',{name:otherTarget.provider_key,exact:true}).click();
+ await page.getByLabel('Selected deployment').selectOption(otherTarget.id);
  heldModelResponse();
  await page.waitForTimeout(50);
  assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Late catalog cannot describe another selected deployment');
@@ -249,20 +251,18 @@ try {
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
  await page.locator('.provider-status').filter({hasText:'Catalog reachable'}).waitFor();
  await page.evaluate(()=>window.qualificationPlatform.application.refresh());
- await page.locator('.provider-status').filter({hasText:'Last health:'}).waitFor();
+ await page.locator('.provider-status').filter({hasText:/Last YAI report:|Health report expired/}).waitFor();
  assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'unknown','Old retained health does not claim live connectivity');
  assert.equal(await page.getByText('Model exposed',{exact:true}).count(),0,'Host contract refresh clears both consumers');
- await page.locator('.compute-target').getByRole('button',{name:'unbound-inventory-target',exact:true}).click();
+ await page.getByLabel('Selected deployment').selectOption(inventory.targets.find(item=>item.provider_key==='unbound-inventory-target').id);
 
 
  assert.equal(await page.locator('.platform-surface.live-page').count(),0,'Platform uses full workspace, not document page');
  await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Platform',exact:true}).click();
  await page.getByText('No typed management connection',{exact:true}).first().waitFor();
  await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Runtime',exact:true}).click();
- await page.getByText('Not disclosed by this connection',{exact:true}).waitFor();
- await page.getByRole('searchbox',{name:'Filter deployments'}).fill('unbound-inventory-target');
- assert.equal(await page.locator('.deployment-list .compute-target').count(),1);
- await page.getByRole('searchbox',{name:'Filter deployments'}).fill('');
+ assert.equal(await page.locator('.deployment-model').count(),0,'Technical model and endpoint facts belong to the Inspector');
+ assert.equal(await page.getByLabel('Selected deployment').locator('option').count(),2,'Both Tenant deployments remain selectable without a second sidebar');
 
  // Tenant state can change without a Case generation change: toolbar refresh
  // must invalidate both the inventory Surface and the selected Inspector.
@@ -288,11 +288,11 @@ try {
  assert.equal(probeInput.target_ref,unbound.id);
  await check.getByText('Checking',{exact:true}).waitFor();
  await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Runtime',exact:true}).click();
- await page.locator('.compute-target').getByRole('button',{name:otherTarget.provider_key,exact:true}).click();
+ await page.getByLabel('Selected deployment').selectOption(otherTarget.id);
  await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Evidence',exact:true}).click();
  assert.equal(await check.getByText('Checking',{exact:true}).count(),0,'Another deployment cannot inherit an in-flight check');
  releaseProbe();releaseProbe=undefined;
- await page.locator('.compute-target').getByRole('button',{name:unbound.provider_key,exact:true}).click();
+ await page.getByLabel('Selected deployment').selectOption(unbound.id);
  await check.getByText('Evidence recorded',{exact:true}).waitFor();
  const retained=await accepted('provider.probe.get',{target_ref:unbound.id,submission_ref:probeInput.submission_ref});
  assert.equal(retained.posture,'completed');assert.equal(retained.run.evidence.exact_model_addressed,true);
@@ -359,7 +359,7 @@ try {
  await accepted('provider.trust.set',{target_ref:unbound.id,posture:'denied'});
  const inventoryReads=exchanges.filter(x=>x.request.operation_ref==='provider.inventory').length;
  await page.getByRole('button',{name:'Refresh Case',exact:true}).click();
- await page.locator('.compute-target').filter({hasText:'unbound-inventory-target'}).getByText('denied',{exact:true}).waitFor();
+ await page.locator('.deployment-workspace').getByText('denied',{exact:true}).first().waitFor();
  await page.locator('.inspector-view').getByText('denied',{exact:true}).waitFor();
  assert.ok(exchanges.filter(x=>x.request.operation_ref==='provider.inventory').length>=inventoryReads+2);
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,unchangedGeneration);
@@ -372,11 +372,11 @@ try {
  assert.equal(await form.getByLabel('Exact target reference').count(),0);
  await form.getByRole('button',{name:'Record trust',exact:true}).click();await form.waitFor({state:'hidden'});
  assert.equal(exchanges.findLast(x=>x.request.operation_ref==='provider.trust.set').request.input.target_ref,unbound.id);
- await page.locator('.deployment-list').getByText('approved',{exact:true}).waitFor();
+ await page.locator('.deployment-workspace').getByText('approved',{exact:true}).first().waitFor();
  await page.locator('.inspector-view').getByText('approved',{exact:true}).waitFor();
  await page.getByRole('navigation',{name:'Deployment sections'}).getByRole('button',{name:'Runtime',exact:true}).click();
  await accepted('provider.trust.set',{target_ref:unbound.id,posture:'denied'});
- await page.locator('.deployment-list').getByText('denied',{exact:true}).last().waitFor({timeout:15000});
+ await page.locator('.deployment-workspace').getByText('denied',{exact:true}).first().waitFor({timeout:15000});
  await page.locator('.inspector-view').getByText('denied',{exact:true}).waitFor({timeout:15000});
  assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,unchangedGeneration);
 
@@ -386,7 +386,7 @@ try {
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  }
  await page.locator('.live-rail').getByRole('button',{name:'YVEX',exact:true}).click();
- await page.getByRole('heading',{name:'Select a deployment',exact:true}).waitFor();
+ await page.getByRole('heading',{name:'No deployment connected',exact:true}).waitFor();
  assert.equal(await page.locator('.compute-target').count(),0,'Generic target is not claimed as YVEX-compatible');
  const yvexTarget=await accepted('provider.register',{tenant_id:'tenant:studio-ui',provider_key:'controlled-yvex',
    adapter:'open_ai_compatible',endpoint,model_id:'controlled-yvex-model',credential_ref:'none',locality:'loopback',extension_adapter_id:'yvex.http.v1'});

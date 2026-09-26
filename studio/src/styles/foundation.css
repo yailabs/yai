@@ -832,7 +832,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .kernel-status .provider-status[data-state="unavailable"] { color: var(--yai-error); }
 .kernel-status .provider-status[data-state="degraded"] { color: var(--yai-warning); }
 
-/* Operational platform workspace: fixed chrome, deployment list and local work area. */
+/* Operational platform workspace: one Workbench sidebar and a full-width detail surface. */
 .platform-surface { height: 100%; min-height: 0; overflow: hidden; }
 .provider-workspace { container-type: inline-size; height: 100%; display: flex; flex-direction: column; min-height: 0; background: var(--yai-canvas); }
 .provider-workspace-toolbar { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--yai-divider); }
@@ -840,20 +840,12 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .provider-workspace-toolbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
 .provider-workspace-toolbar span, .provider-workspace-status { font-size: 11px; color: var(--yai-text-muted); }
 .provider-workspace-status { display: flex; justify-content: space-between; gap: 12px; padding: 6px 18px; }
-.provider-workspace-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(150px, 23%) minmax(0, 1fr); border-top: 1px solid var(--yai-divider); }
-.deployment-list { min-height: 0; overflow: auto; border-right: 1px solid var(--yai-divider); padding: 10px 6px; background: var(--yai-panel); }
-.deployment-list > input { width: 100%; height: 30px; margin-bottom: 10px; min-width: 0; padding: 0 8px; background: var(--yai-inset); border: 1px solid var(--yai-divider); border-radius: 5px; color: var(--yai-text); }
-.deployment-list .compute-target { margin: 0 0 4px; padding: 0; border: 0; background: none; }
-.deployment-list .compute-target > button { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 10px 8px; border: 0; border-radius: 5px; text-align: left; background: transparent; color: var(--yai-text-secondary); cursor: pointer; }
-.deployment-list .compute-target > button[aria-pressed=true] { background: var(--yai-raised); box-shadow: inset 2px 0 var(--yai-focus); color: var(--yai-text); }
-.deployment-list .compute-target > button > span:not(.ui-badge) { min-width: 0; flex: 1; }
-.deployment-list strong, .deployment-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deployment-list small { margin-top: 5px; font-size: 10px; color: var(--yai-text-muted); }
-.deployment-list .ui-badge { font-size: 9px; padding: 2px 4px; }
+.provider-workspace-body { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--yai-divider); }
 .deployment-workspace { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .deployment-heading { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; gap: 10px; }
 .deployment-heading small { color: var(--yai-text-muted); font-size: 10px; }
 .deployment-heading h2 { font-size: 20px; margin: 3px 0 0; overflow-wrap: anywhere; }
+.deployment-heading .ui-badge { display: inline-flex; margin-top: 6px; }
 .deployment-sections { flex-shrink: 0; display: flex; gap: 16px; padding: 0 20px; border-bottom: 1px solid var(--yai-divider); }
 .deployment-sections button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--yai-text-muted); padding: 8px 0; cursor: pointer; }
 .deployment-sections button[aria-pressed=true] { color: var(--yai-text); border-color: var(--yai-focus); }
@@ -867,7 +859,6 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .deployment-content dt { font-size: 10px; color: var(--yai-text-muted); margin-bottom: 5px; }
 .deployment-content dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .deployment-health small, .deployment-content code { display: block; color: var(--yai-text-muted); font-size: 10px; margin-top: 8px; overflow-wrap: anywhere; }
-.deployment-model > strong { display: block; overflow-wrap: anywhere; font-size: 12px; margin-top: 12px; font-weight: 500; }
 .deployment-capacity { display: flex; flex-wrap: wrap; gap: 0 22px; padding: 12px 0; margin: 12px 0; border-block: 1px solid var(--yai-divider); }
 .deployment-capacity > div { display: grid; gap: 4px; min-width: 120px; }
 .deployment-capacity strong { color: var(--yai-text); font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -933,7 +924,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .handoff-exact-inspection { margin-top:12px; }
 
 /* Compact platform navigation follows actual Work Surface width, including open tools. */
-.deployment-compact-picker { display: none; }
+.deployment-compact-picker { display:grid; grid-template-columns:auto minmax(0, min(560px, 100%)); align-items:center; gap:10px; padding:8px 20px; font-size:11px; color:var(--yai-text-muted); border-bottom:1px solid var(--yai-divider); }
 .provider-qualification { padding: 14px; background: var(--yai-panel); border: 1px solid var(--yai-divider); border-radius: 7px; }
 .provider-check-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
 .provider-check-controls label { display:grid; gap:6px; font-size:11px; color:var(--yai-text-secondary); min-width:0; }
@@ -943,9 +934,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .provider-check-history code { overflow-wrap:anywhere; }
 .provider-qualification details { margin-top:10px; font-size:11px; color:var(--yai-text-secondary); }
 @container (max-width: 640px) {
-  .provider-workspace-body { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
-  .deployment-list { display:none; }
-  .deployment-compact-picker { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:10px; padding:8px 12px; font-size:11px; color:var(--yai-text-muted); border-bottom:1px solid var(--yai-divider); }
+  .deployment-compact-picker { grid-template-columns:auto minmax(0,1fr); padding:8px 12px; }
   .provider-workspace-toolbar { flex-wrap:wrap; padding:8px 12px; }
   .provider-workspace-toolbar > div { flex-wrap:wrap; }
   .provider-workspace-status span { display:none; }

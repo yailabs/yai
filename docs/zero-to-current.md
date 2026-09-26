@@ -27,6 +27,11 @@ The operator replaced the release-assessment scenario with
 Case is cancelled and closed; do not recreate it. Use `enterprise.py` with
 `--scenario infrastructure` and the explicit arguments above for bounded,
 repeatable acquisition. The release overlay is not valid for this scenario.
+The operator has requested removal of every other Case from the everyday
+profile. As of the current boundary, the shared canonical store has no
+published Case deletion operation; close is non-destructive and closed Cases
+remain listed. Do not remove LMDB rows or shared backing manually. New test
+Cases must use isolated profiles until the backend owns safe retention/deletion.
 
 In Studio, open **Tech Infra Inference Service**. The Overview shows the current
 Workflow name/description, exact checkpoint instructions and Sources with links.
@@ -66,11 +71,15 @@ Choose text, JSON/tool roundtrip or embeddings. Leave and return while it runs:
 Studio must recover the same check without sending another. Observe result and
 Retry exact request preserve that identity. A wrong response model must show
 Exact model not proven, never a green success. Trust and Case binding still
-require their separate actions. Narrow Work Surfaces use the Deployment picker
-in place of a second list; the Inspector keeps model and endpoint on full rows
-for both bound and unbound targets. It shows the current Case binding separately
-from Tenant trust and dated health. If Tenant inventory cannot be read, only an
-already disclosed current Case target may remain visible, labeled as Case projection.
+require their separate actions. Providers and YVEX use the Deployment picker
+at every Work Surface width, without a second sidebar inside
+the Workbench navigation. The Inspector labels the shared Tenant reference and
+current Case reference separately; it keeps model and endpoint on full rows
+for both bound and unbound targets and distinguishes current effective health
+from a historical report. A degraded historical report, including uncertain
+delivery, is not proof that a YVEX engine is currently unavailable. If Tenant
+inventory cannot be read, only an already disclosed current Case target may
+remain visible, labeled as Case projection.
 Compute separates **Bindings**, **Conversation** assignment and **Execution**.
 Bindings links to **Browse Providers** for inventory selection. Actions on a
 selected deployment keep that exact identity; manual reference entry is under
@@ -2115,6 +2124,12 @@ explicit. The status bar does not expose the internal Case generation counter.
 
 Global **Refresh Case** also rereads the Tenant provider inventory and provider
 Inspector, including health/trust changes that do not advance Case generation.
+It does not replace the running Studio binary. **File → Restart Studio** performs
+a native process restart from the installed executable after the same unsaved
+draft guard used for window close; the Start Center has a separate **Refresh
+Case list** action. A status-bar **YAI Host · Binary changed** signal refers to
+the resident YAI Host executable, never to a YVEX model. Restart that Host from
+Settings when active work permits; Studio then reconnects to durable Case state.
 The status bar shows the bound provider's recorded health and its observation
 time in the tooltip, separately from Host connectivity and model assignment.
 It does not claim continuously observed model residency. No provider probe or
