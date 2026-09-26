@@ -88,9 +88,32 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const providerTarget = conversationTarget ?? workspace.compute.targets[0];
   const providerPosture = typeof providerTarget?.posture === "object" ? providerTarget.posture : undefined;
   const providerHealth = providerPosture?.health;
+  const conversationRouteBlocked = Boolean(conversationTarget && !conversationBinding?.target_policy?.alternatives.length && (!providerPosture?.qualification?.capabilities.some(item => item.capability === "chattext") || providerHealth?.circuit === "open"));
   const applicationState = useSyncExternalStore(
     useCallback(listener => platform.application?.subscribe(listener).dispose ?? (() => {}), [platform.application]),
     useCallback(() => platform.application?.snapshot(), [platform.application]));
+  useEffect(() => {
+    const application = platform.application;
+    const tenant = workspace.case.tenant_ref;
+    const target = providerTarget?.id;
+    if (stream !== "live" || applicationState?.state !== "available" || !application?.supports("provider.models") || !tenant || !target) return;
+    const key = providerCatalogKey(tenant, target);
+    let lastAttempt = 0;
+    const check = () => {
+      if (document.visibilityState === "hidden") return;
+      const observed = application.snapshot().providerCatalogs?.[key];
+      if (observed?.state === "checking" || isCurrentProviderCatalog(observed, Date.now())) return;
+      const now = Date.now();
+      if (now - lastAttempt < 60_000) return;
+      lastAttempt = now;
+      // Metadata only. This never submits a prompt or claims engine residency.
+      void application.discoverProviderModels({ tenant_id: tenant, target_ref: target }).catch(() => {});
+    };
+    check();
+    const timer = window.setInterval(check, 15_000);
+    window.addEventListener("focus", check);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", check); };
+  }, [platform.application, applicationState?.state, workspace.case.tenant_ref, providerTarget?.id, stream, hostState.telemetry?.instance_id]);
   const catalog = stream === "live" && providerTarget && workspace.case.tenant_ref
     ? applicationState?.providerCatalogs?.[providerCatalogKey(workspace.case.tenant_ref, providerTarget.id)] : undefined;
   useEffect(() => {
@@ -102,17 +125,18 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
   }, [catalog]);
   const catalogCurrent = isCurrentProviderCatalog(catalog, catalogClock);
-  const catalogState = catalog?.state === "checking" ? "Checking model" : catalogCurrent ? "Catalog reachable"
-    : catalog?.state === "observed" ? "Catalog check expired"
-    : catalog?.state === "unavailable" ? (catalog.empty ? "No models exposed" : "Catalog unavailable") : undefined;
-  const providerLabel = !providerTarget ? "No provider bound" : `${providerTarget.provider_key} · ${catalogState ?? (stream !== "live" && stream !== "fixture" ? "Not refreshed" : providerHealth?.effective_posture === "unknown" && providerHealth.observed_at_unix_ms ? "Health report expired" : `Last YAI report: ${providerHealth?.posture ?? "Not observed"}`)}`;
-  const providerDetail = providerTarget ? `${providerTarget.endpoint} · ${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}.${catalogCurrent ? "" : " Observation expired; check the exposed model again."}` : catalog?.state === "unavailable" ? catalog.reason : "No current catalog observation."} ${providerHealth?.observed_at_unix_ms ? `Health observed: ${new Date(providerHealth.observed_at_unix_ms).toLocaleString()}` : "No timed health observation"}. Circuit: ${providerHealth?.circuit ?? "unknown"}. Observations are not continuous monitoring. Open Providers.` : "Open Providers to configure a target, then bind it in Compute.";
+  const providerState = !providerTarget ? "No provider" : catalog?.state === "checking" ? "Checking"
+    : catalogCurrent ? "Endpoint responds" : catalog?.state === "observed" ? "Catalog old"
+    : catalog?.state === "unavailable" ? catalog.empty ? "No models exposed" : "Check failed" : "Not checked";
+  const providerLabel = providerTarget ? `${providerTarget.provider_key} · ${providerState}` : providerState;
+  const providerDetail = providerTarget ? `${providerTarget.endpoint}. ${catalog?.state === "observed" ? `Catalog observed ${new Date(catalog.at).toLocaleString()}.${catalogCurrent ? " Endpoint responded then." : " Catalog observation is over one minute old; this is not a SEND refusal."}` : catalog?.state === "unavailable" ? catalog.reason : "No current catalog observation."} YAI health: ${providerHealth?.effective_posture ?? "unknown"}; last report: ${providerHealth?.posture ?? "not observed"}${providerHealth?.observed_at_unix_ms ? ` at ${new Date(providerHealth.observed_at_unix_ms).toLocaleString()}` : ""}. Endpoint response is not model residency or a successful inference. Open Providers.` : "Open Providers to configure a target, then bind it in Compute.";
   const modelExposed = conversationTarget && catalog?.state === "observed" && catalogCurrent ? catalog.models.includes(conversationTarget.model_id) : undefined;
   const modelCapacity = catalog?.state === "observed" && catalogCurrent && catalog.capacity?.model_id === conversationTarget?.model_id && modelExposed ? catalog.capacity : undefined;
-  const modelLabel = conversationTarget ? `${catalog?.state === "observed" && !catalogCurrent ? "Check expired" : modelExposed === undefined ? "Assigned" : modelExposed ? "Exposed" : "Not exposed"}${modelCapacity ? ` · ${modelCapacity.input_capacity_tokens.toLocaleString()} input` : ""}: ${conversationTarget.model_id}` : workspace.compute.targets.length ? "Assign conversation model" : "No model bound";
-  const modelDetail = conversationTarget ? `Assigned to this Participant: ${conversationTarget.model_id}. ${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}.${catalogCurrent ? "" : " Observation expired; check the exposed model again."} ` : ""}${modelCapacity ? `Public catalog input capacity ${modelCapacity.input_capacity_tokens.toLocaleString()} tokens, sequence ceiling ${modelCapacity.sequence_capacity_tokens.toLocaleString()} tokens; no resource reservation. ` : ""}Catalog visibility does not establish current engine residency or successful inference. Open Compute for qualification and execution details.` : "Open Compute to configure a governed conversation target for this Case.";
-  const providerTone = catalog?.state === "observed" ? catalogCurrent ? "observed" : "degraded" : catalog?.state === "unavailable" ? "unavailable" : "unknown";
-  const modelTone = !conversationTarget ? "unassigned" : catalog?.state === "observed" ? !catalogCurrent ? "degraded" : modelExposed ? "observed" : "unavailable" : "assigned";
+  const modelName = conversationTarget?.model_id.split("-").slice(0, 3).join("-") ?? "Model";
+  const modelLabel = conversationTarget ? `${modelName} · ${conversationRouteBlocked ? "Route blocked" : catalog?.state === "observed" && !catalogCurrent ? "Catalog old" : modelExposed === undefined ? "Load unknown" : modelExposed ? "Exposed" : "Not exposed"}` : workspace.compute.targets.length ? "Assign conversation model" : "No model bound";
+  const modelDetail = conversationTarget ? `${conversationBinding?.target_policy?.alternatives.length ? "Preferred target" : "Assigned to this Participant"}: ${conversationTarget.model_id}. ${conversationBinding?.target_policy?.alternatives.length ? "YAI selects the actual execution target from the ordered candidates. " : ""}${conversationRouteBlocked ? `YAI route blocked: ${!providerPosture?.qualification?.capabilities.some(item => item.capability === "chattext") ? "current qualification does not establish text conversation. " : ""}${providerHealth?.circuit === "open" ? "Provider circuit open. " : ""}` : ""}${catalog?.state === "observed" ? `Catalog observed: ${new Date(catalog.at).toLocaleString()}.${catalogCurrent ? "" : " Catalog observation is over one minute old; this alone does not block SEND."} ` : ""}${modelCapacity ? `Public catalog input capacity ${modelCapacity.input_capacity_tokens.toLocaleString()} tokens, sequence ceiling ${modelCapacity.sequence_capacity_tokens.toLocaleString()} tokens; no resource reservation. ` : ""}Catalog visibility does not establish current engine residency or successful inference. Open Compute for qualification and execution details.` : "Open Compute to configure a governed conversation target for this Case.";
+  const providerTone = catalogCurrent || catalog?.state === "unavailable" && catalog.empty ? "reachable" : catalog?.state === "unavailable" ? "unavailable" : "unknown";
+  const modelTone = !conversationTarget ? "unassigned" : conversationRouteBlocked ? "unavailable" : catalog?.state === "observed" ? !catalogCurrent ? "degraded" : modelExposed ? "observed" : "unavailable" : "assigned";
   const dirtyCount = windowSession.dirtyCount;
   useEffect(() => { void window.__TAURI__?.core.invoke("desktop_set_dirty", { dirty: dirtyCount > 0 }); }, [dirtyCount]);
   useEffect(() => {

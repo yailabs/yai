@@ -109,20 +109,20 @@ try {
  await page.getByRole('main').getByRole('button',{name:'Assign conversation model',exact:true}).click();form=page.getByRole('dialog',{name:'Assign conversation model'});
  await form.getByRole('button',{name:'Assign model',exact:true}).click();await form.waitFor({state:'hidden'});
  let snapshot=await accepted('case.summary',{case_ref:caseRef});assert.equal(snapshot.compute.cognitive_bindings[0].target_id,target.target_id);
- await page.locator('.model-status').filter({hasText:'Assigned: controlled-text-model'}).waitFor();
+ await page.locator('.model-status[title*="Assigned to this Participant: controlled-text-model"]').waitFor();
  await page.locator('.live-rail button[aria-label="Providers"]').click();
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
- await page.locator('.model-status').filter({hasText:'Exposed: controlled-text-model'}).waitFor();
+ await page.locator('.model-status').filter({hasText:'Exposed'}).waitFor();
  assert.equal(await page.locator('.model-status').getAttribute('data-state'),'observed','Catalog exposure is informational, not a successful generation');
  assert.match(await page.locator('.model-status').getAttribute('title'),/does not establish current engine residency or successful inference/);
  await page.evaluate(()=>{window.__catalogClock=Date.now;Date.now=()=>window.__catalogClock()+61_000;document.dispatchEvent(new Event('visibilitychange'));});
- await page.locator('.model-status').filter({hasText:'Check expired: controlled-text-model'}).waitFor();
+ await page.locator('.model-status').filter({hasText:'Catalog old'}).waitFor();
  assert.equal(await page.locator('.model-status').getAttribute('data-state'),'degraded');
- assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'degraded');
+ assert.equal(await page.locator('.provider-status').getAttribute('data-state'),'unknown');
  await page.evaluate(()=>{Date.now=window.__catalogClock;delete window.__catalogClock;document.dispatchEvent(new Event('visibilitychange'));});
- await page.locator('.model-status').filter({hasText:'Exposed: controlled-text-model'}).waitFor();
+ await page.locator('.model-status').filter({hasText:'Exposed'}).waitFor();
  await page.locator('.live-rail button[aria-label="Compute"]').click();
- assert.equal(await page.locator('.model-status').textContent(),'Exposed: controlled-text-model','Observation survives navigation without another probe');
+ assert.match(await page.locator('.model-status').textContent(),/Exposed/,'Observation survives navigation without another probe');
 
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  const blockedComposer=page.getByRole('textbox',{name:'Message to the Case'});
@@ -617,6 +617,26 @@ try {
  await page.waitForFunction(()=>{const n=document.querySelector('.overview-narrative');return n && (n.querySelector('[role="alert"]') || n.querySelector('.narrative-text')?.textContent.includes('No completed response'));});
  assert.equal(generationRequests,beforeRefusal,'Revoked trust must not dispatch narrative inference');
  assert.equal(await narrative.locator('.narrative-text').filter({hasText:'Controlled provider response'}).count(),0);
+
+ // A later failed YAI qualification replaces the current capabilities. The
+ // composer must expose that projected route blocker before committing a Turn.
+ const failedEvidence={...evidenceRecord,run_id:'studio-compute-controlled-failed-check',started_at_unix_ms:Date.now(),completed_at_unix_ms:Date.now(),exact_model_addressed:false,chat_text_envelope_valid:false,realization_shapes:[],failure_codes:['exact_model_not_in_current_catalog']};
+ const failedQualification=await accepted('provider.qualify',{target_ref:target.target_id,evidence:failedEvidence,suite_ref:'suite:studio-controlled-failed-check'});
+ assert.equal(failedQualification.capabilities.some(item=>item.capability==='chat_text'),false);
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
+ await page.getByRole('button',{name:'Conversation',exact:true}).click();
+ await page.getByRole('textbox',{name:'Message to the Case'}).fill('Do not commit an unrouteable Turn');
+ await page.getByText(/current qualification does not establish text conversation/).last().waitFor();
+ await page.locator('.model-status').filter({hasText:'Route blocked'}).waitFor();
+ assert.equal(await page.locator('.model-status').getAttribute('data-state'),'unavailable');
+ const beforeBlockedSend=exchanges.filter(item=>item.request.operation_ref==='conversation.send').length;
+ assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
+ await page.getByRole('textbox',{name:'Message to the Case'}).press('Control+Enter');
+ assert.equal(exchanges.filter(item=>item.request.operation_ref==='conversation.send').length,beforeBlockedSend);
+ await page.screenshot({path:`${evidence}/conversation-unqualified-route.png`});
+ await page.getByRole('button',{name:'Open provider checks',exact:true}).click();
+ await page.locator('.deployment-route-alert').getByText('This deployment cannot carry Case conversation now.',{exact:true}).waitFor();
+ await page.screenshot({path:`${evidence}/provider-unqualified-route.png`});
 
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);

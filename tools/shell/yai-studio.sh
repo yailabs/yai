@@ -10,6 +10,10 @@ if [ ! -x "$binary" ]; then
     exit 127
 fi
 export YAI_HOME="${YAI_HOME:-$HOME/.yai}"
+# Case-sized governed inference may spend longer than the transport library's
+# 300-second default in prefill. Keep one bounded deadline for the resident Host
+# started by Studio; an explicit operator value still takes precedence.
+export YAI_PROVIDER_RESPONSE_TIMEOUT_SECS="${YAI_PROVIDER_RESPONSE_TIMEOUT_SECS-3600}"
 # Prefer the qualified X11 path when X/XWayland is available; retain explicit
 # operator overrides and do not invent a display on a Wayland-only machine.
 if [ -n "${DISPLAY:-}" ]; then

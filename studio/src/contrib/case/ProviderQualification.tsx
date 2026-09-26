@@ -6,6 +6,15 @@ import { Badge, Button } from "../../components/primitives";
 type Mode = "text" | "tools" | "embedding";
 interface Receipt { submission: string; mode: Mode }
 const modes = new Set<Mode>(["text", "tools", "embedding"]);
+const elapsed = (since: number, now: number) => {
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+};
+const outcome = (run: ProviderProbeExecution) => run.posture === "running" ? "Still checking"
+  : run.posture === "completed" && !run.run.evidence?.exact_model_addressed ? "Completed · exact model not proven"
+  : run.posture === "completed" && run.run.qualification?.capabilities.length ? "Completed · evidence recorded"
+  : run.posture === "completed" ? "Completed · no capability proven"
+  : run.posture === "interrupted" ? "Interrupted · no automatic retry" : "Failed · no capability proven";
 function readReceipt(key: string): Receipt | undefined {
   try {
     const item = JSON.parse(localStorage.getItem(key) ?? "null");
@@ -53,6 +62,7 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
   const [receipt, setReceipt] = useState(() => readReceipt(storageKey));
   const [mode, setMode] = useState<Mode>(receipt?.mode ?? "text");
   const [result, setResult] = useState<ProviderProbeExecution>();
+  const [clock, setClock] = useState(() => Date.now());
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -62,6 +72,12 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
   const notified = useRef<string | undefined>(undefined);
   const complete = useRef(onCompleted); complete.current = onCompleted;
   useEffect(() => () => { epoch.current++; }, []);
+  useEffect(() => {
+    if (result?.posture !== "running") return;
+    setClock(Date.now());
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [result?.posture, result?.submission_ref]);
   const available = application?.supports("provider.probe") && application.supports("provider.probe.get");
   const listAvailable = application?.supports("provider.probe.list");
   const currentHistory = available && history?.catalog === availability?.catalog ? history : undefined;
@@ -140,10 +156,10 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
   const qualification = visible?.run.qualification;
   return <section className="provider-qualification" aria-label="Deployment qualification">
     <header><h3>Check this deployment</h3>{visible && <Badge tone={visible.posture === "completed" && measured?.exact_model_addressed && qualification?.capabilities.length ? "success" : "warning"}>{visible.posture === "running" ? "Checking" : visible.posture === "completed" ? !measured?.exact_model_addressed ? "Exact model not proven" : qualification?.capabilities.length ? "Evidence recorded" : "No capability proven" : visible.posture === "interrupted" ? "Interrupted" : "Check invalidated"}</Badge>}</header>
-    <p>Small synthetic requests through YAI, without Case content. This replaces current qualification with the capabilities tested; trust and Case binding stay separate.</p>
+    <p>A small test request checks this deployment without sharing Case content. Each completed check replaces the current qualification with only the capabilities it proves. A successful text check also closes YAI’s provider circuit; a failed one can block Case chat. This does not send a chat message.</p>
     <div className="provider-check-controls"><label>Check capabilities<select value={mode} disabled={submitting || Boolean(receipt && !terminal)} onChange={event => setMode(event.target.value as Mode)}><option value="text">Text conversation</option><option value="tools">Text, JSON and tool roundtrip</option><option value="embedding">Embeddings</option></select></label>
       <Button disabled={!canStart || submitting || Boolean(receipt && !terminal)} onClick={() => void submit({ submission: `studio-probe:${crypto.randomUUID()}`, mode })}>{submitting ? "Submitting…" : receipt ? "Run a new check" : "Check & qualify"}</Button>
-      {receipt && <Button disabled={!available || submitting} onClick={() => setRefresh(value => value + 1)}>Observe result</Button>}
+      {receipt && <Button disabled={!available || submitting} onClick={() => setRefresh(value => value + 1)}>Refresh result</Button>}
       {receipt && !visible && !submitting && <Button disabled={!available} onClick={() => void submit(receipt)}>Retry exact request</Button>}
     </div>
     {!available && <p>This Host does not currently expose qualification start and observation.</p>}
@@ -152,7 +168,8 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
     {anotherRunning && !receipt && <p role="status">A retained check is still running. Observe it below; no new check has been started.</p>}
     <Button disabled={!listAvailable || submitting} onClick={() => setRefresh(value => value + 1)}>Refresh check history</Button>
     {error && <p role="alert">{error}</p>}
-    {visible?.posture === "running" && <p role="status">YAI is checking the endpoint. You can leave this view and return to observe the same request.</p>}
+    {visible?.posture === "running" && <div className="provider-check-running" role="status"><strong>Synthetic check running · {elapsed(visible.run.owner.started_at_unix_ms, clock)}</strong><p>This tests the deployment with a small YAI request, separate from the Case conversation. YAI has not returned a finer progress phase or result. This view observes the same request automatically; it does not resend it.</p><small>Started {new Date(visible.run.owner.started_at_unix_ms).toLocaleString()} · {visible.submission_ref}</small></div>}
+    {terminal && <p role="status">This check {visible.posture === "completed" ? "completed" : visible.posture}. {qualification?.capabilities.length ? "Its measured capabilities are listed below." : "No new capability was proven."} This does not establish current model residency or complete a Case conversation.</p>}
     {visible?.posture === "interrupted" && <p>The carrier was interrupted. This request has not been dispatched again.</p>}
     {visible?.run.failure_code && <p role="alert">{visible.run.failure_code.replaceAll("_", " ")}. No new qualification was granted.</p>}
     {measured && <><dl className="provider-check-facts"><div><dt>Exact model</dt><dd>{measured.exact_model_addressed ? "Addressed" : "Not proven"}</dd></div><div><dt>Measured</dt><dd>{new Date(measured.completed_at_unix_ms).toLocaleString()}</dd></div></dl>
@@ -161,12 +178,12 @@ function Qualification({ storageKey, platform, target, onCompleted }: { storageK
     </>}
     {currentHistory?.runs && <details className="provider-check-history"><summary>Previous checks ({currentHistory.runs.length})</summary>
       {!currentHistory.runs.length && <p>No retained check for this deployment.</p>}
-      {currentHistory.runs.map(run => <details key={run.submission_ref}><summary>{new Date(run.run.owner.started_at_unix_ms).toLocaleString()} · {run.posture}</summary>
+      {currentHistory.runs.map(run => <details key={run.submission_ref}><summary>{run.run.request.embedding ? "Embedding" : "Text"} check · {run.posture === "running" ? `Still checking · ${elapsed(run.run.owner.started_at_unix_ms, clock)}` : outcome(run)} · {new Date(run.run.owner.started_at_unix_ms).toLocaleString()}</summary>
         <code>{run.submission_ref}</code><p>{run.run.request.embedding ? "Embeddings" : run.run.request.realization_shapes.join(", ") || "Text and JSON"} · {run.run.request.qualify ? "Qualification requested" : "Observation only"}</p>
         {run.run.evidence && <p>Exact model: {run.run.evidence.exact_model_addressed ? "proven" : "not proven"}. {run.run.evidence.failure_codes.join(", ") || "No reported failure."}</p>}
         {run.run.failure_code && <p>{run.run.failure_code.replaceAll("_", " ")}</p>}
       </details>)}
     </details>}
-    {receipt && <details><summary>Recovery reference</summary><code>{receipt.submission}</code><p>Observation uses current Tenant authority. This reference is not permission to execute.</p></details>}
+    {receipt && <details><summary>Check ID and recovery</summary><code>{receipt.submission}</code><p>Use this ID to reopen the same result. It does not start another check.</p></details>}
   </section>;
 }

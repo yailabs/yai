@@ -1816,6 +1816,62 @@ started with the documented 900-second response deadline; Studio reattached,
 and `execution.get` still returns the same indeterminate submission after
 restart. Do not retry it. The replacement Host's Focused behavior requires a
 separate, explicitly authorized real SEND to qualify.
+
+On 2026-09-26, Studio sent one new Focused question from
+`case:tech-infra-inference-service` at generation 129. The client saved
+`studio-send:943b324b-baf5-41cb-ad58-c4663ccc3ecb` before dispatch and
+did not retry it. Exact YAI preflight admitted 20,371 input tokens and a
+1,024-token output request against the target's 32,768-token sequence limit.
+The serialized request was 64,238 bytes; YAI wrote 64,399 HTTP bytes, then
+recorded `delivery_indeterminate` at `response_body` after its 300-second
+deadline. There is no canonical model result. This proves Case-bound Studio
+delivery and context accounting, not a successful answer or an external
+model defect. The Local Host was then restarted with
+`YAI_PROVIDER_RESPONSE_TIMEOUT_SECS=3600`; Studio reattached, and read-only
+observation still shows the same indeterminate attempt. The source-install
+`yai-studio` launcher now supplies this bounded deadline to a Host it starts
+unless the operator explicitly overrides it. A fresh SEND needs a distinct
+authorization and identity; the old submission must never be redispatched.
+
+The operator also retired five extra Cases through ordinary YAI cancellation
+and closure, leaving Tech Infra as the only open Case in that profile. Studio's
+normal start list and switcher now show only open Cases, with an explicit
+closed-Case view. This does not erase their canonical history. YAI still lacks
+a qualified physical Case deletion/retention contract for its shared store;
+do not remove LMDB keys or present archival as deletion.
+
+After the operator authorized one further distinct SEND with an exact Italian
+question, Studio saved `studio-send:5e41b002-3bcb-4316-9323-0e6a57398d93`
+before submitting from Tech Infra at Case state version 134 through the live
+Host. Read-only observation reached `running` and then
+`delivery_indeterminate` with one provider attempt for
+`cognitive-composition:sha256:c0153eb9b6789ec7a5b3e11c4f84952a4823a88b005a8d47ff6975377ac643d5`.
+The exact retained attempt reports HTTP 504, `remote_response_rejected` at
+`response_body`, and 64,966 request bytes written. Studio showed no canonical
+model Turn or answer. The request was not retried.
+The source run is `/tmp/yai-tech-infra-send-2-observation.log` in the operator
+environment; this local path is transient and not a published evidence artifact.
+The real governed-answer acceptance remains open despite the successful
+synthetic deployment check and the public 32K catalog observation.
+
+The later operator-entered `CIAO` is a committed Turn with no provider
+attempt. Read-only `execution.get` reports `unresolved` and zero invocations.
+The current YAI planner reports `primary_provider_qualification_missing`:
+the latest synthetic check replaced the target's current qualification with
+zero capabilities, and YAI's provider circuit is open after failed requests.
+A fresh `/v1/models` response still lists the exact DeepSeek model at 32,768
+tokens, but model-list visibility does not restore qualification, close the
+circuit, or prove an answer. Studio now shows these Case-projected blockers
+beside Conversation and prevents a new SEND while they are present. It does
+not silently requalify, reset health, or retry any earlier submission.
+That local guard applies to this Case's sole candidate. If a cognitive binding
+has ordered alternatives, the preferred target's posture is not the route;
+YAI's cognitive planner selects the execution target.
+Once the target can complete a small inference, start one new explicit
+**Providers → Evidence → Check this deployment**. A successful text check
+replaces the failed qualification and closes YAI's provider circuit; inspect
+its exact result before attempting a new Case SEND with a new identity.
+
 After updating Studio/YAI binaries, inspect `yai host status --json` or
 **Settings → YAI Host** before a new external model run. On Linux, a Host whose
 executable was replaced on disk reports `executable_posture: replaced_on_disk`;
@@ -1829,11 +1885,19 @@ temporary Host binary; it never mutates an operator-owned Case.
 
 In Studio, open **Providers → selected deployment → Runtime → Check exposed
 model**. The status bar and deployment view must agree on the exact target:
-`Catalog reachable` and `Model exposed` describe only a recent public catalog
-observation. The cool status color means metadata observed, not healthy
-inference. After one minute without another check, both show an expired
-observation instead of a current availability claim; reopening Studio after Host
-loss also clears it. The dated YAI health observation remains separately visible
+`Endpoint responds` and `Exposed` describe only a recent public catalog
+observation. The green connection dot means the endpoint responded to this
+metadata check; the separate blue model dot means its name was listed, not
+healthy inference. While Studio is visible it refreshes the bound target's
+metadata at most once per minute, and checks again when the window gains
+focus. If no new observation completes within that minute, the connection says
+**Catalog old** instead of claiming current availability. The model indicator
+also says **Catalog old** unless the current Case route is blocked by missing
+text qualification or an open provider circuit; then it says **Route blocked**.
+Catalog age alone is not a SEND refusal; check YAI qualification, circuit and
+the exact execution outcome separately.
+Reopening Studio after Host loss also clears it. The dated YAI health
+observation remains separately visible
 and may disagree with the current catalog. Neither indicator proves engine
 residency or a completed Case response. This UI check does not send Case content.
 
@@ -2215,13 +2279,25 @@ not support the registered-target input refuses explicitly until upgraded.
 
 
 For the Case-bound target, **Check exposed model** also updates the status bar:
-**Catalog reachable** describes the observed endpoint response; **Exposed**
-describes the assigned model's presence at that time. Hover for the timestamp.
+**Endpoint responds** describes the observed endpoint response; **Exposed**
+describes the assigned model's catalog presence at that time. Hover for the exact
+identity and timestamp.
 Checking an unbound inventory target must not change this Case's footer. An empty
 catalog or failed check replaces the previous positive state, and Host loss or
-contract refresh clears both workspace and footer observations. Navigation alone
-does not send another probe. None of these labels means engine residency or
-that the current Case fits the model context.
+contract refresh clears both workspace and footer observations. Navigation can
+trigger a metadata read, but never a synthetic qualification or Case SEND. The
+deployment workspace separates endpoint
+response, model catalog, YAI's effective health and its historical report.
+Engine residency is **Not observable** through this connection. None of these
+labels proves a completed inference or that the current Case fits the context.
+
+The **Evidence** tab's **Check this deployment** is a separate synthetic
+qualification request with no Case content. It shows elapsed time while YAI
+reports `running`, then whether the exact model and capabilities were proven.
+The retained check list names the outcome beside `completed`; expand a row for
+failure codes and identity. **Check ID and recovery** holds the exact request
+identity for reopening the same result; it does not start another check. A
+completed synthetic check does not finish a Conversation SEND.
 
 
 The small persistent `case:qualification-deepseek-4k` now retains one real

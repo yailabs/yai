@@ -1,6 +1,7 @@
 import { DeploymentModelObservation } from "./DeploymentModelObservation";
 import type { ApplicationAccess } from "../../clients/application";
-import { useState, type ReactNode } from "react";
+import { isCurrentProviderCatalog, providerCatalogKey } from "../../clients/compute";
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { CasePresentation } from "../../clients/dataSource";
 import type { WorkbenchActions } from "../../workbench/kernel/types";
 import { Badge, Button } from "../../components/primitives";
@@ -22,21 +23,45 @@ export function ProviderWorkspace({ scope, workspace, application, targets, omit
   const [selected, setSelected] = useState<string>();
   const [section, setSection] = useState("Runtime");
   const item = targets.find(target => target.id === selected) ?? targets[0];
+  const availability = useSyncExternalStore(
+    useCallback(listener => application?.subscribe(listener).dispose ?? (() => {}), [application]),
+    useCallback(() => application?.snapshot(), [application]));
+  const [clock, setClock] = useState(() => Date.now());
+  const catalog = item && workspace.case.tenant_ref ? availability?.providerCatalogs?.[providerCatalogKey(workspace.case.tenant_ref, item.id)] : undefined;
+  useEffect(() => {
+    if (catalog?.state !== "observed") return;
+    const timer = window.setInterval(() => setClock(Date.now()), 10_000);
+    return () => window.clearInterval(timer);
+  }, [catalog]);
+  const freshCatalog = isCurrentProviderCatalog(catalog, clock);
+  const modelExposed = freshCatalog && catalog?.state === "observed" && Boolean(item && catalog.models.includes(item.model_id));
+  const connectionLabel = catalog?.state === "checking" ? "Checking" : freshCatalog ? "Responded" : catalog?.state === "observed" ? "Catalog old" : catalog?.state === "unavailable" ? catalog.empty ? "Responded, empty" : "Check failed" : "Not checked";
+  const connectionTone = freshCatalog || catalog?.state === "unavailable" && catalog.empty ? "success" : catalog?.state === "unavailable" ? "error" : "neutral";
+  const modelLabel = freshCatalog ? modelExposed ? "Exposed" : "Not exposed" : catalog?.state === "unavailable" && catalog.empty ? "No models" : "Unverified";
   const posture = typeof item?.posture === "object" ? item.posture : undefined;
   const health = posture?.health;
   const bound = item && workspace.compute.targets.some(target => target.id === item.id);
+  const conversationUnqualified = bound && !posture?.qualification?.capabilities.some(capability => capability.capability === "chattext");
+  const circuitOpen = bound && health?.circuit === "open";
   const effectiveHealth = health?.effective_posture;
   const expiredPositive = effectiveHealth === "unknown" && health?.posture !== "unknown" && Boolean(health?.observed_at_unix_ms);
   const tone = effectiveHealth === "unavailable" ? "error" : effectiveHealth === "degraded" ? "warning" : "neutral";
   return <div className="provider-workspace">
     <header className="provider-workspace-toolbar"><div><Icon name={scope === "yvex" ? "processor" : "providers"} /><h1>{scope === "yvex" ? "YVEX" : "Providers"}</h1><span>{targets.length} deployment{targets.length === 1 ? "" : "s"}{omitted > 0 ? ` · ${omitted} omitted by read bound` : ""}</span></div><div><Button onClick={refresh} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh inventory"}</Button><Button disabled={!canConnect} onClick={connect}>{scope === "yvex" ? "Connect compatible deployment" : "Register provider target"}</Button></div></header>
-    <div className="provider-workspace-status" role="status">{error ?? (!ready ? "Reading authorized inventory…" : `YAI inventory updated ${time(refreshedAt)}`)}<span>Inventory refreshes every 10s · model catalog only when checked</span></div>
+    <div className="provider-workspace-status" role="status">{error ?? (!ready ? "Reading authorized inventory…" : `YAI inventory updated ${time(refreshedAt)}`)}<span>Inventory refreshes every 10s · connection check every 60s while Studio is visible</span></div>
     <div className="provider-workspace-body">
       <label className="deployment-compact-picker">Deployment<select aria-label="Selected deployment" value={item?.id ?? ""} onChange={event => { setSelected(event.target.value); actions.inspect(event.target.value); }}>
         {!targets.length && <option value="">No deployment</option>}{targets.map(target => <option key={target.id} value={target.id}>{target.provider_key} · {target.model_id}</option>)}
       </select></label>
       <section className="deployment-workspace" aria-label="Deployment details">
         {item ? <><header className="deployment-heading"><div><small>Selected deployment</small><h2>{item.provider_key}</h2><Badge tone={posture?.trust?.posture === "approved" ? "success" : posture?.trust?.posture === "denied" ? "error" : "neutral"}>{posture?.trust?.posture ?? "Unreviewed"}</Badge></div><Button onClick={() => actions.inspect(item.id)}>Inspect deployment</Button></header>
+          <section className="deployment-at-glance" aria-label="Deployment at a glance">
+            <div><span>Endpoint</span><Badge tone={connectionTone}>{connectionLabel}</Badge><small>{catalog?.state === "observed" ? `Checked ${time(catalog.at)}` : "No current response timestamp"}</small></div>
+            <div><span>Exact model</span><Badge tone={freshCatalog ? modelExposed ? "info" : "error" : "neutral"}>{modelLabel}</Badge><small>Catalog presence only</small></div>
+            <div><span>Engine load</span><Badge tone="neutral">Not observable</Badge><small>YAI has no native residency read</small></div>
+            <div><span>YAI health</span><Badge tone={tone}>{effectiveHealth ?? "Unknown"}</Badge><small>{health?.observed_at_unix_ms ? `Last report: ${health.posture} · ${time(health.observed_at_unix_ms)}` : "No report"}</small></div>
+          </section>
+          {(conversationUnqualified || circuitOpen) && <div className="deployment-route-alert" role="status"><strong>This deployment cannot carry Case conversation now.</strong><span>{conversationUnqualified ? "YAI's current qualification does not establish text conversation." : ""}{circuitOpen ? " YAI's provider circuit is open after failed requests." : ""} A catalog response does not repair this target.</span><Button onClick={() => setSection("Evidence")}>Review provider checks</Button></div>}
           <nav className="deployment-sections" aria-label="Deployment sections">{["Runtime", "Evidence", "Platform"].map(name => <button key={name} aria-pressed={section === name} onClick={() => setSection(name)}>{name}</button>)}</nav>
           <div className="deployment-content">
           {section === "Runtime" && <>

@@ -91,6 +91,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .live-start-intro p { color: var(--yai-text-secondary); font-size: 15px; }
 .live-start-intro .ui-search { width: min(480px,100%); margin-top: 18px; }
 .live-case-list { max-width: 980px; margin-top: 44px; padding: 0 4px 10px; border-radius: var(--radius-surface); background: var(--yai-panel); }
+.case-catalog-actions { display: inline-flex; align-items: center; gap: 8px; }
 .live-case-row { width: calc(100% - 12px); min-height: 66px; margin: 0 6px 2px; padding: 9px 12px; display: flex; align-items: center; gap: 13px; border: 0; border-radius: var(--radius-control); background: transparent; text-align: left; cursor: pointer; }
 .live-case-row:hover { background: var(--yai-selected); }
 .live-case-row > span:first-of-type { min-width: 0; flex: 1; display: flex; flex-direction: column; }
@@ -816,21 +817,27 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 /* Connection status separates the application Host from a Case model assignment. */
 .kernel-status > div.status-connections { max-width: 72%; gap: 10px; }
 .kernel-status .status-connections button { height: 20px; min-width: 0; padding: 0 3px; border: 0; background: transparent; color: var(--yai-text-secondary); font: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kernel-status .host-status::before, .kernel-status .provider-status::before, .kernel-status .model-status::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--yai-text-muted); vertical-align: 1px; }
 .kernel-status .status-connections .host-status, .kernel-status .status-connections .telemetry-status { flex-shrink: 0; }
 .kernel-status .status-connections .host-status[data-state="live"] { color: var(--yai-success); }
+.kernel-status .status-connections .host-status[data-state="live"]::before { background: var(--yai-success); }
 .kernel-status .status-connections .host-status[data-state="replaced_on_disk"] { color: var(--yai-warning); }
 .kernel-status .status-connections .host-status[data-state="unavailable"], .kernel-status .status-connections .host-status[data-state="stopped"] { color: var(--yai-error); }
+.kernel-status .status-connections .host-status[data-state="unavailable"]::before, .kernel-status .status-connections .host-status[data-state="stopped"]::before { background: var(--yai-error); }
 .kernel-status .model-status { max-width: 32vw; }
 .kernel-status .model-status[data-state="unassigned"], .kernel-status .model-status[data-state="degraded"] { color: var(--yai-warning); }
 .kernel-status .model-status[data-state="observed"] { color: var(--yai-info); }
+.kernel-status .model-status[data-state="observed"]::before { background: var(--yai-info); }
 .kernel-status .model-status[data-state="unavailable"] { color: var(--yai-error); }
+.kernel-status .model-status[data-state="unavailable"]::before { background: var(--yai-error); }
 .kernel-status .status-connections button:hover { background: var(--yai-raised); }
 .kernel-status .status-connections button:focus-visible { outline: 1px solid var(--yai-focus); outline-offset: -1px; }
 
 .kernel-status .provider-status { max-width: 22vw; }
-.kernel-status .provider-status[data-state="observed"] { color: var(--yai-info); }
+.kernel-status .provider-status[data-state="reachable"] { color: var(--yai-success); }
+.kernel-status .provider-status[data-state="reachable"]::before { background: var(--yai-success); }
 .kernel-status .provider-status[data-state="unavailable"] { color: var(--yai-error); }
-.kernel-status .provider-status[data-state="degraded"] { color: var(--yai-warning); }
+.kernel-status .provider-status[data-state="unavailable"]::before { background: var(--yai-error); }
 
 /* Operational platform workspace: one Workbench sidebar and a full-width detail surface. */
 .platform-surface { height: 100%; min-height: 0; overflow: hidden; }
@@ -846,6 +853,15 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .deployment-heading small { color: var(--yai-text-muted); font-size: 10px; }
 .deployment-heading h2 { font-size: 20px; margin: 3px 0 0; overflow-wrap: anywhere; }
 .deployment-heading .ui-badge { display: inline-flex; margin-top: 6px; }
+.deployment-at-glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(155px, 100%), 1fr)); border-block: 1px solid var(--yai-divider); background: var(--yai-panel); }
+.deployment-at-glance > div { min-width: 0; display: grid; justify-items: start; align-content: start; gap: 5px; padding: 11px 14px; border-right: 1px solid var(--yai-divider); }
+.deployment-at-glance > div:last-child { border-right: 0; }
+.deployment-at-glance span, .deployment-at-glance small { color: var(--yai-text-muted); font-size: 10px; }
+.deployment-at-glance small { line-height: 1.4; overflow-wrap: anywhere; }
+.deployment-route-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 20px; border-bottom: 1px solid var(--yai-divider); color: var(--yai-text-secondary); font-size: 11px; line-height: 1.45; }
+.deployment-route-alert strong { color: var(--yai-warning); font-weight: 600; }
+.deployment-route-alert .ui-button { margin-left: auto; }
+.conversation-route-warning { color: var(--yai-warning); }
 .deployment-sections { flex-shrink: 0; display: flex; gap: 16px; padding: 0 20px; border-bottom: 1px solid var(--yai-divider); }
 .deployment-sections button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--yai-text-muted); padding: 8px 0; cursor: pointer; }
 .deployment-sections button[aria-pressed=true] { color: var(--yai-text); border-color: var(--yai-focus); }
@@ -872,7 +888,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .platform-contracts small { grid-column: 2; color: var(--yai-warning); }
 .platform-contracts span { color: var(--yai-text-secondary); }
 .deployment-idle { margin: auto; padding: 20px; text-align: center; color: var(--yai-text-muted); }
-@media(max-width:1280px) { .provider-workspace-toolbar { flex-wrap: wrap; padding: 8px 12px; }.provider-workspace-toolbar .ui-button { font-size: 11px; }.provider-workspace-status span { display:none; }.deployment-content { padding:12px; }.deployment-heading { padding:10px 12px; }.deployment-heading h2 { font-size:16px; } }
+@media(max-width:1280px) { .provider-workspace-toolbar { flex-wrap: wrap; padding: 8px 12px; }.provider-workspace-toolbar .ui-button { font-size: 11px; }.provider-workspace-status span { display:none; }.deployment-content { padding:12px; }.deployment-heading { padding:10px 12px; }.deployment-heading h2 { font-size:16px; }.deployment-at-glance > div { padding:8px 10px; } }
 
 /* Dense graph overview keeps spatial structure and accessible objects, not tiny text. */
 .graph-viewport .edge line { vector-effect: non-scaling-stroke; }
@@ -926,6 +942,9 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 /* Compact platform navigation follows actual Work Surface width, including open tools. */
 .deployment-compact-picker { display:grid; grid-template-columns:auto minmax(0, min(560px, 100%)); align-items:center; gap:10px; padding:8px 20px; font-size:11px; color:var(--yai-text-muted); border-bottom:1px solid var(--yai-divider); }
 .provider-qualification { padding: 14px; background: var(--yai-panel); border: 1px solid var(--yai-divider); border-radius: 7px; }
+.provider-check-running { margin: 12px 0; padding: 10px 12px; border-left: 2px solid var(--yai-warning); background: var(--yai-inset); }
+.provider-check-running strong { font-size: 12px; font-weight: 600; color: var(--yai-text); }
+.provider-check-running small { display: block; color: var(--yai-text-muted); overflow-wrap: anywhere; }
 .provider-check-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
 .provider-check-controls label { display:grid; gap:6px; font-size:11px; color:var(--yai-text-secondary); min-width:0; }
 .provider-check-controls select, .deployment-compact-picker select { min-width:0; max-width:100%; height:30px; border:1px solid var(--yai-divider); border-radius:5px; background:var(--yai-inset); color:var(--yai-text); padding:0 8px; }

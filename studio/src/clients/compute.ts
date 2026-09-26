@@ -36,7 +36,8 @@ export function readProbeEvidence(value: unknown): ProviderProbeEvidence | undef
 }
 
 export interface SemanticEvidence { evidence_id: string; target_id: string; capability: string; posture: string; suite_id: string; run_id: string }
-export interface CognitiveBinding { binding_id: string; participant_id: string; role: string; capability: string; target_id: string; semantic_evidence_id: string }
+export interface CognitiveBinding { binding_id: string; participant_id: string; role: string; capability: string; target_id: string; semantic_evidence_id: string;
+  target_policy?: { kind: "ordered_eligible"; alternatives: Array<{ target_id: string; target_digest: string; semantic_evidence_id: string }> } }
 export interface SuitabilityInput { target_ref: string; capability: "primary_conversation"; suite_ref: string; run_ref: string; evidence_refs: string[] }
 export interface CognitiveBindingInput { case_ref: string; participant_ref: string; role: "primary"; capability: "primary_conversation"; candidates: Array<{ target_ref: string; semantic_evidence_ref: string }>; replace: boolean }
 

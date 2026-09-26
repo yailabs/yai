@@ -62,6 +62,17 @@ try {
     window.advanceCase = () => { workspace.case = { ...workspace.case, generation: 8 }; render(); };
     window.showMarkdown = text => { markdownOutput=text; workspace.case={...workspace.case,generation:9}; render(); };
     window.showAttempts = values => { attempts=values; workspace.case={...workspace.case,generation:workspace.case.generation+1}; render(); };
+    window.showRouteCandidates = alternatives => {
+      workspace.compute = {
+        targets: [
+          { id: 'target:first', posture: { qualification: { capabilities: [] }, health: { circuit: 'open' } } },
+          { id: 'target:second', posture: { qualification: { capabilities: [{ capability: 'chattext' }] }, health: { circuit: 'closed' } } },
+        ],
+        cognitive_bindings: [{ participant_id: 'participant:reader', role: 'primary', target_id: 'target:first',
+          ...(alternatives ? { target_policy: { kind: 'ordered_eligible', alternatives: [{ target_id: 'target:second' }] } } : {}) }],
+      };
+      render();
+    };
     render();
   });
   await page.getByRole('button', { name: 'Check status', exact: true }).waitFor();
@@ -120,6 +131,14 @@ try {
   assert.equal(await receipts.nth(3).getByText('Attempt 4',{exact:true}).count(),0);
   await receipts.first().getByText('Exact transport evidence',{exact:true}).click();
   assert.deepEqual(JSON.parse(await receipts.first().locator('pre').textContent()),outcomes[0]);
+  assert.equal(await page.evaluate(()=>window.sendCalls),0);
+  await page.evaluate(() => window.showRouteCandidates(false));
+  const routeComposer=page.getByRole('textbox',{name:'Message to the Case'});
+  await routeComposer.fill('Keep this draft local');
+  await page.getByText(/current qualification does not establish text conversation/).last().waitFor();
+  assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
+  await page.evaluate(() => window.showRouteCandidates(true));
+  assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isEnabled(),true,'An excluded preference must not mask a qualified alternative owned by YAI');
   assert.equal(await page.evaluate(()=>window.sendCalls),0);
   assert.deepEqual(errors, []);
   console.log('PASS: Conversation and Overview active-only observation, unresolved explicit check, Case update resync; no redispatch (presentation fixture).');

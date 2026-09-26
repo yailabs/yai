@@ -58,10 +58,12 @@ records measurements separately. Natural-language quality never
 substitutes for deterministic authority, identity and effect assertions.
 
 The operator now requires the everyday local Case catalog to retain only
-`case:tech-infra-inference-service`. The current profile still contains five
-other Cases. `case.close` preserves history and remains listed; no published
-Case deletion/retention operation can remove them safely from the shared
-canonical store. This is a backend lifecycle gap, not a Studio filtering rule.
+`case:tech-infra-inference-service`. The five other Cases are closed; Studio
+shows only the one active Case by default and offers an explicit closed-Case
+archive view. `case.close` preserves their canonical history, so this is not
+physical deletion. No published Case deletion/retention operation can remove
+them safely from the shared canonical store; that remains a backend lifecycle
+gap, not a reason to hide their existence from the operator.
 Future qualification Cases must use isolated reconstructible profiles; do not
 create more durable test Cases in the operator's everyday profile.
 Historical DeepSeek setup and native-qualification scripts now refuse the
@@ -276,8 +278,31 @@ at generation 115 retained a new Turn and exact request (26,746 input tokens,
 time was an obsolete, deleted executable and produced historical Focused intent
 without the current 1,024-token output ceiling. The updated Host now runs with a
 900-second provider response deadline and Studio reattached; the indeterminate
-attempt was observed, never retried. A successful infrastructure answer and
-current-v5 Focused real execution remain unqualified.
+attempt was observed, never retried. A later one-shot Studio Focused SEND in
+Tech Infra at generation 129 proved the current 1,024-token output ceiling and
+exact preflight: 20,371 input tokens, 64,238 serialized bytes, 32,768 sequence
+capacity. YAI wrote 64,399 bytes but reached its 300-second response deadline
+without a complete response; the exact attempt is `delivery_indeterminate`
+at `response_body`. It was not retried. The Local Host has since restarted with
+the documented 3,600-second bounded response deadline and Studio reattached.
+The source-install Studio launcher now passes that bound to Hosts it starts,
+unless the operator provides an explicit override. A successful infrastructure
+answer remains unqualified; catalog capacity and transport delivery do not
+substitute for a canonical result.
+One later operator-authorized Studio SEND from Tech Infra at Case state version
+134 again reached `delivery_indeterminate` after one attempt; the retained
+provider outcome was HTTP 504 at `response_body`. No canonical answer or model
+Turn was rendered, and no automatic retry occurred. A subsequent operator
+message committed a Turn but had zero provider invocations: YAI's planner
+reports `primary_provider_qualification_missing`, because the latest failed
+synthetic check retained no text capability and the provider circuit is open.
+The public model catalog still lists DeepSeek at 32K; that metadata does not
+repair the route. Studio now blocks new Conversation SEND while those
+Case-projected blockers are present and links to the provider checks. Studio
+also separates fresh endpoint response, catalog model presence, YAI health and
+unknown engine residency in the deployment workspace and status bar. The
+synthetic qualification view shows elapsed running time and a readable result
+beside each completed check. These observations do not promote real inference.
 
 ### Case portfolio and machine qualification
 

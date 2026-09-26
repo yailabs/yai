@@ -65,8 +65,20 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
   const fastSearchSupported = Boolean(application?.supports("semantic.fast_search.prepare"));
   const hasTarget = workspace.compute.targets.length > 0;
   const assignment = workspace.compute.cognitive_bindings?.find(item => item.participant_id === participant && item.role === "primary");
+  const assignedTarget = workspace.compute.targets.find(item => item.id === assignment?.target_id);
+  const candidateRefs = assignment ? [assignment.target_id, ...(assignment.target_policy?.alternatives.map(item => item.target_id) ?? [])] : [];
+  const candidateTargets = candidateRefs.filter(ref => workspace.compute.targets.some(item => item.id === ref));
+  const targetPosture = typeof assignedTarget?.posture === "object" ? assignedTarget.posture : undefined;
+  // These are YAI-owned projected facts, not a frontend authority decision. A
+  // successful catalog read cannot repair missing qualification or an open circuit.
+  const routeWarning = assignment && assignedTarget && candidateRefs.length === 1 && (
+    !targetPosture?.qualification?.capabilities.some(item => item.capability === "chattext")
+      ? "YAI's current qualification does not establish text conversation for this target. A SEND could commit a Turn without invoking the model."
+      : targetPosture.health?.circuit === "open"
+        ? "YAI's provider circuit is open after failed requests. A SEND could commit a Turn without invoking the model."
+        : undefined);
   const modelContextAdmitted = workspace.overview.participants.find(item => item.id === participant && item.is_current)?.model_context_admitted;
-  const canSend = supported && Boolean(assignment) && hasTarget && workspace.case.case_status === "open" && modelContextAdmitted === true;
+  const canSend = supported && Boolean(assignment && candidateTargets.length) && !routeWarning && workspace.case.case_status === "open" && modelContextAdmitted === true;
   const accept = (value: ConversationExecution) => {
     if (value.case_ref !== caseRef || value.participant_ref !== participant) throw new Error("Conversation identity mismatch.");
     setExecutions(previous => ({ ...previous, [value.turn_ref]: value }));
@@ -159,6 +171,7 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
         {turn.parts.length > 0 && turn.parts.every(part => part.modality === "text") && <RetainedMessageAction workspace={workspace} platform={platform} turnRef={turn.id} hasIntent={Boolean(turn.execution_request_ref || execution)} partRefs={turn.parts.map(part => part.part_ref)} />}
         {execution && <article className="real-turn turn-ai"><header><strong>Model</strong>{!execution.primary_result && <Badge tone={ ["admitted", "running"].includes(execution.posture) ? "info" : "warning"}>{execution.posture.replaceAll("_", " ")}</Badge>}</header>
           {execution.primary_result ? <div className="conversation-answer" data-result-ref={execution.primary_result.result_id}><Suspense fallback={<p>{execution.primary_result.output}</p>}><NarrativeText text={execution.primary_result.output} inspect={ref => actions.inspect(ref)} references={[caseRef, ...workspace.environment.sources.map(item => item.id), ...workspace.environment.resources.map(item => item.id), ...workspace.environment.files.map(item => item.id), ...workspace.knowledge.units.map(item => item.id), ...workspace.authority.policies.map(item => item.id), ...workspace.work.nodes.map(item => item.node_id), ...workspace.memory.timeline.map(item => item.id)]} /></Suspense></div> : <p>{conversationExecutionMessage(execution)}</p>}
+          {execution.posture === "unresolved" && routeWarning && <p className="conversation-route-warning">The current model route is blocked: {routeWarning}</p>}
           {execution.posture === "unresolved" && <Button type="button" onClick={() => setTick(value => value + 1)}>Check status</Button>}
           <details><summary>Execution details</summary>{execution.primary_result && <CandidateEffectAction workspace={workspace} platform={platform} candidateRef={execution.primary_result.result_id} />}<details><summary>Execution identities</summary><code>{execution.request_ref}</code>{execution.primary_result && <code>{execution.primary_result.result_id}</code>}</details>{execution.primary_result && <><details><summary>Original response</summary><pre className="conversation-response-source">{execution.primary_result.output}</pre></details></>}{execution.attempt_outcomes.map((outcome, index) => <ConversationAttempt key={outcome.outcome_id ?? index} outcome={outcome} />)}{application && <ExecutionContext application={application} execution={execution} generation={workspace.case.generation} />}</details>
         </article>}
@@ -166,9 +179,11 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
     </div>
     <form className="conversation-composer" onSubmit={event => { event.preventDefault(); if (!pending) void submit(); }}>
       {hasTarget && !assignment && <p>Assign a conversation model in <button type="button" className="object-link" onClick={configureModel}>Compute</button>.</p>}
+      {assignment && !candidateTargets.length && <p role="status">No candidate from this Case’s model binding is currently projected. <button type="button" className="object-link" onClick={configureModel}>Open Compute</button>.</p>}
       {!hasTarget && <p>Connect a model in <button type="button" className="object-link" onClick={configureModel}>Compute</button> to send messages.</p>}
       {supported && hasTarget && assignment && modelContextAdmitted === false && <p role="status">Model context needs admission. <button type="button" className="object-link" onClick={() => actions.openSurface(memoryInput("workingState"))}>Open Working State</button></p>}
       {supported && hasTarget && assignment && modelContextAdmitted == null && <p>The Host has not reported this Participant’s model-context admission. Refresh or reconnect to the current YAI Host before sending.</p>}
+      {supported && routeWarning && <p role="status" className="conversation-route-warning">{routeWarning} <button type="button" className="object-link" onClick={() => actions.openPerspective("Providers")}>Open provider checks</button>.</p>}
       {!supported && <p>{application?.reason("conversation.send") ?? "Sending requires the native YAI Host."}</p>}
       <div className="conversation-input-shell"><textarea ref={composer} aria-label="Message to the Case" placeholder="Ask about this Case…" value={draft} rows={1} maxLength={65536} onChange={event => { const text = event.target.value; setDraft(text); try { persist(text, pending); } catch { setError("Local draft storage is unavailable."); } }} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!pending) void submit(); } }} />
       </div>

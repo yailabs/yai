@@ -30,8 +30,8 @@ export function DeploymentModelObservation({ application, tenant, target, model 
   return <section className="deployment-model-observation" aria-label="Exposed model observation">
     <header><h3>Exposed model</h3><Button disabled={pending || !application?.supports("provider.models")} onClick={check}>{pending ? "Checking catalog…" : "Check exposed model"}</Button></header>
     {unavailable ? <p role="alert">{unavailable.empty ? "No models exposed. YAI refused this empty catalog; no qualification or binding was performed." : unavailable.reason}</p> : observed ? <>
-      <p role="status"><Badge tone={current ? exposed ? "info" : "error" : "warning"}>{current ? exposed ? "Model exposed" : "Model not exposed" : "Observation expired"}</Badge></p>
-      <p>{!current ? "The last catalog check is too old to describe current availability. Check the exposed model again." : exposed ? "The exact registered model appeared in the endpoint catalog." : "The endpoint answered, but its catalog did not list this exact model."}</p>
+      <p role="status"><Badge tone={current ? exposed ? "info" : "error" : "warning"}>{current ? exposed ? "Model exposed" : "Model not exposed" : "Catalog old"}</Badge></p>
+      <p>{!current ? "The last model-list observation is over one minute old. This alone does not block SEND or explain a failed execution; YAI qualification and health are separate. Check the exposed model again." : exposed ? "The exact registered model appeared in the endpoint catalog." : "The endpoint answered, but its catalog did not list this exact model."}</p>
       {capacity && <div className="deployment-capacity" aria-label="Observed public model capacity">
         <div><strong>{capacity.input_capacity_tokens.toLocaleString()}</strong><span>Input tokens</span></div>
         <div><strong>{capacity.sequence_capacity_tokens.toLocaleString()}</strong><span>Sequence ceiling</span></div>

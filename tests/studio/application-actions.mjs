@@ -139,6 +139,14 @@ try {
  const closed=await accepted('case.summary',{case_ref:created.case.case_ref});
  assert.equal(closed.case.case_status,'closed');
  assert.equal(cli('case','verify',created.case.case_ref).status,'ok');
+ await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.file.openCase'));
+ const archived=page.getByRole('dialog',{name:'Open Case'});
+ assert.equal(await archived.locator(`[data-case-ref="${created.case.case_ref}"]`).count(),0,'Closed Case appeared in the active switcher');
+ await archived.getByRole('button',{name:'Show 1 closed'}).click();
+ assert.equal(await archived.locator(`[data-case-ref="${created.case.case_ref}"]`).count(),1,'Closed Case was not recoverable from the explicit archive');
+ await archived.getByRole('button',{name:'Hide closed'}).click();
+ assert.equal(await archived.locator(`[data-case-ref="${created.case.case_ref}"]`).count(),0,'Hide closed did not restore the active-only view');
+ await archived.getByRole('button',{name:'Close',exact:true}).click();
  for(const item of reviewCases) {
   await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.file.openCase'));
   await page.getByRole('dialog',{name:'Open Case'}).getByRole('button',{name:new RegExp(`Studio Review ${item.action[0].toUpperCase()+item.action.slice(1)}`)}).click();
@@ -175,7 +183,7 @@ try {
  await page.screenshot({path:`${evidence}/acknowledgement-lost.png`});
  await page.getByRole('button',{name:'Close and inspect state',exact:true}).click();
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',transport:'real Unix Host via test-only browser bridge',operations:catalog.operations.length,case_ref:created.case.case_ref,generations:{created:created.case.generation,beforeInput:before.case.generation,afterInput:after.case.generation,closed:closed.case.generation},reviews:reviewCases.map(item=>({case_ref:item.caseRef,review_ref:item.review.id,action:item.action})),proof:['New Case + Participant + authenticated identity','Workflow input refusal -> no optimistic mutation','Workflow input success -> generation+1 -> fresh projection','Settings actual capability catalog','Cancel + Close Case -> durable lifecycle','Review approve/deny/defer: ineligible refusal then authorized success','Lost acknowledgement after commit -> no resubmit','CLI canonical replay'],consoleErrors:0}));
+ console.log(JSON.stringify({result:'PASS',transport:'real Unix Host via test-only browser bridge',operations:catalog.operations.length,case_ref:created.case.case_ref,generations:{created:created.case.generation,beforeInput:before.case.generation,afterInput:after.case.generation,closed:closed.case.generation},reviews:reviewCases.map(item=>({case_ref:item.caseRef,review_ref:item.review.id,action:item.action})),proof:['New Case + Participant + authenticated identity','Workflow input refusal -> no optimistic mutation','Workflow input success -> generation+1 -> fresh projection','Settings actual capability catalog','Cancel + Close Case -> durable lifecycle','Closed Case hidden from active switcher and recoverable through explicit archive','Review approve/deny/defer: ineligible refusal then authorized success','Lost acknowledgement after commit -> no resubmit','CLI canonical replay'],consoleErrors:0}));
 } finally {
  await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));
  await browser?.close();
