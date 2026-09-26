@@ -64,6 +64,7 @@ use crate::handoff::{
     HandoffAcceptance, HandoffData, HandoffDecline, HandoffOffer, HandoffOutcome,
     HandoffReconciliation, HandoffResult,
 };
+use crate::hardware_assets::{MachineAsset, MachineAssetInput, MachineAssetView, MachineRevocation, MAX_MACHINES_PER_TENANT};
 use crate::journal::Journal;
 use crate::memory::{
     OperationalMemoryBuild, OperationalMemoryEntry, OperationalMemoryManifest,
@@ -257,6 +258,7 @@ pub struct LmdbRecordStore {
     workflow_definitions: Database,
     provider_governance: Database,
     provider_runtime_health: Database,
+    machine_assets: Database,
     schema_meta: Database,
 }
 
@@ -970,6 +972,9 @@ impl LmdbRecordStore {
         let provider_runtime_health = env
             .create_db(Some("provider_runtime_health"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open provider_runtime_health: {error}"))?;
+        let machine_assets = env
+            .create_db(Some("machine_assets"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open machine_assets: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -1011,6 +1016,7 @@ impl LmdbRecordStore {
             workflow_definitions,
             provider_governance,
             provider_runtime_health,
+            machine_assets,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -17289,6 +17295,142 @@ fn workflow_subflow_satisfaction_pending(
 }
 
 impl LmdbRecordStore {
+    fn machine_asset_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        asset_id: &str,
+    ) -> Result<Option<MachineAssetView>, String> {
+        let asset = get_json_txn::<MachineAsset, _>(
+            txn,
+            self.machine_assets,
+            &format!("asset:{asset_id}"),
+            "machine_asset",
+        )?;
+        let Some(asset) = asset else { return Ok(None) };
+        asset.validate()?;
+        let revocation = get_json_txn::<MachineRevocation, _>(
+            txn,
+            self.machine_assets,
+            &format!("revoke:{asset_id}"),
+            "machine_revocation",
+        )?;
+        if let Some(revocation) = &revocation {
+            revocation.validate(&asset)?;
+        }
+        Ok(Some(MachineAssetView { registration: asset, revocation }))
+    }
+
+    /// An independently approved pin is registered under Tenant Owner
+    /// authority. No network discovery or model inference happens here.
+    pub fn register_machine_asset_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        input: MachineAssetInput,
+    ) -> Result<MachineAssetView, String> {
+        let mut txn = self.env.begin_rw_txn()
+            .map_err(|error| format!("machine_registration_transaction_failed:{error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &input.tenant_id)?;
+        context.require_owner()?;
+        if input.approved_by_principal_id != context.principal_id() {
+            return Err("machine_approval_principal_mismatch".into());
+        }
+        let asset = MachineAsset::from_input(input)?;
+        if let Some(existing) = self.machine_asset_txn(&txn, &asset.asset_id)? {
+            if !existing.registration.same_registration(&asset) {
+                return Err("machine_identity_collision".into());
+            }
+            return Ok(existing);
+        }
+        let mut cursor = txn.open_ro_cursor(self.machine_assets)
+            .map_err(|error| format!("machine_asset_cursor_failed:{error}"))?;
+        let mut count = 0;
+        for (key, value) in cursor.iter() {
+            if std::str::from_utf8(key).ok().is_some_and(|key| key.starts_with("asset:")) {
+                let existing: MachineAsset = serde_json::from_slice(value)
+                    .map_err(|error| format!("machine_asset_decode_failed:{error}"))?;
+                existing.validate()?;
+                if existing.tenant_id == asset.tenant_id { count += 1; }
+            }
+        }
+        drop(cursor);
+        if count >= MAX_MACHINES_PER_TENANT {
+            return Err("machine_tenant_limit_reached".into());
+        }
+        put_json_txn(&mut txn, self.machine_assets, &format!("asset:{}", asset.asset_id),
+            &asset, WriteFlags::NO_OVERWRITE, "machine asset")?;
+        txn.commit().map_err(|error| format!("machine_registration_commit_failed:{error}"))?;
+        Ok(MachineAssetView { registration: asset, revocation: None })
+    }
+
+    pub fn list_machine_assets_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+    ) -> Result<Vec<MachineAssetView>, String> {
+        let txn = self.env.begin_ro_txn()
+            .map_err(|error| format!("machine_list_transaction_failed:{error}"))?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let mut cursor = txn.open_ro_cursor(self.machine_assets)
+            .map_err(|error| format!("machine_asset_cursor_failed:{error}"))?;
+        let mut ids = Vec::new();
+        for (key, value) in cursor.iter() {
+            if std::str::from_utf8(key).ok().is_some_and(|key| key.starts_with("asset:")) {
+                let asset: MachineAsset = serde_json::from_slice(value)
+                    .map_err(|error| format!("machine_asset_decode_failed:{error}"))?;
+                asset.validate()?;
+                if asset.tenant_id == tenant_id { ids.push(asset.asset_id); }
+            }
+        }
+        drop(cursor);
+        ids.sort();
+        ids.into_iter().map(|id| self.machine_asset_txn(&txn, &id)?.ok_or_else(|| "machine_asset_missing".into())).collect()
+    }
+
+    pub fn get_machine_asset_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        asset_id: &str,
+    ) -> Result<MachineAssetView, String> {
+        let txn = self.env.begin_ro_txn()
+            .map_err(|error| format!("machine_get_transaction_failed:{error}"))?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let asset = self.machine_asset_txn(&txn, asset_id)?
+            .ok_or("machine_asset_not_found")?;
+        if asset.registration.tenant_id != tenant_id {
+            return Err("machine_asset_not_found".into());
+        }
+        Ok(asset)
+    }
+
+    pub fn revoke_machine_asset_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        asset_id: &str,
+        at_unix_ms: u64,
+        reason: &str,
+    ) -> Result<MachineAssetView, String> {
+        let mut txn = self.env.begin_rw_txn()
+            .map_err(|error| format!("machine_revoke_transaction_failed:{error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        let mut asset = self.machine_asset_txn(&txn, asset_id)?
+            .ok_or("machine_asset_not_found")?;
+        if asset.registration.tenant_id != tenant_id {
+            return Err("machine_asset_not_found".into());
+        }
+        if asset.revocation.is_some() { return Ok(asset); }
+        let revocation = MachineRevocation::new(&asset.registration, context.principal_id(), at_unix_ms, reason)?;
+        put_json_txn(&mut txn, self.machine_assets, &format!("revoke:{asset_id}"),
+            &revocation, WriteFlags::NO_OVERWRITE, "machine revocation")?;
+        txn.commit().map_err(|error| format!("machine_revoke_commit_failed:{error}"))?;
+        asset.revocation = Some(revocation);
+        Ok(asset)
+    }
+}
+
+impl LmdbRecordStore {
     fn provider_target_txn<T: Transaction>(
         &self,
         txn: &T,
@@ -21007,6 +21149,43 @@ mod tests {
             .expect("system time before unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!("yai-{name}-{}-{now}", std::process::id()))
+    }
+
+    #[test]
+    fn tenant_machine_asset_owner_pin_member_read_revocation_and_cross_tenant_isolation() {
+        const KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ0zGAI5z9NlKS5al2atSGTQS7HfiuVQoQGaGe4HWlp4";
+        let path = temp_store_path("machine-asset");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(31001);
+        let member = AuthenticatedPrincipal::for_test(31002);
+        let outsider = AuthenticatedPrincipal::for_test(31003);
+        store.bootstrap_local_security(&owner, "tenant:machine-a", "organization:a", 1).unwrap();
+        store.bootstrap_local_security(&member, "tenant:machine-b", "organization:b", 1).unwrap();
+        store.bootstrap_local_security(&outsider, "tenant:machine-c", "organization:c", 1).unwrap();
+        store.add_tenant_member(&owner, "tenant:machine-a", &member.projected_principal_id(), 2).unwrap();
+        let input = MachineAssetInput {
+            tenant_id: "tenant:machine-a".into(), address: "dgx.internal".into(),
+            port: 2222, management_user: "yvex".into(), host_public_key: KEY.into(),
+            approval_ref: "approval:out-of-band".into(),
+            approved_by_principal_id: owner.projected_principal_id(),
+            approved_at_unix_ms: 3,
+        };
+        assert!(store.register_machine_asset_authorized(&member, input.clone()).is_err());
+        let registered = store.register_machine_asset_authorized(&owner, input.clone()).unwrap();
+        let asset_id = registered.registration.asset_id.clone();
+        assert_eq!(store.list_machine_assets_authorized(&member, "tenant:machine-a").unwrap(), vec![registered.clone()]);
+        assert!(store.list_machine_assets_authorized(&outsider, "tenant:machine-a").is_err());
+        assert!(store.get_machine_asset_authorized(&outsider, "tenant:machine-a", &asset_id).is_err());
+        assert!(store.revoke_machine_asset_authorized(&member, "tenant:machine-a", &asset_id, 4, "not owner").is_err());
+        let revoked = store.revoke_machine_asset_authorized(&owner, "tenant:machine-a", &asset_id, 5, "withdrawn").unwrap();
+        assert!(revoked.revocation.is_some());
+        drop(store);
+        let reopened = LmdbRecordStore::open(&path).unwrap();
+        assert_eq!(reopened.get_machine_asset_authorized(&owner, "tenant:machine-a", &asset_id).unwrap(), revoked);
+        assert_eq!(reopened.register_machine_asset_authorized(&owner, input).unwrap(), revoked,
+            "retry must never silently restore a revoked pin");
+        drop(reopened);
+        std::fs::remove_dir_all(&path).unwrap();
     }
 
     fn pending(

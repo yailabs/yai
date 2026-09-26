@@ -38,6 +38,43 @@ impl Fixture {
 impl Drop for Fixture { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.home); } }
 
 #[test]
+fn tenant_machine_pin_is_exact_idempotent_revocable_and_case_independent() {
+    const KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ0zGAI5z9NlKS5al2atSGTQS7HfiuVQoQGaGe4HWlp4";
+    let f = Fixture::new("machine-pin");
+    let generation = f.generation();
+    let input = json!({"tenant_id":"tenant:audit", "address":"dgx.internal", "port":2222,
+        "management_user":"yvex", "host_public_key":KEY,
+        "approval_ref":"approval:operator-out-of-band"});
+    let first = f.success("machine.register", input.clone());
+    let id = first["registration"]["asset_id"].as_str().unwrap();
+    assert!(id.contains("ssh-ed25519:sha256:"));
+    assert_eq!(f.success("machine.register", input.clone()), first, "lost response must not create a second registration");
+    assert_eq!(f.success("machine.list", json!({"tenant_id":"tenant:audit"})), json!([first.clone()]));
+    assert_eq!(f.success("machine.get", json!({"tenant_id":"tenant:audit", "asset_id":id})), first);
+    let mut changed = input.clone(); changed["address"] = json!("other.internal");
+    let conflict = f.call("machine.register", changed);
+    assert_ne!(conflict.result_state, ResultState::Success);
+    let unapproved = f.call("machine.register", json!({"tenant_id":"tenant:audit", "address":"dgx.internal",
+        "port":2222, "management_user":"yvex", "host_public_key":KEY, "approval_ref":""}));
+    assert_ne!(unapproved.result_state, ResultState::Success);
+    let hidden = f.call("machine.get", json!({"tenant_id":"tenant:hidden", "asset_id":id}));
+    assert_eq!(hidden.result_state, ResultState::Unauthorized);
+    assert!(hidden.data.is_none());
+    assert_eq!(f.generation(), generation, "Tenant asset changes do not mutate a Case");
+    let revoked = f.success("machine.revoke", json!({"tenant_id":"tenant:audit", "asset_id":id,
+        "reason":"operator withdrew trust"}));
+    assert_eq!(revoked["revocation"]["asset_id"], id);
+    assert_eq!(f.success("machine.revoke", json!({"tenant_id":"tenant:audit", "asset_id":id,
+        "reason":"operator withdrew trust"})), revoked);
+    assert_eq!(LocalApplication::from_yai_home(&f.home).call(OperationRequest {
+        protocol: APPLICATION_PROTOCOL.into(), operation_ref: "machine.get".into(),
+        correlation_ref: "test:restart".into(),
+        input: json!({"tenant_id":"tenant:audit", "asset_id":id}),
+    }).data.unwrap(), revoked);
+    assert_eq!(f.generation(), generation);
+}
+
+#[test]
 fn case_summary_projects_only_current_participant_model_context_admission() {
     let f = Fixture::new_without_model_view("participant-model-view");
     f.success("participant.role.add", json!({"case_ref":"case:audit", "participant_ref":"participant:other", "role":"observer"}));

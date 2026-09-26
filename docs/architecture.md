@@ -55,6 +55,7 @@ operator
   |     +-- deterministic governance intake and immutable policy artifacts
   |     +-- local POSIX-authenticated Principal and Tenant security isolation
   |     +-- Tenant-scoped provider targets, qualification, trust and shared health
+  |     +-- Tenant-scoped exact machine identity pins and revocations (no remote execution)
   |     +-- Case-canonical provider selection and delivery-safe attempt lineage
   |     +-- Case-canonical cognitive bindings and execution-free lane planning
   |     +-- exact typed provider realization and provenance-bound auxiliary output
@@ -102,6 +103,20 @@ Provider administration adapters are isolated in
 typed owner contracts and deterministic selection live in
 [`provider_governance.rs`](../engine/yai-engine/src/provider_governance.rs).
 See the current [provider governance contract](provider-governance.md).
+The separate [machine asset owner](../engine/yai-engine/src/hardware_assets.rs)
+records an operator-attested exact OpenSSH Ed25519 host-key identity per Tenant
+in the local YAI profile,
+with Owner-only registration/revocation and member-scoped reads. Its immutable
+registration and revocation records occupy one new LMDB database (38 of 40
+currently used); they are not Case
+Transitions, provider targets, Resource Grants or observations of live hardware.
+`yai-application` exposes `machine.register/list/get/revoke`, and CLI consumes
+those same operations. Studio has a typed Application-ready surface, not an
+authored machine-management interaction yet. No SSH discovery, pairing, status
+consumer, remote model control or general machine inventory is claimed by the
+pin registry. The pinned public YVEX v1 bootstrap permits only read-only
+identity/status through a separately secured SSH listener; transport and
+independent operator enrollment remain separate qualification boundaries.
 Provider-independent cognitive capability, suitability, binding, lane and
 plan contracts live in
 [`cognitive.rs`](../engine/yai-engine/src/cognitive.rs). I03 keeps those plans

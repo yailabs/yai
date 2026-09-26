@@ -91,6 +91,11 @@ pub(crate) const PRODUCT_ROOTS: &[ProductRoot] = &[
         section: ProductSection::Govern,
     },
     ProductRoot {
+        word: "machine",
+        description: "Register independently approved Tenant machine identities",
+        section: ProductSection::Govern,
+    },
+    ProductRoot {
         word: "runtime",
         description: "Host and control bounded RuntimeInstance work",
         section: ProductSection::Runtime,
@@ -333,6 +338,17 @@ const PROVIDER_ALIAS: &[&str] = &["--provider-id"];
 const RESOURCE_ALIAS: &[&str] = &["--attachment"];
 
 const TENANT: &[FlagSpec] = &[flag("--tenant", Some("TENANT"), true)];
+const MACHINE_REGISTER: &[FlagSpec] = &[
+    flag("--tenant", Some("TENANT"), true),
+    flag("--port", Some("PORT"), true),
+    flag("--user", Some("USER"), true),
+    flag("--host-key", Some("SSH_ED25519_PUBLIC_KEY"), true),
+    flag("--approval-ref", Some("APPROVAL_REF"), true),
+];
+const MACHINE_REVOKE: &[FlagSpec] = &[
+    flag("--tenant", Some("TENANT"), true),
+    flag("--reason", Some("REASON"), true),
+];
 const CASE_TENANT: &[FlagSpec] = &[flag("--tenant", Some("TENANT"), true)];
 const INIT_FLAGS: &[FlagSpec] = &[
     flag("--tenant", Some("TENANT"), true),
@@ -916,6 +932,34 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
             &[flag("--principal", Some("PRINCIPAL"), true)]
         )
     },
+    op!(
+        "yai.machine.register",
+        ["machine", "register"],
+        "Register an independently approved exact SSH host identity for a Tenant",
+        Product, LocalDomain, Mutating, Structured,
+        &[pos("address", None)], MACHINE_REGISTER
+    ),
+    op!(
+        "yai.machine.list",
+        ["machine", "list"],
+        "List visible Tenant machine pins and revocations",
+        Product, LocalDomain, ReadOnly, Structured,
+        NO_POS, TENANT
+    ),
+    op!(
+        "yai.machine.get",
+        ["machine", "get"],
+        "Inspect one exact Tenant machine identity",
+        Product, LocalDomain, ReadOnly, Structured,
+        &[pos("asset", None)], TENANT
+    ),
+    op!(
+        "yai.machine.revoke",
+        ["machine", "revoke"],
+        "Revoke one exact Tenant machine pin",
+        Product, LocalDomain, Mutating, Structured,
+        &[pos("asset", None)], MACHINE_REVOKE
+    ),
     op!(
         "yai.provider.add",
         ["provider", "add"],
@@ -3725,6 +3769,8 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
         || operation_id.starts_with("yai.tenant.")
     {
         "identity.tenant"
+    } else if operation_id.starts_with("yai.machine.") {
+        "machine.asset_registry"
     } else if matches!(operation_id, "yai.provider.list" | "yai.provider.show" | "yai.provider.models")
         || operation_id == "yai.case.provider.show"
     {

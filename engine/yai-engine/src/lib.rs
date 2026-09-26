@@ -29,6 +29,7 @@ pub mod memory_hierarchy;
 pub mod memory_index;
 pub mod projection;
 pub mod provider_governance;
+pub mod hardware_assets;
 pub mod query;
 pub mod reconcile;
 pub mod record;

@@ -840,11 +840,17 @@ Studio product topology and its internal Workbench architecture are selected in
 [docs/studio.md](docs/studio.md), without maturity promotion. The subordinate
 [Studio roadmap](studio/ROADMAP.md) records its own implementation progression.
 Machine discovery, Tenant asset enrollment and remote YVEX lifecycle control are
-future **YAI backend/Application capabilities**, not a Studio-only management
-program. CLI and Studio must consume the same typed operations and refusals.
-YVEX must first publish an authenticated remote identity/management/bootstrap
-contract; its local CLI or loopback inference endpoint is not that contract.
-No provider-brand branch belongs in cognitive execution.
+**YAI backend/Application capabilities**, not a Studio-only management program.
+The first bounded YAI asset slice now registers and revokes an exact
+Tenant-scoped Ed25519 machine pin through typed Application and CLI operations;
+it does not probe, pair, launch or govern the remote machine. The pinned public
+[YVEX management bootstrap](https://github.com/yailabs/yvex/blob/671a5befa0c20f6e07248b0223fad4ec531c15bd/docs/contracts/remote-management.md)
+publishes only `device.describe` and `host.status` via restricted SSH. A
+qualified YAI consumer of that transport, independent key approval/enrollment,
+LAN candidate discovery and idempotent remote lifecycle contract remain open.
+Studio must consume the same typed operations and refusals as CLI; an inference
+endpoint or ordinary SSH login is not management. No provider-brand branch
+belongs in cognitive execution. X03/X04 are not promoted by this slice.
 
 ## Cognitive State Spectrum
 
@@ -952,11 +958,11 @@ reference-only measurement, not qualified production acceleration.
 | YAI.REAL.CASE.PRODUCT.CONVERGENCE.0 | IN_PROGRESS | Q06 X03 X04 | Persistent enterprise Case; governed real inference with context fidelity; reproducible behavioral portfolio; CLI/Application/Studio parity; Providers/Compute/YVEX separation and qualified Workbench use. Historical Decision trajectory remains established at its bounded scope. Global maturity is not automatically promoted. |
 <!-- execution:end -->
 
-The retroactive bounded inventory contains 40 current executable/internal
-capabilities plus four target-only entries: 20 PRODUCT_READ, 14 PRODUCT_ACTION,
+The retroactive bounded inventory contains 41 current executable/internal
+capabilities plus four target-only entries: 20 PRODUCT_READ, 15 PRODUCT_ACTION,
 three OPERATOR_DIAGNOSTIC, three INTERNAL_MECHANIC and four TARGET_ONLY.
-Application-ready families are 33 of the 33 Application-eligible PRODUCT
-families, CLI-exposed families are 37 and Studio-consumable families are 34
+Application-ready families are 34 of the 34 Application-eligible PRODUCT
+families, CLI-exposed families are 38 and Studio-consumable families are 35
 including the Host carrier. Consumable does not mean authored UI: the concurrent
 Studio consumer map explicitly retains unintegrated actions. No eligible PRODUCT
 Application blocker remains; future debt still requires a test-enforced semantic

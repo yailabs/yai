@@ -35,6 +35,7 @@ use yai_core_engine::effect::access::{LocalAccessBinding, ResourceAccessContract
 use yai_core_engine::effect::{DecisionOutcome, LocalProcessBinding, Operation, ProcessSignalAction};
 use yai_core_engine::governance::{compile_policy_source, scope_policy_compilation};
 use yai_core_engine::handoff::{HandoffData, HandoffOutcome};
+use yai_core_engine::hardware_assets::MachineAssetInput;
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
 use yai_core_engine::memory_hierarchy::recall::RecallRequest;
 use yai_core_engine::provider_governance::{
@@ -196,6 +197,38 @@ pub struct TenantGetInput {
 pub struct TenantMemberAddInput {
     pub tenant_id: String,
     pub principal_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MachineRegisterInput {
+    pub tenant_id: String,
+    pub address: String,
+    pub port: u16,
+    pub management_user: String,
+    pub host_public_key: String,
+    pub approval_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MachineListInput {
+    pub tenant_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MachineGetInput {
+    pub tenant_id: String,
+    pub asset_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MachineRevokeInput {
+    pub tenant_id: String,
+    pub asset_id: String,
+    pub reason: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1254,6 +1287,34 @@ impl LocalApplication {
                         now_unix_ms()?,
                     )?,
                 )
+            }
+            "machine.register" => {
+                let input: MachineRegisterInput = decode_input(request)?;
+                encode_result("machine_register", store.register_machine_asset_authorized(&auth,
+                    MachineAssetInput {
+                        tenant_id: input.tenant_id,
+                        address: input.address,
+                        port: input.port,
+                        management_user: input.management_user,
+                        host_public_key: input.host_public_key,
+                        approval_ref: input.approval_ref,
+                        approved_by_principal_id: auth.projected_principal_id(),
+                        approved_at_unix_ms: now_unix_ms()?,
+                    })?)
+            }
+            "machine.list" => {
+                let input: MachineListInput = decode_input(request)?;
+                encode_result("machine_list", store.list_machine_assets_authorized(&auth, &input.tenant_id)?)
+            }
+            "machine.get" => {
+                let input: MachineGetInput = decode_input(request)?;
+                encode_result("machine_get", store.get_machine_asset_authorized(
+                    &auth, &input.tenant_id, &input.asset_id)?)
+            }
+            "machine.revoke" => {
+                let input: MachineRevokeInput = decode_input(request)?;
+                encode_result("machine_revoke", store.revoke_machine_asset_authorized(
+                    &auth, &input.tenant_id, &input.asset_id, now_unix_ms()?, &input.reason)?)
             }
             "knowledge.inspect" | "knowledge.navigation" => {
                 let input: KnowledgeInspectInput = decode_input(request)?;
@@ -3529,6 +3590,10 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
     } else if error == "capability_view_participant_not_admitted" {
         (ResultState::Unauthorized,
             "This Participant is not admitted to inspect the Case capabilities.")
+    } else if request.operation_ref.starts_with("machine.")
+        && (error == "machine_asset_not_found" || error == "tenant_not_visible")
+    {
+        (ResultState::Unauthorized, "This Tenant machine asset is not visible to the authenticated Principal.")
     } else if error == "historical_scope_unavailable"
         || error == "provider_probe_submission_not_authorized"
         || error.contains("not_visible")
@@ -3657,7 +3722,7 @@ mod tests {
         assert_eq!(result.result_state, ResultState::Success);
         let data = result.data.unwrap();
         assert_eq!(data["schema"], capabilities::CAPABILITY_CATALOG_SCHEMA);
-        assert_eq!(data["capabilities"].as_array().unwrap().len(), 44);
+        assert_eq!(data["capabilities"].as_array().unwrap().len(), 45);
         assert!(data.get("cases").is_none());
         assert!(data.get("resources").is_none());
     }
@@ -3763,8 +3828,8 @@ mod tests {
             .iter()
             .filter(|capability| capability.application_posture == ApplicationPosture::Deferred)
             .count();
-        assert_eq!(product.len(), 34);
-        assert_eq!(ready, 33);
+        assert_eq!(product.len(), 35);
+        assert_eq!(ready, 34);
         assert_eq!(deferred, 0);
         assert_eq!(capabilities::APPLICATION_BLOCKERS.len(), deferred);
         assert!(capabilities::APPLICATION_BLOCKERS.iter().all(|blocker| {

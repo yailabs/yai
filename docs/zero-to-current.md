@@ -11,6 +11,22 @@ human acceptance remain separate, unclaimed results.
 PASS, with the exact YAI SHA, endpoint and provider-exposed model identity.
 A previous PASS is not silently inherited by a changed product HEAD.
 
+## Tenant machine identity pin (bounded backend slice)
+
+The Tenant Owner can register an independently checked OpenSSH Ed25519 host
+public key in this local YAI profile with `yai machine register ADDRESS
+--tenant TENANT --port PORT --user USER --host-key 'ssh-ed25519 BASE64'
+--approval-ref REF`. The `REF` records the operator's out-of-band approval
+claim; YAI cannot derive trust from a network scan or self-reported JSON.
+`yai machine list/get/revoke` and typed `machine.list/get/register/revoke`
+expose the same exact Tenant-scoped records. Registration alone performs no
+SSH call, key enrollment, provider selection, Case change or remote operation.
+A revoked pin cannot be restored by retrying registration. Do not put a
+private key or secret in any argument. No native Studio machine action or YVEX
+runtime management is qualified by this slice; keep those controls unavailable
+until the read-only management bootstrap and later lifecycle contract have
+their own observed product tests.
+
 ## Studio resident-Host live local acceptance
 
 The infrastructure Case is a second persistent asset, not a replacement for

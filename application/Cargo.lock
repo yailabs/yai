@@ -1671,6 +1671,7 @@ dependencies = [
 name = "yai-engine"
 version = "0.0.0-newcore"
 dependencies = [
+ "base64",
  "libc",
  "lmdb",
  "lopdf",

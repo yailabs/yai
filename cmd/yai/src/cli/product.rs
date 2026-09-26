@@ -38,6 +38,27 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.identity.whoami" => identity(),
         "yai.tenant.list" => tenant_list(),
         "yai.tenant.show" => tenant_show(invocation),
+        "yai.machine.register" => machine_application_operation("machine.register", serde_json::json!({
+            "tenant_id": invocation.flag("--tenant").ok_or_else(|| CliError::usage("--tenant is required"))?,
+            "address": invocation.positional("address").ok_or_else(|| CliError::usage("address is required"))?,
+            "port": invocation.flag("--port").ok_or_else(|| CliError::usage("--port is required"))?
+                .parse::<u16>().map_err(|_| CliError::usage("--port must be 1..65535"))?,
+            "management_user": invocation.flag("--user").ok_or_else(|| CliError::usage("--user is required"))?,
+            "host_public_key": invocation.flag("--host-key").ok_or_else(|| CliError::usage("--host-key is required"))?,
+            "approval_ref": invocation.flag("--approval-ref").ok_or_else(|| CliError::usage("--approval-ref is required"))?,
+        })),
+        "yai.machine.list" => machine_application_operation("machine.list", serde_json::json!({
+            "tenant_id": invocation.flag("--tenant").ok_or_else(|| CliError::usage("--tenant is required"))?,
+        })),
+        "yai.machine.get" => machine_application_operation("machine.get", serde_json::json!({
+            "tenant_id": invocation.flag("--tenant").ok_or_else(|| CliError::usage("--tenant is required"))?,
+            "asset_id": invocation.positional("asset").ok_or_else(|| CliError::usage("asset is required"))?,
+        })),
+        "yai.machine.revoke" => machine_application_operation("machine.revoke", serde_json::json!({
+            "tenant_id": invocation.flag("--tenant").ok_or_else(|| CliError::usage("--tenant is required"))?,
+            "asset_id": invocation.positional("asset").ok_or_else(|| CliError::usage("asset is required"))?,
+            "reason": invocation.flag("--reason").ok_or_else(|| CliError::usage("--reason is required"))?,
+        })),
         "yai.case.list" => case_list(invocation),
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
@@ -202,6 +223,29 @@ fn application_operation(operation_ref: &str, input: serde_json::Value) -> Resul
         .map(|error| format!("{}: {}", error.code, error.safe_message))
         .unwrap_or_else(|| format!("application operation returned {:?}", result.result_state));
     Err(domain_error("application_operation_failed", detail))
+}
+
+fn machine_application_operation(operation_ref: &str, input: serde_json::Value) -> Result<CliData, CliError> {
+    let result = LocalApplication::from_yai_home(yai_home()).call(OperationRequest {
+        protocol: APPLICATION_PROTOCOL.to_string(),
+        operation_ref: operation_ref.to_string(),
+        correlation_ref: format!("cli:{operation_ref}:{}", std::process::id()),
+        input,
+    });
+    if result.result_state == ResultState::Success {
+        return Ok(CliData::NativeJson { value: result.data.unwrap_or(serde_json::Value::Null) });
+    }
+    let code = match result.result_state {
+        ResultState::Unauthorized => "machine_not_visible_or_unauthorized",
+        ResultState::Stale => "machine_stale",
+        ResultState::TransportUnavailable => "machine_store_unavailable",
+        ResultState::NotImplemented => "machine_operation_not_implemented",
+        _ => "machine_operation_refused",
+    };
+    let message = result.error
+        .map(|error| format!("{}: {}", error.code, error.safe_message))
+        .unwrap_or_else(|| format!("{operation_ref} returned {:?}", result.result_state));
+    Err(domain_error(code, message))
 }
 
 fn decision_trajectory(invocation: &Invocation) -> Result<CliData, CliError> {

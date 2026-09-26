@@ -46,8 +46,8 @@ def main() -> int:
     capabilities = catalog["capabilities"]
     operations = catalog["operations"]
     blockers = catalog["blockers"]
-    assert len(capabilities) == 44
-    assert len(operations) == 94
+    assert len(capabilities) == 45
+    assert len(operations) == 98
     assert len(blockers) == 0
     assert [item["capability_id"] for item in capabilities] == sorted(
         item["capability_id"] for item in capabilities
@@ -58,7 +58,7 @@ def main() -> int:
     counts = Counter(item["disposition"] for item in capabilities)
     assert counts == {
         "product_read": 20,
-        "product_action": 14,
+        "product_action": 15,
         "operator_diagnostic": 3,
         "internal_mechanic": 3,
         "target_only": 4,
@@ -71,11 +71,16 @@ def main() -> int:
     assert {"case.run", "case.resume", "case.stop", "execution.get", "execution.list", "handoff.pending", "handoff.inspect", "source.acquire", "source.resume",
             "cognitive.realization.prepare", "cognitive.realize", "cognitive.compose", "conversation.send",
             "effect.propose", "effect.submit", "effect.reconcile", "resource.request",
-            "semantic.fast_search.prepare", "resource.import"} <= operation_ids
+            "semantic.fast_search.prepare", "resource.import",
+            "machine.register", "machine.list", "machine.get", "machine.revoke"} <= operation_ids
     imported = next(item for item in operations if item["operation_id"] == "resource.import")
     assert imported["input_contract"] == "yai.resource_import_input.v1"
     assert imported["impact"] == "canonical_mutation"
     assert imported["authority"] == "current_case_authority"
+    machine_register = next(item for item in operations if item["operation_id"] == "machine.register")
+    assert machine_register["input_contract"] == "yai.machine_register_input.v1"
+    assert machine_register["impact"] == "canonical_mutation"
+    assert machine_register["authority"] == "tenant_owner"
     assert all(item["missing_contract"] for item in blockers)
     for item in capabilities:
         assert set(item["application_operation_ids"]) <= operation_ids
@@ -100,10 +105,10 @@ def main() -> int:
     print(
         "application_capability_surface_run_id=application-capability-surface-v1 "
         "catalog_schema=yai.application_capability_catalog.v1 "
-        "capabilities=44 executable_or_internal=40 target_only=4 "
-        "product_read=20 product_action=14 operator_diagnostic=3 "
-        "internal_mechanic=3 application_operations=94 application_ready=33 "
-        "application_blockers=0 cli_exposed=37 studio_consumable=34 "
+        "capabilities=45 executable_or_internal=41 target_only=4 "
+        "product_read=20 product_action=15 operator_diagnostic=3 "
+        "internal_mechanic=3 application_operations=98 application_ready=34 "
+        "application_blockers=0 cli_exposed=38 studio_consumable=35 "
         "case_identity_leaks=0 direct_cli_invocation=0"
     )
     return 0
