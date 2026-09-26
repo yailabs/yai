@@ -1778,6 +1778,22 @@ The restarted YVEX binary reported protocol 22 and commit `79d05aa`;
 this is an observed process identity, not a claim of published management parity.
 That probe uses no Case content and does not close the missing real-answer gate.
 
+The [2026-09-26 single Focused native SEND](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/focused-native-manifest.json)
+also remains negative. Studio recorded a fresh submission before one click at
+Case generation 115. YAI retained a new Turn and one attempt: 26,746 exact
+input tokens, 83,559 serialized request bytes, 83,720 bytes written to the
+target, then `delivery_indeterminate` at `response_body` with no HTTP status
+or canonical answer. The archived preflight reports zero requested-output tokens
+(unspecified), so the target admitted up to 6,022 remaining sequence tokens.
+The running Host executable was a deleted, older inode; it predated the current
+Focused v5 1,024-token output intent. Its default 300-second response deadline
+expired. This establishes a stale Host deployment and an unknown delivery,
+not model success or a proven producer defect. Afterward the updated Host was
+started with the documented 900-second response deadline; Studio reattached,
+and `execution.get` still returns the same indeterminate submission after
+restart. Do not retry it. The replacement Host's Focused behavior requires a
+separate, explicitly authorized real SEND to qualify.
+
 In Studio, open **Providers → selected deployment → Runtime → Check exposed
 model**. The status bar and deployment view must agree on the exact target:
 `Catalog reachable` and `Model exposed` describe only a recent public catalog
@@ -1847,6 +1863,13 @@ tab: the existing result must be observed without another inference. Conversatio
 drafts must survive. After a lost acknowledgement, check the exact submission before
 retrying; retry preserves its identity. A refusal must not display an older answer
 as the new result. Controlled-provider tests do not establish DeepSeek quality.
+Close and reopen the desktop after a completed explanation. Overview retains only
+the Case/Participant-scoped submission reference and generation as a local
+shortcut; it reads the text again through `execution.get` under current authority.
+It must not cache the model answer or send another request. The browser/Host test
+also clears the session envelope before remounting Overview and checks this exact
+re-observation. Clearing local Studio storage may remove the shortcut, while the
+committed Turn remains available in Conversation.
 
 Open **Telemetry** in the rail. Verify Host PID, observed uptime, clients and
 endpoint against Host controls. Case Resources and bound models must distinguish

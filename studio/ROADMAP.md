@@ -108,7 +108,11 @@ Overview is a full-height Product Surface with Situation, Workflow, Sources and
 Recent changes sections. The Case/Participant-local section and in-flight governed
 explanation survive section movement; keyboard/ARIA navigation and real Host
 checkpoint routing are qualified. Narrative generation remains explicit, and the
-populated 4K Case still refuses when mandatory context does not fit. This layout
+completed explanation's exact submission reference survives loss of the window
+session as a Case/Participant-local shortcut. Overview reobserves canonical output
+under current authority without caching model text or redispatching it; local
+shortcut loss does not remove the Conversation Turn. The populated 4K Case still
+refuses when mandatory context does not fit. This layout
 does not promote backend capability maturity.
 Conversation can browse the archived prepared frame by kind/text with exact
 content, provenance and supplied instructions. This is read-only disclosure,
@@ -248,6 +252,15 @@ DeepSeek answer follows from the 32K load.
 A [separate synthetic transport probe](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/synthetic-transport-manifest.json)
 returned HTTP 200 with a 12-token input and 16 output tokens; it proves small
 generation only. The governed infrastructure-Case result remains open.
+One [authorized native Focused SEND](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/focused-native-manifest.json)
+at generation 115 retained a new Turn and exact request (26,746 input tokens,
+83,559 serialized bytes), but its single provider attempt ended
+`delivery_indeterminate` after writing 83,720 bytes. The resident Host at SEND
+time was an obsolete, deleted executable and produced historical Focused intent
+without the current 1,024-token output ceiling. The updated Host now runs with a
+900-second provider response deadline and Studio reattached; the indeterminate
+attempt was observed, never retried. A successful infrastructure answer and
+current-v5 Focused real execution remain unqualified.
 
 ### Case portfolio and machine qualification
 

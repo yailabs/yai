@@ -284,6 +284,20 @@ try {
  await page.locator('.live-rail button[aria-label="Overview"]').click();
  await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
  assert.equal(generationRequests,narrativeBefore+1,'Reopen must only observe');
+ const durablePointer=await page.evaluate(caseRef=>{
+  const key=`yai.studio.narrative.pointer.v1:${caseRef}:participant:operator`;
+  const value=JSON.parse(localStorage.getItem(key));
+  sessionStorage.removeItem(`yai.studio.narrative.v1:${caseRef}:participant:operator`);
+  return value;
+ },caseRef);
+ assert.deepEqual(Object.keys(durablePointer).sort(),['case_ref','expected_generation','participant_ref','submission_ref']);
+ assert.equal(durablePointer.submission_ref,narrativeSend.request.input.submission_ref);
+ const observationsBeforeReopen=exchanges.filter(x=>x.request.operation_ref==='execution.get').length;
+ await page.locator('.live-rail button[aria-label="Memory"]').click();
+ await page.locator('.live-rail button[aria-label="Overview"]').click();
+ await narrative.locator('.narrative-text').getByText('Controlled provider response',{exact:true}).waitFor();
+ assert.ok(exchanges.filter(x=>x.request.operation_ref==='execution.get').length>observationsBeforeReopen,'Session loss must reobserve the canonical result');
+ assert.equal(generationRequests,narrativeBefore+1,'Session loss must not resend the explanation');
  await narrative.getByRole('button',{name:'Check explanation',exact:true}).click();
  assert.equal(generationRequests,narrativeBefore+1);
  await page.locator('.live-rail button[aria-label="Telemetry"]').click();
@@ -301,7 +315,8 @@ try {
  await page.getByRole('tab',{name:'Endpoints',exact:true}).click();
  assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(providerHealth.circuit));
  assert.ok((await page.locator('#telemetry-endpoints').innerText()).includes(String(providerHealth.consecutive_failures)));
- assert.equal(await page.locator('#telemetry-endpoints').getByText(providerHealth.observed_at_unix_ms ? `Observed: ${providerHealth.posture}` : 'Live health unknown',{exact:true}).count(),1);
+ assert.equal(await page.locator('#telemetry-endpoints').getByText(providerHealth.effective_posture ? `YAI posture: ${providerHealth.effective_posture}` : 'YAI posture not projected',{exact:true}).count(),1);
+ assert.ok((await page.locator('#telemetry-endpoints').getByText('Last report',{exact:true}).locator('..').locator('dd').innerText()).startsWith(`${providerHealth.posture} ·`));
  await page.locator('.telemetry-sidebar-link[data-section="clients"]').click();
  assert.equal(await page.getByRole('tab',{name:'Clients',exact:true}).getAttribute('aria-selected'),'true');
  assert.equal(await page.locator('#telemetry-clients').isVisible(),true);
@@ -451,7 +466,10 @@ try {
  const proposalInput={case_ref:caseRef,participant_ref:'participant:operator',candidate_ref:exactCandidateRef,resource_ref:'candidate-workspace',expected_generation:beforeProposalRefusals.case.generation};
  assert.equal((await call('effect.propose',{...proposalInput,expected_generation:0})).result_state,'stale');
  const hiddenProposal=await call('effect.propose',{...proposalInput,participant_ref:'participant:hidden'});assert.notEqual(hiddenProposal.result_state,'success');assert.equal(hiddenProposal.data,undefined);
- assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),beforeProposalRefusals,'Rejected proposals must not record an Operation');
+ const afterProposalRefusals=await accepted('case.summary',{case_ref:caseRef});
+ assert.equal(afterProposalRefusals.case.generation,beforeProposalRefusals.case.generation,'Rejected proposals must not advance the Case');
+ assert.deepEqual(afterProposalRefusals.memory.timeline,beforeProposalRefusals.memory.timeline,'Rejected proposals must not record an Operation');
+ assert.deepEqual(afterProposalRefusals.conversation.turns,beforeProposalRefusals.conversation.turns,'Rejected proposals must not add a Turn');
  await openCandidate(candidateAction);await candidateAction.getByRole('button',{name:'Prepare Resource action…',exact:true}).click();form=page.getByRole('dialog',{name:'Prepare Resource action',exact:true});
  dropAcknowledgement='effect.propose';await form.getByRole('button',{name:'Record proposal',exact:true}).click();await form.getByText('Confirmation was lost',{exact:true}).waitFor();
  const firstProposal=exchanges.findLast(x=>x.request.operation_ref==='effect.propose');assert.equal(firstProposal.result.data.posture,'recorded');
@@ -474,7 +492,12 @@ try {
  await form.getByRole('button',{name:'Close and inspect state'}).click();await candidateAction.getByRole('button',{name:'Refresh observation',exact:true}).click();await candidateAction.getByText('applied',{exact:true}).waitFor();
  const afterEffect=await accepted('case.summary',{case_ref:caseRef});const providerAfterEffect=generationRequests;
  assert.deepEqual(await accepted('effect.submit',submittedEffect.request.input),submittedEffect.result.data);
- assert.equal((await stat(path.join(effectRoot,'allowed/explicit.txt'))).ino,inode);assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),afterEffect);assert.equal(generationRequests,providerAfterEffect);
+ assert.equal((await stat(path.join(effectRoot,'allowed/explicit.txt'))).ino,inode);
+ const afterEffectRetry=await accepted('case.summary',{case_ref:caseRef});
+ assert.equal(afterEffectRetry.case.generation,afterEffect.case.generation);
+ assert.deepEqual(afterEffectRetry.memory.timeline,afterEffect.memory.timeline);
+ assert.deepEqual(afterEffectRetry.conversation.turns,afterEffect.conversation.turns);
+ assert.equal(generationRequests,providerAfterEffect);
  effectChild=spawn('/usr/bin/sleep',['600'],{stdio:'ignore'});await new Promise((resolve,reject)=>{effectChild.once('spawn',resolve);effectChild.once('error',reject);});
  await accepted('resource.attach_process',{case_ref:caseRef,attachment_ref:'candidate-process',pid:effectChild.pid,policy_owner_participant_ref:'participant:operator',actions:['suspend'],review_requirement:'automatic'});
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
@@ -549,7 +572,10 @@ try {
  const composeRetry=await accepted('cognitive.compose',composed.request.input);
  assert.equal(composeRetry.created,false);assert.equal(composeRetry.execution.request_ref,composed.result.data.execution.request_ref);
  assert.equal(generationRequests,beforeComposeDispatch+1);
- assert.deepEqual(await accepted('case.summary',{case_ref:caseRef}),afterCompose,'Exact retry preserves canonical history');
+ const afterComposeRetry=await accepted('case.summary',{case_ref:caseRef});
+ assert.equal(afterComposeRetry.case.generation,afterCompose.case.generation,'Exact retry preserves Case generation');
+ assert.deepEqual(afterComposeRetry.memory.timeline,afterCompose.memory.timeline,'Exact retry preserves canonical history');
+ assert.deepEqual(afterComposeRetry.conversation.turns,afterCompose.conversation.turns,'Exact retry preserves committed Turns');
  await page.screenshot({path:`${evidence}/retained-message-composed.png`});
  // Output is an authorized retained read, not another generation request.
  const beforeOutput=generationRequests;
