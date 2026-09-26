@@ -1465,9 +1465,23 @@ The existing Application capability entries remain exact: this is another author
 consumer of Conversation/execution operations, not a new semantic capability.
 
 
-Providers/YVEX product workspace uses a compact selectable deployment inventory
-and local Runtime/Evidence/Platform navigation rather than the document-page
-composition. Runtime presents the owner-evaluated health posture separately from
+Providers uses a compact selectable deployment inventory and local
+Runtime/Evidence/Platform navigation rather than the document-page composition.
+YVEX is a separate first-party Product Surface with Overview, Models, Machines,
+Lifecycle, Connection and Observability sections. Models lists exact identities
+from dated YAI-authorized provider catalog observations; it is not YVEX's
+complete source/package registry. Machines consumes YAI's Tenant machine asset
+list/get/register/revoke operations through the resident Host. The exact
+independently approved Ed25519 pin is durable Tenant governance; registration
+does not scan the LAN, authenticate a live remote connection, or control YVEX.
+Providers and YVEX suppress the redundant secondary sidebar while their
+in-surface navigation is active; Case perspectives keep their explorer.
+Connection reuses the same provider owner and governance actions as Providers.
+Lifecycle displays the published source-to-session stages with their actual
+unconsumed management boundary; it does not offer fake pull/compile/load actions.
+Observability separates YAI's dated provider checks from native logs and
+residency, which are not yet available through a qualified Application contract.
+Runtime presents the owner-evaluated health posture separately from
 the historical report, with their times, circuit and failure class. Evidence
 scopes the existing governance actions to the selected
 immutable target. Inspector owns exact technical metadata. Both inventory and

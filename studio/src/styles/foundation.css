@@ -983,3 +983,41 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .compute-case-content > section { flex:1; min-width:0; min-height:0; overflow:auto; padding:16px 18px; }
 .compute-case-content > [hidden] { display:none; }
 .compute-case-content > section > .compute-section:first-child { border-top:0; margin-top:0; padding-top:0; }
+
+/* YVEX is a platform workspace; compatibility is one section of its lifecycle. */
+.yvex-workspace { height:100%; min-height:0; display:flex; flex-direction:column; background:var(--yai-canvas); }
+.yvex-header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 24px 16px; border-bottom:1px solid var(--yai-divider); }
+.yvex-header h1 { display:flex; align-items:center; gap:9px; margin:3px 0 5px; font-size:23px; font-weight:650; }
+.yvex-header p, .yvex-section-heading p, .yvex-overview-heading p { margin:0; color:var(--yai-text-secondary); font-size:12px; line-height:1.5; }
+.yvex-header-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.yvex-eyebrow { color:var(--yai-text-muted); font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; }
+.yvex-sections { display:flex; gap:22px; overflow-x:auto; flex:none; padding:0 24px; border-bottom:1px solid var(--yai-divider); scrollbar-width:thin; }
+.yvex-sections button { flex:none; border:0; border-bottom:2px solid transparent; background:none; padding:11px 0 10px; color:var(--yai-text-secondary); font-size:12px; cursor:pointer; }
+.yvex-sections button[aria-current=page] { color:var(--yai-text); border-color:var(--yai-focus); }
+.yvex-sections button:focus-visible, .yvex-model-table button:focus-visible, .yvex-machine-list button:focus-visible { outline:2px solid var(--yai-focus); outline-offset:-2px; }
+.yvex-body { flex:1; min-height:0; overflow:auto; padding:24px; }.yvex-body-connection { padding:0; overflow:hidden; }
+.yvex-connection { height:100%; min-height:0; }.yvex-connection .provider-workspace-toolbar { display:none; }
+.yvex-overview-heading, .yvex-section-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+.yvex-overview-heading h2 { margin:4px 0 5px; font-size:21px; font-weight:620; }.yvex-section-heading h2 { margin:0 0 5px; font-size:19px; }
+.yvex-section-heading > div:last-child { display:flex; gap:8px; }
+.yvex-readout { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0 0 26px; border-block:1px solid var(--yai-divider); }
+.yvex-readout > div { min-width:0; display:grid; align-content:start; gap:7px; padding:15px 18px 15px 0; border-right:1px solid var(--yai-divider); }
+.yvex-readout > div + div { padding-left:18px; }.yvex-readout > div:last-child { border-right:0; }
+.yvex-readout span, .yvex-readout small { color:var(--yai-text-muted); font-size:10px; line-height:1.45; }.yvex-readout strong { color:var(--yai-text); font-size:15px; font-weight:600; overflow-wrap:anywhere; }
+.yvex-path h3 { margin:0 0 11px; font-size:13px; font-weight:600; }.yvex-path ol { list-style:none; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); margin:0; padding:0; border:1px solid var(--yai-divider); border-radius:7px; overflow:hidden; }
+.yvex-path li { display:grid; align-content:start; justify-items:start; gap:8px; min-height:108px; padding:14px; border-right:1px solid var(--yai-divider); }.yvex-path li:last-child { border-right:0; }
+.yvex-path li strong { font-size:12px; }.yvex-path li span { color:var(--yai-text-secondary); font-size:11px; line-height:1.4; }
+.yvex-path p, .yvex-clarification, .yvex-machine-detail p { color:var(--yai-text-muted); font-size:11px; line-height:1.55; }.yvex-next { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+.yvex-model-table, .yvex-contract-table { border-top:1px solid var(--yai-divider); }
+.yvex-model-table > div, .yvex-model-table > button, .yvex-contract-table > div { display:grid; grid-template-columns:minmax(240px,2fr) minmax(110px,1fr) minmax(100px,1fr) minmax(80px,.7fr); gap:14px; align-items:center; width:100%; padding:12px 10px; border:0; border-bottom:1px solid var(--yai-divider); text-align:left; background:transparent; color:var(--yai-text-secondary); font-size:11px; }
+.yvex-model-table > button { cursor:pointer; }.yvex-model-table > button:hover, .yvex-model-table > button[aria-current=true] { background:var(--yai-panel); }
+.yvex-model-table-head { color:var(--yai-text-muted) !important; font-size:10px !important; font-weight:600; }.yvex-model-table strong, .yvex-model-table small { display:block; overflow-wrap:anywhere; }.yvex-model-table strong { color:var(--yai-text); font-size:12px; }.yvex-model-table small { margin-top:4px; color:var(--yai-text-muted); }
+.yvex-contract-table > div { grid-template-columns:minmax(120px,.7fr) minmax(180px,1.5fr) minmax(190px,1.4fr); }.yvex-contract-table > div:first-child { color:var(--yai-text-muted); }.yvex-contract-table > div:not(:first-child) > span:first-child { color:var(--yai-text); font-weight:600; }
+.yvex-machine-layout { display:grid; grid-template-columns:minmax(190px,310px) minmax(0,1fr); border:1px solid var(--yai-divider); border-radius:7px; overflow:hidden; }.yvex-machine-list { border-right:1px solid var(--yai-divider); background:var(--yai-panel); }
+.yvex-machine-list button { display:flex; justify-content:space-between; gap:10px; align-items:start; width:100%; padding:13px; border:0; border-bottom:1px solid var(--yai-divider); text-align:left; background:none; color:var(--yai-text); cursor:pointer; }.yvex-machine-list button[aria-current=true] { background:var(--yai-inset); box-shadow:inset 2px 0 0 var(--yai-focus); }
+.yvex-machine-list strong, .yvex-machine-list small { display:block; overflow-wrap:anywhere; }.yvex-machine-list small { margin-top:4px; color:var(--yai-text-muted); font-size:10px; }
+.yvex-machine-detail { min-width:0; padding:18px 22px; }.yvex-machine-detail header { display:flex; justify-content:space-between; gap:14px; align-items:start; }.yvex-machine-detail h3 { margin:4px 0 0; font-size:19px; }.yvex-machine-detail header small { color:var(--yai-text-muted); font-size:10px; }
+.yvex-machine-detail dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 20px; margin:18px 0; }.yvex-machine-detail dt { color:var(--yai-text-muted); font-size:10px; }.yvex-machine-detail dd { margin:4px 0 0; overflow-wrap:anywhere; font-size:12px; }.yvex-machine-detail details { margin-top:18px; font-size:11px; }.yvex-machine-detail details dl { display:block; }.yvex-machine-detail details dl > div { padding:8px 0; border-bottom:1px solid var(--yai-divider); }
+.yvex-inline-alert { padding:10px 12px; border:1px solid var(--yai-divider); border-radius:6px; color:var(--yai-warning); font-size:12px; }
+@media(max-width:1200px) { .yvex-header { padding:14px; }.yvex-sections { padding:0 14px; gap:16px; }.yvex-body { padding:14px; }.yvex-body-connection { padding:0; }.yvex-readout { grid-template-columns:repeat(2,minmax(0,1fr)); }.yvex-readout > div:nth-child(2) { border-right:0; }.yvex-readout > div:nth-child(3) { padding-left:0; }.yvex-path ol { grid-template-columns:repeat(3,minmax(0,1fr)); }.yvex-path li:nth-child(3) { border-right:0; }.yvex-machine-layout { grid-template-columns:220px minmax(0,1fr); }.yvex-model-table > div, .yvex-model-table > button { grid-template-columns:minmax(130px,2fr) minmax(85px,1fr); }.yvex-model-table > div > :nth-child(n+3), .yvex-model-table > button > :nth-child(n+3) { display:none; } }
+@media(max-width:760px) { .yvex-readout { grid-template-columns:1fr; }.yvex-readout > div { padding-left:0 !important; border-right:0; border-bottom:1px solid var(--yai-divider); }.yvex-path ol { grid-template-columns:1fr; }.yvex-path li { min-height:0; border-right:0; border-bottom:1px solid var(--yai-divider); }.yvex-model-table > div, .yvex-model-table > button { grid-template-columns:minmax(130px,2fr) minmax(85px,1fr); }.yvex-model-table > div > :nth-child(n+3), .yvex-model-table > button > :nth-child(n+3) { display:none; }.yvex-machine-layout { display:block; }.yvex-machine-list { border-right:0; border-bottom:1px solid var(--yai-divider); } }

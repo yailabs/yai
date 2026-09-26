@@ -396,17 +396,57 @@ try {
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  }
  await page.locator('.live-rail').getByRole('button',{name:'YVEX',exact:true}).click();
- await page.getByRole('heading',{name:'No deployment connected',exact:true}).waitFor();
- assert.equal(await page.locator('.compute-target').count(),0,'Generic target is not claimed as YVEX-compatible');
+ await page.getByRole('navigation',{name:'YVEX workspace sections'}).waitFor();
+ assert.equal(await page.locator('.live-sidebar').isVisible(),false,'Platform navigation does not duplicate its in-surface sections');
+ await page.setViewportSize({width:1440,height:900});
+ await page.getByRole('heading',{name:'No compatible deployment',exact:true}).waitFor();
+ assert.equal(await page.locator('.yvex-model-table').count(),0,'Generic target is not claimed as YVEX-compatible');
+ for(const [width,height] of [[1440,900],[1280,800],[1000,650]]) {
+   await page.setViewportSize({width,height});
+   await page.mouse.move(width-40,height-40);
+   await page.screenshot({path:`${evidence}/yvex-overview-empty-${width}x${height}.png`});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ }
+ await page.setViewportSize({width:1440,height:900});
+ await page.getByRole('navigation',{name:'YVEX workspace sections'}).getByRole('button',{name:'Machines'}).click();
+ await page.locator('.yvex-machines').getByText('No registered machines',{exact:true}).waitFor();
+ const invalidMachine=await call('machine.register',{tenant_id:'tenant:studio-ui',address:'qualified.example',port:22,management_user:'yvex',host_public_key:'not-a-key',approval_ref:'qualification:invalid'});
+ assert.equal(invalidMachine.result_state,'error');
+ assert.equal(invalidMachine.error?.code,'machine_host_key_algorithm_invalid');
+ assert.deepEqual(await accepted('machine.list',{tenant_id:'tenant:studio-ui'}),[],'Invalid host key cannot create a pin');
+ const beforeMachineGeneration=(await accepted('case.summary',{case_ref:caseRef})).case.generation;
+ await page.getByRole('button',{name:'Register machine'}).click();
+ let machineForm=page.getByRole('dialog',{name:'Register machine identity'});
+ await machineForm.getByLabel('Machine address').fill('qualified.example');
+ await machineForm.getByLabel('Management user').fill('yvex');
+ await machineForm.getByLabel('Verified OpenSSH Ed25519 host public key').fill('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ0zGAI5z9NlKS5al2atSGTQS7HfiuVQoQGaGe4HWlp4');
+ await machineForm.getByLabel('Independent approval reference').fill('qualification:controlled-key');
+ await machineForm.getByRole('button',{name:'Register identity'}).click();await machineForm.waitFor({state:'hidden'});
+ const machine=(await accepted('machine.list',{tenant_id:'tenant:studio-ui'}))[0];
+ assert.equal(machine.registration.address,'qualified.example');
+ assert.equal(machine.registration.management_user,'yvex');
+ await page.getByRole('heading',{name:'qualified.example'}).waitFor();
+ await page.getByRole('button',{name:'Revoke pin'}).click();
+ machineForm=page.getByRole('dialog',{name:'Revoke machine identity'});
+ await machineForm.getByLabel('Reason').fill('qualification complete');
+ await machineForm.getByRole('button',{name:'Revoke pin'}).click();await machineForm.waitFor({state:'hidden'});
+ assert.equal((await accepted('machine.get',{tenant_id:'tenant:studio-ui',asset_id:machine.registration.asset_id})).revocation.reason,'qualification complete');
+ await page.locator('.yvex-machine-detail').getByText('Revoked',{exact:true}).waitFor();
+ await page.screenshot({path:`${evidence}/yvex-machines-1440x900.png`});
+ assert.equal((await accepted('case.summary',{case_ref:caseRef})).case.generation,beforeMachineGeneration,'Tenant machine mutations do not change Case continuity');
+ await page.getByRole('navigation',{name:'YVEX workspace sections'}).getByRole('button',{name:'Models'}).click();
  const yvexTarget=await accepted('provider.register',{tenant_id:'tenant:studio-ui',provider_key:'controlled-yvex',
    adapter:'open_ai_compatible',endpoint,model_id:'controlled-yvex-model',credential_ref:'none',locality:'loopback',extension_adapter_id:'yvex.http.v1'});
  catalogModels=[{id:'controlled-yvex-model',yvex_profile:'yvex.openai.compat.v3',engine_generation:2,
    runtime_binding_identity:'binding:controlled',runtime_model_identity:'runtime:controlled',capacity_plan_identity:'capacity:controlled',
    yvex_capacity:{schema:'yvex.execution.capacity.v1',input_accounting:'exact_tokenizer_including_template_and_tools',
      resource_reservation:false,http_body_bytes:1048576,runtime_input_tokens:32768,runtime_sequence_tokens:32768}}];
- await page.getByRole('button',{name:'Refresh inventory',exact:true}).click();
- await page.getByRole('heading',{name:'controlled-yvex',exact:true}).waitFor();
+ await page.locator('.yvex-header').getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.locator('.yvex-model-table').getByText('controlled-yvex',{exact:true}).waitFor();
+ await page.screenshot({path:`${evidence}/yvex-models-1440x900.png`});
  await page.getByRole('button',{name:'Check exposed model',exact:true}).click();
+ await page.getByRole('navigation',{name:'YVEX workspace sections'}).getByRole('button',{name:'Connection'}).click();
+ await page.getByRole('heading',{name:'controlled-yvex',exact:true}).waitFor();
  await page.locator('.deployment-capacity').getByText('32,768').first().waitFor();
  const capacityRead=exchanges.findLast(x=>x.request.operation_ref==='provider.models' && x.request.input.target_ref===yvexTarget.target_id);
  assert.equal(capacityRead.result.data.capacity.input_capacity_tokens,32768);
@@ -425,6 +465,7 @@ try {
  catalogModels[0].yvex_capacity.input_accounting='exact_tokenizer_including_template_and_tools';
  await page.locator('.live-rail').getByRole('button',{name:'Compute',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.compute-target').length===1);
+ assert.equal(await page.locator('.live-sidebar').isVisible(),true,'Case navigation returns for Case surfaces');
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.view.customizeRail'));
  const railDialog=page.getByRole('dialog',{name:'Customize Activity Rail'});
  await railDialog.getByRole('button',{name:'Unpin Qualification Tool A',exact:true}).click();
@@ -443,6 +484,6 @@ try {
  assert.deepEqual(await page.locator('.live-rail > button[data-rail-section="pinned"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label'))),['Qualification Tool A','Qualification Tool B']);
  await page.keyboard.press('Escape');await railDialog.waitFor({state:'hidden'});
  assert.equal(cli('case','verify',caseRef).status,'ok');assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Catalog expiry removes current provider state without dispatch or Case mutation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','YVEX exact public capacity is visible; malformed contract clears stale capacity','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
+ console.log(JSON.stringify({result:'PASS',case_ref:caseRef,target:target.target_id,generation:bound.case.generation,proof:['Synthetic text, JSON/tool roundtrip and embeddings through typed Host; no Case mutation or automatic trust','Lost acknowledgement and target/Surface changes retain exact run; CLI retry performs no HTTP','Storage refusal prevents dispatch; wrong response-model identity visibly fails','Retained history recovers missing local receipts without HTTP or replacement submission','Shared provider footer observation, exact target isolation and invalidation','Catalog expiry removes current provider state without dispatch or Case mutation','Rail pin/unpin/reorder persists locally, protects core and restores defaults','Tenant Providers discovers unbound targets without expanding Case binding','YVEX excludes targets without the compatibility extension','Tenant machine pin and revocation via typed Studio/Host preserve Case generation','YVEX exact public capacity is visible; malformed contract clears stale capacity','Product Surface and four-size Providers matrix','UI register exact target','Unknown exact target bind refused','Real controlled HTTP evidence imported through typed Application','Explicit trust then binding','Denied trust visibly reported; Tenant trust mutation does not invent a Case Transition','4 viewport matrix','CLI replay']}));
 
 }finally{await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));await browser?.close();await new Promise(resolve=>provider?.close(resolve)??resolve());try{if(telemetry)cli('host','stop');}finally{await rm(home,{recursive:true,force:true});}}

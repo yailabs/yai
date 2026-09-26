@@ -3,6 +3,7 @@ import type { DecisionHistoryInput, DecisionInspectInput, DecisionCorpus, Decisi
 import type { ProviderModelsInput, ProviderModels } from "./compute";
 import type { SemanticEvidence, CognitiveBinding, SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput, ConversationSubmission } from "./conversation";
+import type { MachineAssetView, MachineRegisterInput, MachineRevokeInput } from "./machines";
 import type { InspectedConversationExecution } from "./executionContext";
 import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput, CognitivePlan } from "./cognitive";
 import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, EffectProposal, ExecutionGetInput, ExecutionListInput, ExecutionList, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
@@ -194,6 +195,10 @@ export class LiveClient {
   attestProvider(input: SuitabilityInput) { return this.call<SemanticEvidence>("provider.suitability.record", input); }
   bindCognition(input: CognitiveBindingInput) { return this.call<CognitiveBinding>("cognitive.binding.set", input); }
   providerInventory(tenant_id: string) { return this.call<{ tenant_ref: string; targets: LiveWorkspace["compute"]["targets"]; total_visible_targets: number; omitted: number; case_usage: string }>("provider.inventory", { tenant_id }); }
+  listMachines(tenant_id: string) { return this.call<MachineAssetView[]>("machine.list", { tenant_id }); }
+  getMachine(tenant_id: string, asset_id: string) { return this.call<MachineAssetView>("machine.get", { tenant_id, asset_id }); }
+  registerMachine(input: MachineRegisterInput) { return this.call<MachineAssetView>("machine.register", input); }
+  revokeMachine(input: MachineRevokeInput) { return this.call<MachineAssetView>("machine.revoke", input); }
   discoverProviderModels(input: ProviderModelsInput) { return this.call<ProviderModels>("provider.models", input); }
   registerProvider(input: ProviderRegistration) { return this.call<ProviderTarget>("provider.register", input); }
   probeProvider(input: ProviderProbeInput) { return this.call<ProviderProbeExecution>("provider.probe", input); }

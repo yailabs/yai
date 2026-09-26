@@ -3,6 +3,7 @@ import type { DecisionHistoryInput, DecisionInspectInput } from "./work";
 import { providerCatalogKey, readProviderCatalogCapacity, type ProviderCatalogObservation, type ProviderModelsInput } from "./compute";
 import type { SuitabilityInput, CognitiveBindingInput } from "./compute";
 import type { ConversationSendInput } from "./conversation";
+import type { MachineRegisterInput, MachineRevokeInput } from "./machines";
 import type { CognitiveComposeInput, CognitivePrepareInput, CognitiveRealizeInput } from "./cognitive";
 import type { EffectProposeInput, EffectSubmitInput, EffectReconcileInput, ExecutionGetInput, ExecutionListInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput, CaseResumeInput } from "./execution";
 import type { KnowledgeRequest } from "./knowledge";
@@ -152,6 +153,10 @@ export class ApplicationAccess implements Disposable {
   attestProvider(input: SuitabilityInput) { return this.invoke("provider.suitability.record", () => this.client.attestProvider(input)); }
   bindCognition(input: CognitiveBindingInput) { return this.invoke("cognitive.binding.set", () => this.client.bindCognition(input)); }
   providerInventory(tenant: string) { return this.invoke("provider.inventory", () => this.client.providerInventory(tenant)); }
+  listMachines(tenant: string) { return this.invoke("machine.list", () => this.client.listMachines(tenant)); }
+  getMachine(tenant: string, asset: string) { return this.invoke("machine.get", () => this.client.getMachine(tenant, asset)); }
+  registerMachine(input: MachineRegisterInput) { return this.invoke("machine.register", () => this.client.registerMachine(input)); }
+  revokeMachine(input: MachineRevokeInput) { return this.invoke("machine.revoke", () => this.client.revokeMachine(input)); }
   async discoverProviderModels(input: ProviderModelsInput) {
     const invoke = () => this.invoke("provider.models", () => this.client.discoverProviderModels(input));
     if (!("target_ref" in input)) return invoke();

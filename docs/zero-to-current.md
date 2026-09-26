@@ -2236,21 +2236,33 @@ does not copy a binary that becomes stale after rebuilding. Explicit environment
 overrides remain supported. Standalone packaging/signing remains unqualified.
 
 
-Providers and YVEX now open a full-height deployment workspace: select a target
-in the compact inventory, then use **Runtime**, **Evidence**, or **Platform**.
+Providers opens a full-height deployment workspace: select a target in the
+compact inventory, then use **Runtime**, **Evidence**, or **Platform**. YVEX opens
+its own Product Surface with **Overview**, **Models**, **Machines**, **Lifecycle**,
+**Connection** and **Observability**. Its serving Models table comes from exact,
+dated provider catalog responses. Machines lists, registers, inspects and revokes
+independently approved Tenant SSH host-key pins through YAI's typed Host actions;
+these are not connection, engine or memory observations. Lifecycle shows the
+actual native contract boundary instead of offering controls that cannot work.
+The redundant secondary sidebar is hidden on Providers/YVEX; it returns on
+Case perspectives. The Activity Rail remains available throughout.
 Runtime distinguishes recorded health, observation time, circuit and failure
 class from actual live connectivity. Evidence owns qualification and governance
 for the selected target; exact identifiers and adapter details remain in Inspector.
 Inventory and provider Inspector reread authorized facts every ten seconds while
 visible, without probing or redispatching inference. Refresh does not make an old
-observation current. Native server logs, registered-machine identity and model
-residency remain explicitly unavailable through the current Application boundary.
+observation current. Native server logs and model residency remain explicitly
+unavailable through the current Application boundary.
 
 Operator check: open Providers, select a deployment, inspect its failure/time,
-switch to Evidence, and compare Inspector. Open YVEX to see only compatible
-deployments. Resize to 1000×650: inventory, section navigation and scrolling stay
-inside the Work Surface. `tests/studio/compute-actions.mjs` retains the real-Host
-controlled-provider interaction and four-viewport regression. This is local
+switch to Evidence, and compare Inspector. Open YVEX to compare serving catalog,
+Tenant machine pins, current Case route and native-management gaps. In a disposable
+test profile, register an independently verified key and revoke it; confirm the
+Case generation does not change. Do not register an unverified production host
+key as a shortcut. Resize to 1000×650: inventory, section navigation and scrolling
+stay inside the Work Surface. `tests/studio/compute-actions.mjs` retains real-Host
+register/read/revoke and invalid-key rejection, controlled-provider interaction and
+four-viewport regression. This is local
 product evidence, not external YVEX or human acceptance.
 
 
@@ -2258,9 +2270,9 @@ YVEX platform expansion is now selected beyond the compatibility deployment page
 The planned operating path is catalog/acquisition → preparation/artifacts → exact
 runtime → supported generation, with transversal observability. These are future
 Studio interactions until their typed management boundaries and tests exist.
-The current UI still exposes only Runtime/Evidence/Platform deployment observations
-and governed provider actions. Do not interpret the expanded roadmap as new
-working pull, compiler, load/unload, device or server-log controls.
+The current UI exposes the distinct YVEX workspace and Tenant machine pins,
+but no working pull, compiler, load/unload, device telemetry or server-log
+controls. Do not interpret the expanded navigation as native runtime management.
 Acceptance of each future slice must cover the exact target machine, identity,
 progress/failure, authority and retained outcome, with CLI/Studio equivalence and
 Case continuity. Producer protocol/ABI availability alone is not acceptance.

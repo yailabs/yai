@@ -73,9 +73,9 @@ function Conversation({ workspace, platform, actions }: AuxiliaryViewProps) {
   // successful catalog read cannot repair missing qualification or an open circuit.
   const routeWarning = assignment && assignedTarget && candidateRefs.length === 1 && (
     !targetPosture?.qualification?.capabilities.some(item => item.capability === "chattext")
-      ? "YAI's current qualification does not establish text conversation for this target. A SEND could commit a Turn without invoking the model."
+      ? "The model's small text-interface check is missing or failed. Sending now could record your message without a model answer. Open provider checks."
       : targetPosture.health?.circuit === "open"
-        ? "YAI's provider circuit is open after failed requests. A SEND could commit a Turn without invoking the model."
+        ? "YAI paused this model after repeated failures. Sending now could record your message without a model answer. Open provider checks."
         : undefined);
   const modelContextAdmitted = workspace.overview.participants.find(item => item.id === participant && item.is_current)?.model_context_admitted;
   const canSend = supported && Boolean(assignment && candidateTargets.length) && !routeWarning && workspace.case.case_status === "open" && modelContextAdmitted === true;

@@ -46,7 +46,9 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   useEffect(() => { panelTabs.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [panel]);
   const [leftOpen, setLeftOpen] = useState(true); const [rightOpen, setRightOpen] = useState(true); const [bottomOpen, setBottomOpen] = useState(true);
   const [surfaceFocused, setSurfaceFocused] = useState(false);
-  const sidebarVisible = leftOpen && !surfaceFocused;
+  // Providers and YVEX already own in-surface navigation. Their rail entries
+  // do not need a second copy of the same Tenant/Case links beside the work area.
+  const sidebarVisible = leftOpen && !surfaceFocused && activeContainer !== "Providers" && activeContainer !== "YVEX";
   const auxiliaryVisible = rightOpen && !surfaceFocused;
   const panelVisible = bottomOpen && !surfaceFocused;
   const toggleRegion = useCallback((region: "sidebar" | "auxiliary" | "panel") => {

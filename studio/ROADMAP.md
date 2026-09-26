@@ -14,7 +14,7 @@ Counts below are inventory, never a percentage of product completion.
 | ⚪ LATER | Explicit horizon, not current implementation. |
 
 <!-- maturity-counts:start -->
-Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **17** · 🔴 OPEN **8** · ⚪ LATER **3** · **50 properties**.
+Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **18** · 🔴 OPEN **7** · ⚪ LATER **3** · **50 properties**.
 Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 <!-- maturity-counts:end -->
 
@@ -247,6 +247,16 @@ The registry now has 172 entries,
 158 non-removed, including the remote bootstrap additions; this is inventory,
 not a UI-completion measure.
 
+YAI `180f6e4` publishes `machine.asset_registry` with typed
+`machine.list/get/register/revoke` and sibling CLI actions. Studio now consumes
+all four in YVEX → Machines, with exact Tenant identity, invalid-key rejection,
+revocation and no Case mutation qualified through the real Host in an isolated
+profile. A pin is neither LAN discovery nor proof of YVEX reachability.
+The public remote YVEX bootstrap remains read-only and is not yet a YAI
+management transport. The YVEX Product Surface now distinguishes model catalog,
+machine identity, lifecycle, governed connection and observability; native
+acquisition, compilation, loading and server logs are still unavailable there.
+
 YVEX `models2` at `671a5befa0c20f6e07248b0223fad4ec531c15bd`
 adds a restricted remote identity/status bootstrap beyond the earlier producer
 cut below. Its public management contract admits `device.describe` and
@@ -303,6 +313,16 @@ also separates fresh endpoint response, catalog model presence, YAI health and
 unknown engine residency in the deployment workspace and status bar. The
 synthetic qualification view shows elapsed running time and a readable result
 beside each completed check. These observations do not promote real inference.
+At the later Tech Infra state cut 147, a user-initiated `CIAO` reached the exact
+DeepSeek target with 14,285 prepared input tokens and 45,470 serialized bytes,
+inside its observed 32,768-token sequence ceiling. The single provider attempt
+wrote 45,631 bytes and ended HTTP 504 at `response_body` after roughly 626
+seconds; no answer was retained and no retry occurred. The YVEX HTTP model
+catalog and health endpoint still responded afterwards, while the native host
+status/log CLI read closed during frame reception. This is an external producer
+or deployment investigation, not a memory-OOM diagnosis or proof that the
+catalog target can finish a populated Case request. The separately authorized
+next SEND remains unused while this route is unqualified.
 
 ### Case portfolio and machine qualification
 
@@ -389,7 +409,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SP02 | 🟡 PARTIAL | Full-height deployment workspace with Runtime/Evidence/Platform; selected-target Inspector, timed health/failure observations and bounded refresh | Tenant target inventory and exposed model discovery are typed; typed durable synthetic checks and retained history are consumed with lost-ack, missing-local-receipt, exact-retry and wrong-model refusal proof; per-Case usage aggregation remains open | compute-actions.mjs |
 | SP03 | 🟡 PARTIAL | Case Compute sections separate bindings, Conversation assignment and exact execution; local section/plan retention | Compute prepares retained Turn input and explicitly realizes its exact plan; text, lost ACK, stale and hidden refusals qualified. Auxiliary setup, composition and multimedia success remain debt | Explicit Compute posture |
 | SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Public v22 catalog now exposes the exact 32K model through YAI; one populated Case SEND fit but ended delivery-indeterminate after producer loss, with no completed real answer | Controlled provider tests and catalog visibility are not successful external Case inference |
-| SY02 | 🔴 OPEN | Studio consumption of YAI-owned machine registration, LAN discovery, execution-location selection and runtime/model observations | YAI owns typed lifecycle/discovery contracts shared by CLI and Studio; YVEX management requires its qualified public boundary. Concurrent backend work is consumed only after publication; no Studio-private launcher or discovery | Selected Exon → DGX Spark operator requirement; no private producer coupling or fabricated telemetry |
+| SY02 | 🟡 PARTIAL | Tenant machine pin registration, exact read and revocation in YVEX Machines; LAN discovery, execution-location selection and runtime/model observations remain open | YAI 180f6e4 owns typed machine list/get/register/revoke shared by CLI and Studio; YVEX management requires its qualified public boundary. Pinning is not a connectivity probe, launcher or runtime observation | compute-actions.mjs; selected Exon → DGX Spark operator requirement |
 | SY03 | 🔴 OPEN | Models and acquisition: catalog, HF/local pull, exact revision, progress, resume/stop and storage | Offline YVEX owners exist; qualified shared management operations and authored Studio flow remain | Published registry/command contract; no UI qualification yet |
 | SY04 | 🔴 OPEN | Preparation and artifacts: verification, coordinated compilation lanes, representations, profiles, lineage and explicit calibration choices | Preserve YVEX ownership and family-specific admission; offline ABI is not a remote management service | Published compiler/artifact contracts; no UI qualification yet |
 | SY05 | 🔴 OPEN | Runtime operations: exact engines, load/unload, leases, memory and device placement | Producer protocol v22 implements local operations, including load-only text context; qualified consumer/remote boundary remains open | Published local protocol; existing health page is not engine control |
