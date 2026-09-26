@@ -1,4 +1,4 @@
-# ZERO-TO-CURRENT — Golden Case operator acceptance
+# ZERO-TO-CURRENT — Tech Infra operator acceptance
 
 Authority: cumulative human-executable acceptance of the current YAI product.
 This is the single evolving runbook, not a frozen wave transcript. Implementation
@@ -6,10 +6,13 @@ waves must update it when the supported lifecycle changes. Frozen execution
 evidence belongs in the corresponding evidence package.
 
 Preparation status: executable local Product path qualified; real-provider and
-human acceptance remain separate, unclaimed results.
-`HUMAN_GOLDEN_CASE = PENDING_OPERATOR`. Only an operator may report a human
-PASS, with the exact YAI SHA, endpoint and provider-exposed model identity.
-A previous PASS is not silently inherited by a changed product HEAD.
+human acceptance remain separate, unclaimed results. The current persistent
+operator Case is `case:tech-infra-inference-service`, not a Golden Case.
+Historical `golden:*` commands and `HUMAN_GOLDEN_CASE` markers below describe
+older fixtures and lanes, not a second live operator Case. Tech Infra human
+acceptance is **PENDING_OPERATOR**. Only the operator may report a human PASS
+at an exact YAI SHA, endpoint and provider-exposed model identity; no earlier
+fixture or product PASS is inherited by a changed HEAD.
 
 ## Tenant machine identity pin (bounded backend slice)
 
@@ -1887,6 +1890,24 @@ Once the target can complete a small inference, start one new explicit
 **Providers → Evidence → Check this deployment**. A successful text check
 replaces the failed qualification and closes YAI's provider circuit; inspect
 its exact result before attempting a new Case SEND with a new identity.
+
+At YAI `fc518e9`, a later successful small synthetic qualification was already
+present when one new native Studio Focused SEND began from Tech Infra generation
+148. [Its exact bounded observation](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/tech-infra-closure-manifest.json)
+retains the new submission/request identities, a 17,316-token input plus 1,024
+requested output tokens within the public 32K limit, one HTTP request and an
+HTTP 504 at `response_body`. YAI recorded `delivery_indeterminate`, no canonical
+model answer, and no automatic retry. The endpoint subsequently answered its
+health check, which does not establish that populated-Case inference works.
+Do not replay this submission. The YVEX operator subsequently reported that
+prefill advanced but no progress reached the gateway, which timed out after
+approximately 600 seconds; the generic fix was implemented, but the active
+server still used the old executable while its runtime sanitizer ran. This is
+an attributed producer-side report, not an independently verified YAI result.
+Wait for deployment and verification before any new, separately authorized
+Case SEND. No alternate endpoint/model is qualified for this Case. A successful
+real result is still required for live Tech Infra acceptance. The private full
+Case observation is retained locally outside Git.
 
 After updating Studio/YAI binaries, inspect `yai host status --json` or
 **Settings → YAI Host** before a new external model run. On Linux, a Host whose

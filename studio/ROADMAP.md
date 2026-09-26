@@ -313,7 +313,23 @@ also separates fresh endpoint response, catalog model presence, YAI health and
 unknown engine residency in the deployment workspace and status bar. The
 synthetic qualification view shows elapsed running time and a readable result
 beside each completed check. These observations do not promote real inference.
-At the later Tech Infra state cut 147, a user-initiated `CIAO` reached the exact
+
+A later one-shot native Studio Focused SEND at YAI `fc518e9` used a new
+submission identity from Tech Infra generation 148. Its exact preflight
+accounted for 17,316 input tokens and 1,024 requested output tokens within
+the public 32K sequence limit. The [bounded external observation](../labs/external-runtime/runs/20260926-case-bound-deepseek-32k/tech-infra-closure-manifest.json)
+records one provider attempt, 54,340 HTTP request bytes written, then HTTP
+504 at `response_body`; YAI retained `delivery_indeterminate` at generation
+153 and no canonical model result. The exact old attempt was not retried.
+The endpoint's subsequent HTTP 200 health response and a preceding successful
+small synthetic qualification do not close this populated-Case inference gap.
+YAI's black-box evidence alone cannot diagnose the producer/gateway cause.
+The YVEX operator reports that prefill advanced without forwarding progress
+to the gateway, causing an approximately 600-second timeout; a generic fix is
+implemented but was not yet deployed on the active server while runtime
+sanitizer verification continued. No new Case SEND is permitted on that old
+server, and no alternate qualified endpoint/model is available for this Case.
+At the earlier Tech Infra state cut 147, a user-initiated `CIAO` reached the exact
 DeepSeek target with 14,285 prepared input tokens and 45,470 serialized bytes,
 inside its observed 32,768-token sequence ceiling. The single provider attempt
 wrote 45,631 bytes and ended HTTP 504 at `response_body` after roughly 626
@@ -425,7 +441,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SD02 | 🟡 PARTIAL | Linux native window, drag/resize, status bar with expiring exact deployment catalog observations, strict production CSP and versioned source-install launcher | Other desktop platforms and native YVEX residency telemetry require qualified contracts | desktop-csp.mjs; reliability.mjs; compute-actions.mjs |
 | SQ01 | 🟢 ESTABLISHED | Persistent real qualification world, explicit convergent enrichment and two-client Host event resync | Extend by normal product operations; never reset operator Case | operational-live.mjs; operational_world.py |
 | SQ02 | 🟢 ESTABLISHED | Shared geometry/tokens, lazy heavy renderers, four-size visual matrix and per-action regressions | Permanent proportional Product Quality Pass | browser suites and production build |
-| SQ03 | 🟡 PARTIAL | Automated local proof and Golden local | Human Golden and external producer evidence remain independent | HUMAN_GOLDEN_CASE = PENDING_OPERATOR |
+| SQ03 | 🟡 PARTIAL | Automated local proof and historical Golden local fixture | Tech Infra human acceptance and external producer evidence remain independent | Tech Infra human acceptance = PENDING_OPERATOR; no live Golden Case |
 | SQ04 | ⚪ LATER | Remote/mobile, public plugins, Computer Use and shared declarative Case Views | Explicit transport, authority and product programs | No accidental local TCP API |
 
 ## Surface / owner / parity matrix

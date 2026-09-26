@@ -135,7 +135,7 @@ try {
   await page.evaluate(() => window.showRouteCandidates(false));
   const routeComposer=page.getByRole('textbox',{name:'Message to the Case'});
   await routeComposer.fill('Keep this draft local');
-  await page.getByText(/current qualification does not establish text conversation/).last().waitFor();
+  await page.locator('.conversation-route-warning[role="status"]').getByText(/small text-interface check is missing or failed/).waitFor();
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
   await page.evaluate(() => window.showRouteCandidates(true));
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isEnabled(),true,'An excluded preference must not mask a qualified alternative owned by YAI');

@@ -166,12 +166,15 @@ not represented as independently observed repository truth.
 
 ## Manual acceptance
 
-The [ZERO-TO-CURRENT Golden runbook](zero-to-current.md) is the cumulative human
-product procedure. It evolves at current HEAD instead of spawning a separate
-manual for each wave. Its real model is operator-supplied YVEX/DeepSeek, never
-the deterministic model peer used by automation. Only the operator may report
-human acceptance. Local Product automation and structural runbook checks do not
-change `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` into a human PASS.
+The [ZERO-TO-CURRENT Tech Infra runbook](zero-to-current.md) is the cumulative
+human product procedure. It evolves at current HEAD instead of spawning a
+separate manual for each wave. The current live operator Case is Tech Infra;
+historical Golden fixtures remain an independent automated regression lane.
+Its real model is operator-supplied YVEX/DeepSeek, never the deterministic
+model peer used by automation. Only the operator may report human acceptance.
+Local Product automation and structural runbook checks do not turn either a
+historical `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` marker or current Tech Infra
+acceptance into a human PASS.
 
 `make test-golden-local` is a separate explicit cadence: real Product workbench,
 stores, confined filesystem/process, SQLite and HTTP/MCP resource peers with a

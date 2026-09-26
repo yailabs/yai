@@ -626,7 +626,7 @@ try {
  await page.evaluate(()=>window.qualificationPlatform.commands.executeCommand('studio.case.refresh'));
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  await page.getByRole('textbox',{name:'Message to the Case'}).fill('Do not commit an unrouteable Turn');
- await page.getByText(/current qualification does not establish text conversation/).last().waitFor();
+ await page.locator('.conversation-route-warning[role="status"]').getByText(/small text-interface check is missing or failed/).waitFor();
  await page.locator('.model-status').filter({hasText:'Route blocked'}).waitFor();
  assert.equal(await page.locator('.model-status').getAttribute('data-state'),'unavailable');
  const beforeBlockedSend=exchanges.filter(item=>item.request.operation_ref==='conversation.send').length;
@@ -635,7 +635,7 @@ try {
  assert.equal(exchanges.filter(item=>item.request.operation_ref==='conversation.send').length,beforeBlockedSend);
  await page.screenshot({path:`${evidence}/conversation-unqualified-route.png`});
  await page.getByRole('button',{name:'Open provider checks',exact:true}).click();
- await page.locator('.deployment-route-alert').getByText('This deployment cannot carry Case conversation now.',{exact:true}).waitFor();
+ await page.locator('.deployment-route-alert').getByText('Case chat is blocked for this deployment.',{exact:true}).waitFor();
  await page.screenshot({path:`${evidence}/provider-unqualified-route.png`});
 
  const hidden=await call('execution.get',{case_ref:caseRef,participant_ref:'participant:hidden',execution:{domain:'conversation',submission_ref:sent.request.input.submission_ref}});assert.notEqual(hidden.result_state,'success');
