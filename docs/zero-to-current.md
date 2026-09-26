@@ -102,13 +102,23 @@ out after completion; a separate native read on an isolated X display recovered
 the exact check after Host upgrade without redispatch. Case and Conversation were
 unchanged. This is synthetic provider qualification, not proof that the populated
 infrastructure Case fits the 4K context or a human acceptance result.
+The following 4K comparison is historical. New Case-bound model qualification in
+the everyday operator profile uses only `case:tech-infra-inference-service`: inspect
+its existing governed target and preflight, then submit a fresh question only
+with explicit effect authorization. Do not create another persistent Case to
+make a prompt fit, relabel an old result, or retry an indeterminate SEND.
+Synthetic provider/Case regressions use fresh isolated profiles. The five
+non-Tech-Infra Case entries remain in the current catalog until YAI publishes
+safe Case deletion; `case.close` does not remove them.
+
 The separate documentary companion `case:qualification-deepseek-material-4k`
 now retains a [native capacity counterexample](../labs/external-runtime/runs/20260925-documentary-4k-capacity/manifest.json):
 one real 402-byte Cargo manifest produces 19 W entries, including eight atomic
 recalled groups, and a 20,319-token exact request. The 4096-token target refuses
 before inference; zero generation-request bytes were written. This is not a
-successful document-grounded answer. Preserve the Case and inspect its retained
-context from Conversation; do not repeatedly SEND the same question. Bounded
+successful document-grounded answer. Preserve the recorded evidence; while the
+Case still exists, inspect its retained context from Conversation without
+another SEND. Bounded
 fitting of eligible optional evidence to exact public capacity is now qualified
 locally, with mandatory state, atomic groups and explicit omissions protected.
 An operator loading a later 32K engine changes current target capacity, not this
@@ -175,9 +185,12 @@ This lane exercises the bounded resident-Host real-Case Studio vertical. Use a
 dedicated non-Golden YAI home; never reset the operator continuity canary or
 populate Studio through frontend fixtures.
 
-The durable product oracle is `case:studio-live-qualification`. Treat it as
-operator-owned state: inspect and reconcile it, never delete/reseed it as test
-setup. With its existing `YAI_HOME` selected, inspect before advancing:
+The following commands document the historical product oracle
+`case:studio-live-qualification`. Its retained state may be inspected, but new
+qualification in the everyday operator home uses Tech Infra. Do not advance or
+reseed the historical Case as test setup; deletion awaits a qualified YAI
+contract. To reproduce this older acceptance lane, use an isolated profile and
+its own Case. With the historical `YAI_HOME` selected, inspect read-only:
 
 ```sh
 yai case show case:studio-live-qualification --json
@@ -638,8 +651,9 @@ the exact SHA.
 
 ## Studio operational Case acceptance
 
-Use the existing `case:studio-live-qualification` and its existing YAI_HOME.
-Do not reset it, the Golden Case or the continuity canary. The reusable
+This historical lane used `case:studio-live-qualification`. Do not advance it
+in the everyday operator home; use an isolated profile for replay. Do not reset
+the Golden Case or the continuity canary. The reusable
 `tests/qualification/studio-product-vertical/operational_world.py` requires an
 explicit profile/root, inspects before advancing and uses normal CLI operations.
 It retains repository, SQLite and HTTP Sources plus governed filesystem,

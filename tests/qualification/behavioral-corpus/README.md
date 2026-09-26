@@ -6,6 +6,12 @@ requirements. An evaluation without executable steps reports `NOT_RUN`, never
 PASS. Initial runner coverage is deliberately smaller than the program's final
 acceptance coverage.
 
+Real Case-bound model qualification in the everyday operator profile uses only
+`case:tech-infra-inference-service`. The former DeepSeek-specific Cases are
+historical observations, not a pattern for new runs. Synthetic Case/parallel
+topology tests allocate their own disposable profiles; never create a model
+qualification Case in the operator home.
+
 `schema.json` is the versioned JSON Schema for a complete corpus. Overlays merge
 by logical identity before validation/expansion. `enterprise.overlay.json` adds
 an exact documentary Recall assertion; `enterprise.py inspect --profile PATH`

@@ -68,7 +68,10 @@ def main():
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
     if not os.environ.get("YAI_HOME"):
-        parser.error("Select the operator YAI_HOME explicitly; no implicit profile")
+        parser.error("Select YAI_HOME explicitly; no implicit profile")
+    if (args.mode == "advance" and Path(os.environ["YAI_HOME"]).resolve() == (Path.home() / ".yai").resolve()
+            and args.case != "case:tech-infra-inference-service"):
+        parser.error("The everyday operator profile advances only case:tech-infra-inference-service; use an isolated profile for historical qualification Cases")
     run = f"studio-world-{time.time_ns()}"
     order = 0
     args.evidence.parent.mkdir(parents=True, exist_ok=True)

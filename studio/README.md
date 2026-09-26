@@ -108,8 +108,10 @@ observes authorized Case-generation changes and fans out invalidation facts; a
 typed Host heartbeat detects transport loss and event gaps. LiveClient refetches the typed summary and performs a
 full resync on stale generation. Closing Studio does not close or mutate a Case.
 
-The persistent product qualification Case is
+The earlier persistent product qualification Case was
 `case:studio-live-qualification` in its operator-owned non-Golden `YAI_HOME`.
+New Case-bound model qualification uses only `case:tech-infra-inference-service` in
+the operator profile; synthetic regression Cases use fresh isolated profiles.
 Normal UI presents **Studio Live Qualification** while Inspector technical
 detail retains the canonical ref. Bounded reconciliation assets and the
 CLI/application parity assertion live under

@@ -1,7 +1,10 @@
 import base64,hashlib,json,os,socket,subprocess,sys,time,urllib.request
 from pathlib import Path
 root=Path('/home/mothx/computer-science/projects/YAI/yai');sys.path.insert(0,str(root/'tools/validation'));from behavioral_corpus import Host
-home=Path('/home/mothx/.yai');host=Host(home);case='case:qualification-deepseek-native-4k';target='provider-target:965ce8d788b4d6321ed0fea629f99546'
+home_value=os.environ.get('YAI_HOME')
+if not home_value or not Path(home_value).is_absolute() or Path(home_value).resolve()==(Path.home()/'.yai').resolve():
+ raise SystemExit('Historical separate-Case model qualification is disabled in the operator profile; qualify DeepSeek in case:tech-infra-inference-service or use a fresh isolated YAI_HOME')
+home=Path(home_value);host=Host(home);case='case:qualification-deepseek-native-4k';target='provider-target:965ce8d788b4d6321ed0fea629f99546'
 binary=root/'studio/src-tauri/target/release/yai-studio';run='native-provider-probe-'+str(time.time_ns());folder=Path('/home/mothx/.cache/tmp')/run;folder.mkdir();raw=(folder/'observations.jsonl').open('x');order=0
 session=None;driver=None
 with socket.socket() as listener:listener.bind(('127.0.0.1',0));port=listener.getsockname()[1]

@@ -2,7 +2,10 @@ import json,os,sys,time,subprocess
 from pathlib import Path
 sys.path.insert(0,'tools/validation')
 from behavioral_corpus import Host
-root=Path.cwd(); home=Path('/home/mothx/.yai'); h=Host(home)
+home_value=os.environ.get('YAI_HOME')
+if not home_value or not Path(home_value).is_absolute() or Path(home_value).resolve()==(Path.home()/'.yai').resolve():
+ raise SystemExit('Historical separate-Case setup is disabled in the operator profile; qualify DeepSeek in case:tech-infra-inference-service or use a fresh isolated YAI_HOME')
+root=Path.cwd(); home=Path(home_value); h=Host(home)
 case='case:qualification-deepseek-material-4k'; run='documentary-4k-'+str(time.time_ns())
 out=Path('/tmp')/run;out.mkdir(); stream=(out/'setup.jsonl').open('x');order=0
 

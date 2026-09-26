@@ -49,7 +49,7 @@ def main():
     global CASE, MATERIAL
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["inspect", "advance"])
-    parser.add_argument("--scenario", choices=["release", "infrastructure"], default="release")
+    parser.add_argument("--scenario", choices=["release", "infrastructure"], default="infrastructure")
     parser.add_argument("--yai", type=Path, required=True)
     parser.add_argument("--tenant", required=True)
     parser.add_argument("--evidence", type=Path, required=True)
@@ -63,6 +63,9 @@ def main():
                     ("provider-contract", "docs/provider-governance.md", "text/markdown")]
     if not os.environ.get("YAI_HOME"):
         parser.error("Explicit YAI_HOME required")
+    if (args.mode == "advance" and args.scenario == "release"
+            and Path(os.environ["YAI_HOME"]).resolve() == (Path.home() / ".yai").resolve()):
+        parser.error("Retired enterprise Case must not advance in the operator profile; use the infrastructure scenario")
     run = f"{args.scenario}-{time.time_ns()}"
     order = 0
     args.evidence.parent.mkdir(parents=True, exist_ok=True)

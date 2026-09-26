@@ -40,10 +40,13 @@ corpus, exact inspection and structural evaluation; these are not model-quality
 scores. Prior catalog counts below describe earlier reconciliation cuts.
 
 The operating assets have separate responsibilities: `case:tech-infra-inference-service`
-is the operator-selected internal infrastructure service change on Exon/Spark;
-`case:yai-enterprise-launch` was cancelled and closed by operator request, with
-history retained; `case:studio-live-qualification` is the persistent
-technical oracle; deterministic Cases use bounded reconstructible inputs.
+is the **only selected long-lived operator Case** for the infrastructure service
+and all further Case-bound DeepSeek qualification. Provider target qualification
+remains Tenant-level governance; Case suitability, context and SEND stay here.
+Earlier DeepSeek qualification Cases, `case:yai-enterprise-launch` and
+`case:studio-live-qualification` are historical data, not continuing operator
+oracles. Reconstructible synthetic
+Cases belong only in fresh isolated profiles, never the everyday operator home.
 Tech Infra is not disposable test setup. Behavioral evidence separates
 KNOWS, SEES, RECALLS, REMEMBERS, REASONS, CAN_DO, REFUSES, RECOVERS and ISOLATES;
 The reusable retained-action corpus additionally checks exact Resource receipts,
@@ -61,6 +64,12 @@ Case deletion/retention operation can remove them safely from the shared
 canonical store. This is a backend lifecycle gap, not a Studio filtering rule.
 Future qualification Cases must use isolated reconstructible profiles; do not
 create more durable test Cases in the operator's everyday profile.
+Historical DeepSeek setup and native-qualification scripts now refuse the
+operator home by default. Previous 4K results remain retained evidence of
+their original Cases; they cannot be relabeled as Tech Infra results. New live
+model trials use the existing Tech Infra binding and fresh execution identities
+after ordinary preflight and explicit effect authorization. No automatic SEND
+follows from this project-control correction.
 
 The YVEX contract reconciliation at `models2@dabbc09dacf500684b60a3ae8675956a016436b9`
 finds local protocol v22 and HTTP compatibility v3; public `main@3f4a1c1` is older
@@ -280,10 +289,10 @@ selection and evidence, not an alternative capability catalog.
 |---|---|---|
 | `case:tech-infra-inference-service` / single | Persistent internal infrastructure operations; no invented company or production result | Seven acquired Sources, seven Resources (discovery, filesystem, database, HTTP, process and MCP), two policy bindings, seven human checkpoints and 296 Knowledge units observed through Host at state version 85. One bounded process receipt is retained; repeating its request reuses the exact receipt without another effect. Host restart preserves the Case and exact documentary Recall. Controlled HTTP/MCP peers are stopped; retained observations are not service health. Overview renders exact checkpoint prompts and Source links at four viewport sizes. A later native SEND admitted 24,764 input tokens under the 32K target after six optional W omissions, but retained `delivery_indeterminate` when YVEX disappeared during prefill; no answer or automatic retry. Remote management and successful real governed inference remain open. |
 | `case:yai-enterprise-launch` / retired | Operator-requested cancellation and closure; history retained | Closed at state version 57. Earlier release-assessment evidence does not qualify the replacement infrastructure Case. Do not recreate or resume it automatically. |
-| `case:qualification-deepseek-4k` / single | Persistent small external-inference qualification; do not confuse with operational infra evidence | One governed DeepSeek result completed at 2043 input tokens / 4096 sequence capacity. Exact retry preserves state version 12 and one attempt; hidden Participant read refuses. [Raw observation](../labs/external-runtime/runs/20260924-deepseek-4k/manifest.json) retains exact target/context and limits. Initial SEND used a Host qualification client; Studio context inspection passed separately. Human/model-quality and full infra acceptance remain open. |
-| `case:qualification-deepseek-native-4k` / single | Persistent native SEND and restart oracle; separate from the populated infrastructure Case | [Actual desktop SEND](../labs/external-runtime/runs/20260924-deepseek-native-4k/manifest.json) completed with 2039 input tokens / 4096 capacity, one HTTP 200 attempt and exact rendered output. The existing generic YAI response wait was set to 900 seconds; the result arrived about 321 seconds after input observation. Host restart preserved all Case/Conversation facts. Read-only retained-result corpus verifies exact context/result and hidden refusal; language quality remains separately unassessed. |
-| `case:studio-live-qualification` / single | Persistent technical oracle; preserve operator additions | Existing heterogeneous qualification world retained; no cleanup or recreation by portfolio runner. |
-| `case:qualification-deepseek-material-4k` / single | Persistent documentary capacity counterexample; one acquired real Cargo manifest, one Resource and documentary policy | [Native SEND observation](../labs/external-runtime/runs/20260925-documentary-4k-capacity/manifest.json): 402-byte manifest; 19 W entries (11 pinned, 8 reintroduced atomic groups); exact request 20,319 input tokens / 4096 capacity. Refused before inference, zero generation-request bytes written; no automatic retry. This exposes context expansion and missing capacity-aware optional-group fitting, not model competence. Preserve for comparison after the owner-level change. |
+| `case:qualification-deepseek-4k` / historical | Earlier small external-inference qualification; do not recreate in the operator profile | One governed DeepSeek result completed at 2043 input tokens / 4096 sequence capacity. Exact retry preserves state version 12 and one attempt; hidden Participant read refuses. [Raw observation](../labs/external-runtime/runs/20260924-deepseek-4k/manifest.json) retains exact target/context and limits. Initial SEND used a Host qualification client; Studio context inspection passed separately. Human/model-quality and full infra acceptance remain open. |
+| `case:qualification-deepseek-native-4k` / historical | Earlier native SEND and restart qualification; do not recreate in the operator profile | [Actual desktop SEND](../labs/external-runtime/runs/20260924-deepseek-native-4k/manifest.json) completed with 2039 input tokens / 4096 capacity, one HTTP 200 attempt and exact rendered output. The existing generic YAI response wait was set to 900 seconds; the result arrived about 321 seconds after input observation. Host restart preserved all Case/Conversation facts. Read-only retained-result corpus verifies exact context/result and hidden refusal; language quality remains separately unassessed. |
+| `case:studio-live-qualification` / historical | Earlier heterogeneous technical oracle; no future operator-home qualification | Existing observations remain historical evidence until a qualified Case deletion contract can remove it. Future synthetic qualification uses isolated profiles. |
+| `case:qualification-deepseek-material-4k` / historical | Earlier documentary capacity counterexample; do not recreate in the operator profile | [Native SEND observation](../labs/external-runtime/runs/20260925-documentary-4k-capacity/manifest.json): 402-byte manifest; 19 W entries (11 pinned, 8 reintroduced atomic groups); exact request 20,319 input tokens / 4096 capacity. Refused before inference, zero generation-request bytes written; no automatic retry. This exposes context expansion and missing capacity-aware optional-group fitting, not model competence. Retain the recorded evidence for comparison after the owner-level change. |
 | `behavioral-alpha` + `behavioral-beta` / parallel | Fresh isolated profile reconstructed from manifest; remove only after Host stop, or explicitly retain | Concurrent independent clients, role isolation, repeated mutation, stale snapshot refusal and restart equivalence qualified by `make test-behavioral-portfolio`. This is product behavior, not model competence. |
 | Retired enterprise / historical multi-client | Same durable Case, independent views and local drafts | Studio Workflow binding advanced 54 → 55; two Host-backed browser Workbenches received events and refetched, Journal pause/resume preserved its cut. Three existing native clients separately reattached after Host restart. Combined native mutation/restart delivery is separately qualified on disposable portfolio Cases below. |
 | Infrastructure + technical oracle / native multi-client | Two independent native Studios, one Host; unsent drafts local to window and Case | `tests/studio/native-portfolio.py` qualifies exact-ref switching, isolated/restored drafts, unchanged authoritative Case/Conversation and Host survival when one client closes. No model call or canonical mutation is part of this lane. |
@@ -407,7 +416,8 @@ S10–S12 external/Computer/remote-mobile remain separate selections.
 
 ## Persistent qualification world
 
-`case:studio-live-qualification` remains operator-owned. The operational wave
+`case:studio-live-qualification` is historical operator-owned state, no longer
+the selected future qualification Case. The operational wave
 advances generation 64 → 103 through normal CLI product operations, then
 explicit controlled HTTP observations reach 108, 113 and 118. Two independently
 attached LiveClients observe the real resident Host events and resync at

@@ -17,14 +17,16 @@ Public Contract Delta Checks. Only published contracts count as current support;
 running Host versions, local edits and public producer observations are separate
 evidence. Studio product control remains in `studio/ROADMAP.md`.
 
-`case:tech-infra-inference-service` is the operator's persistent internal
-infrastructure-service Case on Exon/Spark, distinct from the technical oracle
-`case:studio-live-qualification`. The operator retired `case:yai-enterprise-launch`;
-its cancelled/closed history remains retained, and it must not be recreated as
-the operational scenario. Reconstructible behavioral Cases supply controlled
-counterexamples without resetting operator Cases. A model's service-readiness
-opinion is candidate evidence, never deployment approval or a substitute for
-validation and human acceptance.
+`case:tech-infra-inference-service` is the operator's only selected persistent
+internal infrastructure-service Case on Exon/Spark. Case-bound model suitability,
+context and inference qualification belong inside this Case; provider target
+qualification remains Tenant-level governance. `case:studio-live-qualification`,
+the three earlier DeepSeek qualification Cases and the retired
+`case:yai-enterprise-launch` remain
+historical until YAI has a qualified deletion contract; none should be recreated
+in the operator home. Reconstructible behavioral Cases use fresh isolated
+profiles. A model's service-readiness opinion is candidate evidence, never
+deployment approval or a substitute for validation and human acceptance.
 
 Providers projects Tenant computational inventory independently of a Case's
 bindings. The Host carries this service; it does not own provider semantics.
@@ -65,12 +67,12 @@ fanout, parallel Case isolation and restart have separate bounded qualification;
 they do not establish remote Host transport or universal mutation-conflict
 handling. ROADMAP and the retained product tests own the exact qualified scope.
 
-The persistent product oracle for this boundary is
+The earlier product oracle for this boundary was
 `case:studio-live-qualification` in an operator-owned non-Golden `YAI_HOME`.
-It is real Case state, not a fixture or disposable test seed. Its bounded
-repository Resource, declared/acquired Sources, source-grounded Knowledge,
-policy binding, Workflow and history are created only through normal YAI
-operations. Cross-surface qualification compares their semantic identities
+It remains historical real Case state, not a fixture or disposable test seed.
+Its bounded repository Resource, declared/acquired Sources, source-grounded
+Knowledge, policy binding, Workflow and history were created through normal
+YAI operations. Earlier cross-surface qualification compared their identities
 across CLI owners, `yai-application` and this Workbench; restarting Studio must
 not alter them.
 
